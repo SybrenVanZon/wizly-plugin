@@ -1,0 +1,109 @@
+{
+  "name": "wizly",
+  "displayName": "Wizly",
+  "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
+  "version": "0.1.0",
+  "publisher": "sybrenvanzon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SybrenVanZon/wizly-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SybrenVanZon/wizly-plugin/issues"
+  },
+  "homepage": "https://github.com/SybrenVanZon/wizly-plugin#readme",
+  "keywords": [
+    "html",
+    "regex",
+    "transform",
+    "formatter",
+    "magic",
+    "xpa",
+    "web-client",
+    "angular",
+    "post-process"
+  ],
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#0F172A",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.103.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "badges": [
+    {
+      "url": "https://img.shields.io/github/actions/workflow/status/SybrenVanZon/wizly-plugin/ci.yml.png?branch=main&label=CI&logo=github",
+      "href": "https://github.com/SybrenVanZon/wizly-plugin/actions",
+      "description": "CI"
+    }
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:.vswizly.js"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "wizly.transformCurrentFile",
+        "title": "Wizly: Transform Current File"
+      },
+      {
+        "command": "wizly.transformUncommittedFiles",
+        "title": "Wizly: Transform All Uncommitted Files"
+      },
+      {
+        "command": "wizly.exportDefaultConfig",
+        "title": "Wizly: Export Default Rules to .vswizly.js"
+      }
+    ],
+    "configuration": {
+      "title": "Wizly",
+      "properties": {
+        "wizly.rules": {
+          "type": "array",
+          "default": [],
+          "description": "Optional inline rules. Prefer a team-shared .vswizly.js at the workspace root.",
+          "items": {
+            "type": "object",
+            "required": ["name", "description", "regex", "active", "replaceAfterBeautify", "filePattern"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "regex": { "type": "string" },
+              "flags": { "type": "string" },
+              "replacement": { "type": "string" },
+              "active": { "type": "boolean", "default": true },
+              "replaceAfterBeautify": { "type": "boolean", "default": true },
+              "filePattern": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "prettier": "^3.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "@types/vscode": "^1.103.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.32.0",
+    "typescript": "^5.9.2"
+  }
+}
