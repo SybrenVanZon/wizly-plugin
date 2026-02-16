@@ -70,16 +70,41 @@
           "description": "Optional inline rules. Prefer a team-shared .vswizly.js at the workspace root.",
           "items": {
             "type": "object",
-            "required": ["name", "description", "regex", "active", "replaceAfterBeautify", "filePattern"],
+            "required": [
+              "name",
+              "description",
+              "regex",
+              "active",
+              "replaceAfterBeautify",
+              "filePattern"
+            ],
             "properties": {
-              "name": { "type": "string" },
-              "description": { "type": "string" },
-              "regex": { "type": "string" },
-              "flags": { "type": "string" },
-              "replacement": { "type": "string" },
-              "active": { "type": "boolean", "default": true },
-              "replaceAfterBeautify": { "type": "boolean", "default": true },
-              "filePattern": { "type": "string" }
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "regex": {
+                "type": "string"
+              },
+              "flags": {
+                "type": "string"
+              },
+              "replacement": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean",
+                "default": true
+              },
+              "replaceAfterBeautify": {
+                "type": "boolean",
+                "default": true
+              },
+              "filePattern": {
+                "type": "string"
+              }
             }
           }
         }
@@ -102,6 +127,7 @@
     "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "typescript": "^5.9.2"
