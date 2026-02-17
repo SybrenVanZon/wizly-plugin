@@ -89,6 +89,15 @@ module.exports = {
 };
 ```
 
+### Prettier Integration
+
+Wizly uses Prettier to format HTML after applying regex rules.
+
+- Bundled Prettier: the extension ships its own Prettier package, so users don’t need to install anything.
+- Prefer workspace Prettier: if your project has `prettier` installed, Wizly will prefer that workspace version.
+- Respect workspace config: Wizly reads your Prettier configuration (`.prettierrc`, `prettier.config.*`, or `package.json` `prettier` field) via `resolveConfig` and applies it. Team settings take precedence over the defaults.
+- VS Code Prettier extension: the separate “Prettier” editor extension is not required for Wizly. Wizly uses its own Prettier module, but still follows your project configuration.
+
 ## Known Limitations
 
 - Regex is not well‑suited for deeply nested or recursive HTML structures. Prefer narrow, targeted patterns and consider splitting complex transforms into multiple rules.

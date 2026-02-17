@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -29,6 +29,7 @@
     "color": "#0F172A",
     "theme": "dark"
   },
+  "pricing": "Free",
   "engines": {
     "vscode": "^1.103.0"
   },

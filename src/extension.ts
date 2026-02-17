@@ -36,6 +36,30 @@ type WizlySettings = {
 };
 let cachedSettings: Partial<WizlySettings> | null = null;
 
+// Prefer workspace-installed Prettier when available; otherwise fall back to bundled Prettier
+async function loadPrettier(): Promise<any> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    // Try resolving Prettier from the workspace (user-installed)
+    if (workspaceRoot) {
+        try {
+            // Resolve using workspace paths to prefer local dependency
+            const resolvedPath = require.resolve('prettier', { paths: [workspaceRoot] });
+            const mod = await import(resolvedPath);
+            return (mod as any).default ?? mod;
+        } catch (err) {
+            // Ignore resolution errors and continue to fallbacks
+        }
+    }
+    // Try dynamic import from our packaged node_modules (ESM-friendly)
+    try {
+        const mod = await import('prettier');
+        return (mod as any).default ?? mod;
+    } catch (err) {
+        // Final fallback: the statically imported namespace
+        return (prettier as any);
+    }
+}
+
 // --- Transform Tag helpers ---
 function resolveCommentStyle(filePath?: string): 'line' | 'block' | 'html' {
     const ext = filePath ? path.extname(filePath).toLowerCase() : '';
@@ -154,16 +178,40 @@ async function transformCurrentFile() {
     }
 }
 
-async function formatWithPrettier(text: string): Promise<string> {
+async function formatWithPrettier(text: string, filePath?: string): Promise<string> {
     try {
-        let newText = await prettier.format(text, {
+        const p = await loadPrettier();
+        // Resolve workspace Prettier config (if any) based on the file path
+        let resolvedConfig: any = {};
+        if (filePath) {
+            try {
+                const cfg = await p.resolveConfig(filePath);
+                if (cfg) {
+                    resolvedConfig = cfg;
+                }
+            } catch (e) {
+                // Ignore config resolution errors and fall back to defaults
+            }
+        }
+
+        // Defaults used when no config is present; user config overrides these
+        const defaultOptions = {
             parser: 'html',
             printWidth: 80,
             tabWidth: 2,
             singleQuote: false,
             trailingComma: 'none',
             htmlWhitespaceSensitivity: 'ignore',
-        });
+        } as const;
+
+        const finalOptions = {
+            ...defaultOptions,
+            ...resolvedConfig,
+            // Provide a filepath to satisfy Prettier 3 ESM expectations and plugin resolution
+            filepath: filePath ?? 'virtual.html',
+        };
+
+        let newText = await p.format(text, finalOptions);
         
         const modes = getModes();
         
@@ -547,7 +595,7 @@ async function transformText(text: string, filePath?: string): Promise<string> {
     newText = newText.replace(eofMarker, '');
     
     // Apply Prettier formatting
-    newText = await formatWithPrettier(newText);
+    newText = await formatWithPrettier(newText, filePath);
     
     // Clean up any trailing whitespace
     newText = newText.replace(/\s+$/g, '');
