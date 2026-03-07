@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
 import * as fs from 'fs';
-import { refreshModes, getModes } from './config';
+import { refreshModes, getModes, getCachedSettings } from './config';
 import { transformText } from './transformer';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -392,6 +392,41 @@ export function activate(context: vscode.ExtensionContext) {
     legacyWatcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
     legacyWatcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
     context.subscriptions.push(legacyWatcher);
+
+    // Auto-transform newly created HTML files
+    const htmlWatcher = vscode.workspace.createFileSystemWatcher('**/*.html');
+    htmlWatcher.onDidCreate(async (uri) => {
+        const autoTransform = getCachedSettings()?.autoTransformOnCreate
+            ?? vscode.workspace.getConfiguration('wizly').get<boolean>('autoTransformOnCreate', false);
+        if (!autoTransform) { return; }
+
+        const filePath = uri.fsPath;
+        try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            const originalText = document.getText();
+            const transformedText = await transformText(originalText, filePath);
+
+            if (transformedText !== originalText) {
+                const edit = new vscode.WorkspaceEdit();
+                const fullRange = new vscode.Range(
+                    document.positionAt(0),
+                    document.positionAt(originalText.length)
+                );
+                edit.replace(uri, fullRange, transformedText);
+                await vscode.workspace.applyEdit(edit);
+                await document.save();
+
+                const showToast = getCachedSettings()?.autoTransformToast
+                    ?? vscode.workspace.getConfiguration('wizly').get<boolean>('autoTransformToast', true);
+                if (showToast) {
+                    vscode.window.showInformationMessage(`Wizly: Auto-transformed ${path.basename(filePath)}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Wizly: Failed to auto-transform ${filePath}:`, error);
+        }
+    });
+    context.subscriptions.push(htmlWatcher);
 }
 
 export function deactivate() {}
