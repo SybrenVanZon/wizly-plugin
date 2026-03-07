@@ -144,9 +144,6 @@ export async function transformText(text: string, filePath?: string, options?: {
         removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
     };
 
-    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
-    let result = textWithoutLabels;
-
     // Use provided settings or fallback to VS Code config
     const tagEnabled = settings.transformTag.enable;
     const template = settings.transformTag.template;
@@ -155,7 +152,8 @@ export async function transformText(text: string, filePath?: string, options?: {
         return text;
     }
 
-    let newText = result;
+    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
+    let newText = textWithoutLabels;
     
     const eofMarker = '~~WIZLY_EOF~~';
     if (!newText.endsWith(eofMarker)) {
