@@ -1,0 +1,61 @@
+<form novalidate [formGroup]="screenFormGroup" [magic]="mgc.tableinputtext">
+  <div class="d-flex flex-row">
+    <table
+      mat-table
+      [dataSource]="dataSource"
+      matSort
+      (matSortChange)="tableService.sortData($event)"
+    >
+      <ng-container
+        matColumnDef="mgc.Column2"
+        magicMark="magicTableRowContainer"
+      >
+        <th mat-header-cell *matHeaderCellDef>{{ mg.getText(mgc.Column2) }}</th>
+        <td mat-cell *matCellDef="let row">
+          @if (mg.ifRowCreated(row)) {
+            @if (mg.isRowInRowEditing(row)) {
+              <mat-form-field>
+                <input
+                  matInput
+                  type="text"
+                  [magic]="mgc.V_ControlName"
+                  [rowId]="row.rowId"
+                  [placeholder]="
+                    mg.getPlaceholder(mgc.V_ControlName, row.rowId)
+                  "
+                  [formControlName]="mgc.V_ControlName"
+                  mgFormat
+                />
+
+                <mgError
+                  [magic]="mgc.V_ControlName"
+                  [rowId]="row.rowId"
+                  mgError
+                ></mgError>
+              </mat-form-field>
+            } @else {
+              <span [magic]="mgc.V_ControlName" [rowId]="row.rowId">
+                {{ mg.getValue(mgc.V_ControlName, row.rowId) }}
+              </span>
+            }
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns"
+        [formGroup]="mg.getFormGroupByRow(row.rowId)"
+        [ngClass]="{ selected: selection.isSelected(row) }"
+        (click)="tableService.selectRow(row.rowId)"
+      ></tr>
+    </table>
+
+    <mat-paginator
+      [pageSize]="10"
+      [pageSizeOptions]="[5, 10, 20]"
+      (page)="tableService.mgOnPaginateChange($event)"
+    ></mat-paginator>
+  </div>
+</form>

@@ -1,0 +1,19 @@
+<div class="d-flex flex-row">
+  <span>{{ mg.getText(mgc.L_ControlName) }}</span>
+
+  <mat-form-field
+    [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+    [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+  >
+    <input
+      matInput
+      type="text"
+      [magic]="mgc.V_ControlName"
+      [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+      [formControlName]="mgc.V_ControlName"
+      mgFormat
+    />
+
+    <mgError [magic]="mgc.V_ControlName" mgError></mgError>
+  </mat-form-field>
+</div>

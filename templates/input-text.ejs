@@ -1,0 +1,47 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-form-field
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    <% if (typeof rowId === 'undefined' || !rowId) { %>
+        <% if (getLabel(magic)) { %>
+        <mat-label><%= getLabel(magic) %></mat-label>
+        <% } %>
+    <% } %>
+
+    <input
+        matInput
+        <% if (typeof type !== 'undefined' && type && type !== 'text') { %>type="<%= type %>"<% } else { %>type="text"<% } %>
+        [magic]="<%= magic %>"
+        <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+        <% if (attrPlaceholder) { %>[placeholder]="<%= attrPlaceholder %>"<% } %>
+        [formControlName]="<%= magic %>"
+        mgFormat
+        <% if (typeof required !== 'undefined' && required === 'true') { %>required<% } %>
+        <% if (typeof readonly !== 'undefined' && readonly === 'true') { %>readonly<% } %>
+    >
+
+    <% if (zoom) { %>
+    <button
+        mat-icon-button
+        matSuffix
+        color="primary"
+        [magic]="<%= magic %>"
+        <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+        <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+    >
+        <mat-icon><%= zoomIcon %></mat-icon>
+    </button>
+    <% } %>
+
+    <mgError [magic]="<%= magic %>" <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %> mgError></mgError>
+</mat-form-field>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

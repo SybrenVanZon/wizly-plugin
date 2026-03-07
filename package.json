@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -45,7 +45,9 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "workspaceContains:.vswizly.js"
+    "onLanguage:html",
+"workspaceContains:.vswizly.js",
+    "workspaceContains:.vswizly/wizly.config.js"
   ],
   "contributes": {
     "commands": [
@@ -58,55 +60,115 @@
         "title": "Wizly: Transform All Uncommitted Files"
       },
       {
-        "command": "wizly.exportDefaultConfig",
-        "title": "Wizly: Export Default Rules to .vswizly.js"
+        "command": "wizly.exportSettings",
+        "title": "Wizly: Export Settings"
+      },
+      {
+        "command": "wizly.exportTemplates",
+        "title": "Wizly: Export Templates"
+      },
+      {
+        "command": "wizly.exportRules",
+        "title": "Wizly: Export Advanced Rules"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "wizly.transformCurrentFile",
+          "when": "editorLangId == html"
+        },
+        {
+          "command": "wizly.transformUncommittedFiles"
+        },
+        {
+          "command": "wizly.exportSettings"
+        },
+        {
+          "command": "wizly.exportTemplates"
+        },
+        {
+          "command": "wizly.exportRules"
+        }
+      ]
+    },
     "configuration": {
       "title": "Wizly",
       "properties": {
-        "wizly.rules": {
-          "type": "array",
-          "default": [],
-          "description": "Optional inline rules. Prefer a team-shared .vswizly.js at the workspace root.",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "description",
-              "regex",
-              "active",
-              "replaceAfterBeautify",
-              "filePattern"
-            ],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "description": {
-                "type": "string"
-              },
-              "regex": {
-                "type": "string"
-              },
-              "flags": {
-                "type": "string"
-              },
-              "replacement": {
-                "type": "string"
-              },
-              "active": {
-                "type": "boolean",
-                "default": true
-              },
-              "replaceAfterBeautify": {
-                "type": "boolean",
-                "default": true
-              },
-              "filePattern": {
-                "type": "string"
-              }
+        "wizly.autoTransformOnCreate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run Wizly transform when creating a new .html file."
+        },
+        "wizly.autoTransformToast": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification after an automatic transform."
+        },
+        "wizly.transformTag": {
+          "type": "object",
+          "description": "Configure the 'Changed by Wizly' tag.",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether to insert a comment tag at the top of transformed files."
+            },
+            "dateFormat": {
+              "type": "string",
+              "default": "YYYY-MM-DD",
+              "description": "Date format for the tag (e.g. YYYY-MM-DD)."
+            },
+            "timeFormat": {
+              "type": "string",
+              "default": "HH:mm",
+              "description": "Time format for the tag (e.g. HH:mm)."
+            },
+            "template": {
+              "type": "string",
+              "default": "Changed by Wizly on {date} at {time}",
+              "description": "The template for the comment tag content."
             }
+          },
+          "default": {
+            "enable": true,
+            "dateFormat": "YYYY-MM-DD",
+            "timeFormat": "HH:mm",
+            "template": "Changed by Wizly on {date} at {time}"
+          }
+        },
+        "wizly.removeEmptyLinesAfterPrettier": {
+          "type": "boolean",
+          "default": false,
+          "description": "Remove empty lines from the output after Prettier formatting. Prettier tends to introduce empty lines between block elements; enable this to strip them."
+        },
+        "wizly.smartLabelMatcher": {
+          "type": "object",
+          "description": "Configure automatic label matching behavior.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable smart label matching logic."
+            },
+            "labelPrefix": {
+              "type": "string",
+              "default": "L_",
+              "description": "Prefix for label control IDs (e.g. 'L_')."
+            },
+            "controlPrefix": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "default": ["V_", "P_"],
+              "description": "Prefix(es) for target control IDs. Can be a single string or an array (e.g. ['V_', 'P_'])."
+            }
+          },
+          "default": {
+            "enabled": false,
+            "labelPrefix": "L_",
+            "controlPrefix": ["V_", "P_"]
           }
         }
       }
@@ -116,21 +178,32 @@
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "node esbuild.js --watch",
+    "watch:tsc": "tsc --watch --noEmit",
+    "watch:esbuild": "node esbuild.js --watch",
+    "pretest": "tsc -p .",
+    "test": "npm run pretest && vscode-test",
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src"
   },
   "dependencies": {
+    "ejs": "^4.0.1",
     "prettier": "^3.6.2"
   },
   "devDependencies": {
+    "@types/ejs": "^3.1.5",
+    "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.103.0",
+    "@types/vscode": "^1.109.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
+    "mocha": "^11.7.5",
+    "mock-require": "^3.0.3",
     "typescript": "^5.9.2"
   }
 }

@@ -1,0 +1,22 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<editable-combo
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    [formControlName]="<%= magic %>"
+    <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrPlaceholder) { %>placeholder="<%= attrPlaceholder %>"<% } %>
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+</editable-combo>
+<mgError [magic]="<%= magic %>" <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>> </mgError>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

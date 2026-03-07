@@ -108,6 +108,44 @@ Rules execute in order (top to bottom). Later rules run on the output of earlier
 
 Add a tag at the top of transformed files to avoid re‑processing and provide an audit trail. Placeholders `{date}` and `{time}` are supported; see the configuration example above.
 
+### Smart Label Matcher
+
+The extension can automatically convert labels to Material Design labels within form fields. This feature is configured in the `.vswizly.js` configuration file:
+
+```javascript
+module.exports = {
+  smartLabelMatcher: {
+    enabled: false,                    // Enable/disable the feature
+    labelPrefix: "lbl_",              // Prefix for label magic attributes
+    controlPrefix: "vt_",             // Prefix for control magic attributes  
+    wrapper: "<mat-label>${labelContent}</mat-label>"  // Wrapper template
+  },
+  // ... other settings
+};
+```
+
+**How it works:**
+1. The extension looks for `<label>` elements with `[magic]` attributes that start with the specified `labelPrefix`
+2. It checks if there's a corresponding control element with `[magic]` attribute starting with `controlPrefix`
+3. If both elements exist and the control is inside a `<mat-form-field>`, the label is removed
+4. The label content is wrapped with the specified wrapper template
+5. The wrapped content is inserted before the control element
+
+**Example:**
+```html
+<!-- Before transformation -->
+<label [magic]="mgc.lbl_firstName">First Name</label>
+<mat-form-field>
+  <input [magic]="mgc.vt_firstName" />
+</mat-form-field>
+
+<!-- After transformation -->
+<mat-form-field>
+  <mat-label>First Name</mat-label>
+  <input [magic]="mgc.vt_firstName" />
+</mat-form-field>
+```
+
 ## 🎯 Example
 
 See `examples/` for full before/after sample. 

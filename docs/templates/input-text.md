@@ -1,0 +1,121 @@
+# Input - Text Template (`input-text.ejs`)
+
+Magic's base template for text input.
+
+## Available Variables
+
+| Variable | Description |
+| :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_ControlName`). |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. |
+| **`type`** | Input type (text or password). |
+| **`zoom`** | `'true'` if a zoom button was detected. |
+| **`attrVisible`** | Controls visibility. |
+| **`attrTooltip`** | Tooltip text. |
+| **`attrPlaceholder`** | Placeholder text. |
+| **`attrDisabled`** | Disabled state (often from zoom button). |
+| **`required`** | Extracted `required` attribute. |
+| **`readonly`** | Extracted `readonly` attribute. |
+
+## Transformation
+
+### Standard Usage (Form)
+
+**Input (Magic HTML)**
+```html
+<div style="display: flex; flex-direction: row"> 
+    <label 
+        [magic]="mgc.L_ControlName" 
+        [style.visibility]="mg.getVisible(mgc.L_ControlName)" 
+        ...
+    > 
+        {{mg.getText(mgc.L_ControlName)}} 
+    </label> 
+    <div> 
+        <mat-form-field 
+            [style.visibility]="mg.getVisible(mgc.V_ControlName)" 
+            ...
+        > 
+            <div> 
+                <input 
+                    matInput 
+                    [magic]="mgc.V_ControlName" 
+                    [placeholder]="mg.getPlaceholder(mgc.V_ControlName)" 
+                    ...
+                > 
+                <mgError [magic]=mgc.V_ControlName> </mgError> 
+            </div> 
+        </mat-form-field> 
+    </div> 
+</div>
+```
+
+**Output (Angular Material)**
+```html
+<div class="d-flex flex-row">
+  <span>{{mg.getText(mgc.L_ControlName)}}</span>
+
+  <mat-form-field
+    [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+    [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+  >
+    <input
+      matInput
+      type="text"
+      [magic]="mgc.V_ControlName"
+      [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+      [formControlName]="mgc.V_ControlName"
+      mgFormat
+    />
+
+    <mgError [magic]="mgc.V_ControlName" mgError></mgError>
+  </mat-form-field>
+</div>
+```
+
+### Table Usage (Row Context)
+
+When a `[rowId]` attribute is detected, the template switches to "Table Row Mode". This mode:
+1.  Uses `@if (mg.isRowInRowEditing(row))` to toggle between edit and read-only mode.
+2.  Passes `[rowId]` to all relevant elements (`input`, `button`, `mgError`).
+3.  Includes `partials/table-readonly.ejs` for the read-only state.
+
+**Input (Magic HTML in Table)**
+```html
+<div [formGroup]="mg.getFormGroupByRow(row.rowId)">
+    <div>
+        <mat-form-field ...>
+             <div>
+                 <input 
+                     [magic]="mgc.V_Input" 
+                     [rowId]="row.rowId" 
+                     ...
+                 >
+                 <mgError [magic]="mgc.V_Input" [rowId]="row.rowId"></mgError>
+             </div>
+        </mat-form-field>
+        <label ... [rowId]="row.rowId">...</label>
+    </div>
+</div>
+```
+
+**Output (Angular Material)**
+```html
+@if (mg.isRowInRowEditing(row)) {
+    <mat-form-field ...>
+        <input 
+            matInput 
+            [magic]="mgc.V_Input" 
+            [rowId]="row.rowId"
+            [formControlName]="mgc.V_Input"
+            mgFormat
+        >
+        <mgError [magic]="mgc.V_Input" [rowId]="row.rowId" mgError></mgError>
+    </mat-form-field>
+} @else {
+    <!-- Included via partials/table-readonly.ejs -->
+    <span ...>
+        {{ mg.getValue(mgc.V_Input, row.rowId) }}
+    </span>
+}
+```

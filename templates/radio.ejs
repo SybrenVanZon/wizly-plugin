@@ -1,0 +1,26 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-radio-group
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+    [formControlName]="<%= magic %>"
+    <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+    @for (o of mg.getItemListValues(<%= magic %><% if (typeof rowId !== 'undefined' && rowId) { %>, <%= rowId %><% } %>); track o) {
+        <mat-radio-button [value]="o.index">
+            {{o.displayValue}}
+        </mat-radio-button>
+    }
+</mat-radio-group>
+<mgError [magic]="<%= magic %>" <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>> </mgError>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

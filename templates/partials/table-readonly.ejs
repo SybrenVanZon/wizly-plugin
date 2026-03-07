@@ -1,0 +1,8 @@
+<span
+    [magic]="<%= magic %>"
+    [rowId]="<%= rowId %>"
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    {{ mg.getValue(<%= magic %>, <%= rowId %>) }}
+</span>

@@ -1,0 +1,10 @@
+<button 
+    mat-raised-button 
+    color="primary" 
+    [magic]="<%= magic %>" 
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+> 
+    {{mg.getValue(<%= magic %>)}} 
+</button>
