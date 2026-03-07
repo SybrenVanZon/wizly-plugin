@@ -234,7 +234,7 @@ export function activate(context: vscode.ExtensionContext) {
     smartLabelMatcher: {
         enabled: false,
         labelPrefix: 'L_',
-        controlPrefix: 'V_'
+        controlPrefix: ['V_', 'P_']
     }
 };`;
                 fs.writeFileSync(configPath, defaultConfigContent, 'utf8');

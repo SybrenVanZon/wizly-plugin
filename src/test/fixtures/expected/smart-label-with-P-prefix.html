@@ -1,35 +1,18 @@
- 
-<div
-    novalidate
-    [formGroup]="screenFormGroup"
->
-    <div
-        style="display: flex; flex-direction: column"
-        [magic]="mgc.inputtext"
-    >
-        <div style="display: flex; flex-direction: row">
-            <label
-                [magic]="mgc.L_ControlName"
-                class="lable_overflow"
-            >
-                {{mg.getText(mgc.L_ControlName)}}
-            </label>
-            <div>
-                <mat-form-field>
-                    <div>
-                        <input
-                            matInput
-                            [magic]="mgc.P_ControlName"
-                            [placeholder]="mg.getPlaceholder(mgc.P_ControlName)"
-                            [formControlName]="mgc.P_ControlName"
-                            mgFormat
-                        >
-                        <mgError [magic]=mgc.P_ControlName> </mgError>
-                    </div>
-                </mat-form-field>
-            </div>
-        </div>
-    </div>
-</div>
+<form novalidate [formGroup]="screenFormGroup" [magic]="mgc.inputtext">
+  <div class="d-flex flex-row">
+    <mat-form-field>
+      <mat-label>{{ mg.getText(mgc.L_ControlName) }}</mat-label>
 
+      <input
+        matInput
+        type="text"
+        [magic]="mgc.P_ControlName"
+        [placeholder]="mg.getPlaceholder(mgc.P_ControlName)"
+        [formControlName]="mgc.P_ControlName"
+        mgFormat
+      />
 
+      <mgError [magic]="mgc.P_ControlName" mgError></mgError>
+    </mat-form-field>
+  </div>
+</form>

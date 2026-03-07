@@ -178,7 +178,7 @@ suite('Wizly Integration Tests', function() {
                     smartLabelMatcher: {
                         enabled: true,
                         labelPrefix: 'L_',
-                        controlPrefix: 'V_'
+                        controlPrefix: ['V_', 'P_']
                     }
                 };
                 
