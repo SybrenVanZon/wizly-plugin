@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
 import * as fs from 'fs';
-import { refreshModes } from './config';
+import { refreshModes, getModes } from './config';
 import { transformText } from './transformer';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -343,19 +343,54 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);
-    
+
+    // Status bar
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = 'wizly.openConfig';
+    context.subscriptions.push(statusBarItem);
+
+    const updateStatusBar = () => {
+        const modes = getModes();
+        const ruleCount = modes.reduce((sum, m) => sum + (m.active ? m.rules.filter(r => r.active).length : 0), 0);
+        const configSource = modes.length > 0 && modes[0].name !== 'Defaults' ? modes[0].name : 'defaults';
+        statusBarItem.text = `$(wand) Wizly: ${ruleCount} rules`;
+        statusBarItem.tooltip = `Wizly — ${ruleCount} active rules (${configSource})\nClick to open config`;
+        statusBarItem.show();
+    };
+
+    const openConfigDisposable = vscode.commands.registerCommand('wizly.openConfig', async () => {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) { return; }
+        const candidates = [
+            path.join(workspaceRoot, '.vswizly', 'wizly.rules.js'),
+            path.join(workspaceRoot, '.vswizly', 'wizly.config.js'),
+            path.join(workspaceRoot, '.vswizly.js'),
+        ];
+        for (const filePath of candidates) {
+            if (fs.existsSync(filePath)) {
+                const doc = await vscode.workspace.openTextDocument(filePath);
+                await vscode.window.showTextDocument(doc);
+                return;
+            }
+        }
+        vscode.window.showInformationMessage('Wizly: No config file found. Use "Wizly: Export Settings" to create one.');
+    });
+    context.subscriptions.push(openConfigDisposable);
+
+    updateStatusBar();
+
     // File watcher to clear cache on config change
     const watcher = vscode.workspace.createFileSystemWatcher('**/.vswizly/*.js');
-    watcher.onDidChange(() => refreshModes());
-    watcher.onDidCreate(() => refreshModes());
-    watcher.onDidDelete(() => refreshModes());
+    watcher.onDidChange(() => { refreshModes(); updateStatusBar(); });
+    watcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
+    watcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
     context.subscriptions.push(watcher);
-    
+
     // Also watch legacy .vswizly.js
     const legacyWatcher = vscode.workspace.createFileSystemWatcher('**/.vswizly.js');
-    legacyWatcher.onDidChange(() => refreshModes());
-    legacyWatcher.onDidCreate(() => refreshModes());
-    legacyWatcher.onDidDelete(() => refreshModes());
+    legacyWatcher.onDidChange(() => { refreshModes(); updateStatusBar(); });
+    legacyWatcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
+    legacyWatcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
     context.subscriptions.push(legacyWatcher);
 }
 
