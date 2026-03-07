@@ -234,7 +234,7 @@ export function sanitizeRules(rawRules: any[]): RegexRule[] {
                 description: String(r.description ?? ''),
                 regex: regexStr,
                 flags: flagsStr,
-                replacement: typeof r.replacement === 'string' ? r.replacement : '',
+                replacement: typeof r.replacement === 'string' ? r.replacement : undefined,
                 templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
                 active: r.active !== false,
                 filePattern: String(r.filePattern ?? '*.html')
