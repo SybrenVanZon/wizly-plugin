@@ -32,6 +32,7 @@ Module.prototype.require = function(request: string) {
 // Now import the modules to test
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
+import { sanitizeRules } from '../../config';
 
 suite('Wizly Utils Test Suite', () => {
 	test('resolveControlName: Standard prefix', () => {
@@ -143,34 +144,12 @@ suite('Wizly Integration Tests', function() {
         if (fs.existsSync(defaultRulesPath)) {
              const rulesModule = require(defaultRulesPath);
              const rawRules = rulesModule.rules || (rulesModule.default && rulesModule.default.rules) || rulesModule;
-             
+
              if (Array.isArray(rawRules)) {
-                 rules = rawRules.map((r: any) => {
-                let regexStr = '';
-                let flagsStr: string | undefined;
-                if (r.regex instanceof RegExp) {
-                    regexStr = r.regex.source;
-                    const userFlags = r.regex.flags || '';
-                    const merged = new Set((userFlags + 'gm').split(''));
-                    flagsStr = Array.from(merged).join('');
-                } else {
-                    regexStr = String(r.regex);
-                    flagsStr = undefined;
-                }
-                return {
-                    name: String(r.name ?? 'Rule'),
-                    description: String(r.description ?? ''),
-                    regex: regexStr,
-                    flags: flagsStr,
-                    replacement: typeof r.replacement === 'string' ? r.replacement : '',
-                    templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
-                    active: r.active !== false,
-                    filePattern: String(r.filePattern ?? '*.html')
-                };
-            });
-        } else {
-            console.error('Raw rules is not an array!');
-        }
+                 rules = sanitizeRules(rawRules);
+             } else {
+                 console.error('Raw rules is not an array!');
+             }
         } else {
             console.warn('Default rules not found at', defaultRulesPath);
         }

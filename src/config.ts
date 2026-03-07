@@ -214,7 +214,7 @@ function loadModesFromConfigSync(filePath: string): Mode[] | null {
     }
 }
 
-function sanitizeRules(rawRules: any[]): RegexRule[] {
+export function sanitizeRules(rawRules: any[]): RegexRule[] {
     return (rawRules || [])
         .filter(r => r && typeof r.regex !== 'undefined')
         .map(r => {
