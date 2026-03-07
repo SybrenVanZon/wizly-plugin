@@ -11,7 +11,6 @@ export interface RegexRule {
     replacement?: string;
     templateFile?: string;
     active: boolean;
-    replaceAfterBeautify: boolean;
     filePattern: string;
 }
 
@@ -238,7 +237,6 @@ function sanitizeRules(rawRules: any[]): RegexRule[] {
                 replacement: typeof r.replacement === 'string' ? r.replacement : '',
                 templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
                 active: r.active !== false,
-                replaceAfterBeautify: !!r.replaceAfterBeautify,
                 filePattern: String(r.filePattern ?? '*.html')
             };
         });

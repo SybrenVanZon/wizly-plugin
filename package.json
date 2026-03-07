@@ -137,6 +137,11 @@
             "template": "Changed by Wizly on {date} at {time}"
           }
         },
+        "wizly.zoomIcon": {
+          "type": "string",
+          "default": "more_horiz",
+          "description": "Material icon name used for zoom buttons (e.g. 'more_horiz', 'search', 'open_in_new')."
+        },
         "wizly.removeEmptyLinesAfterPrettier": {
           "type": "boolean",
           "default": false,

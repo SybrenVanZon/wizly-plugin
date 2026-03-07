@@ -6,6 +6,14 @@ import * as fs from 'fs';
 import { refreshModes } from './config';
 import { transformText } from './transformer';
 
+let outputChannel: vscode.OutputChannel | null = null;
+function getOutputChannel(): vscode.OutputChannel {
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('Wizly');
+    }
+    return outputChannel;
+}
+
 // Get uncommitted files from Git
 function getUncommittedFiles(): Promise<string[]> {
     return new Promise((resolve, reject) => {
@@ -127,10 +135,10 @@ async function transformUncommittedFiles() {
             vscode.window.showWarningMessage(message);
             
             // Log errors to output channel
-            const outputChannel = vscode.window.createOutputChannel('Wizly');
-            outputChannel.appendLine('Transformation errors:');
-            errors.forEach(error => outputChannel.appendLine(`- ${error}`));
-            outputChannel.show();
+            const channel = getOutputChannel();
+            channel.appendLine('Transformation errors:');
+            errors.forEach(error => channel.appendLine(`- ${error}`));
+            channel.show();
         }
         
     } catch (error) {
@@ -194,10 +202,10 @@ async function transformCurrentFile() {
 
 export function activate(context: vscode.ExtensionContext) {
     // Register commands
-    let transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
-    let transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);
+    const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
+    const transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);
     
-    let exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
+    const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             vscode.window.showErrorMessage('Wizly: Please open a folder first.');
@@ -239,7 +247,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let exportTemplatesDisposable = vscode.commands.registerCommand('wizly.exportTemplates', async () => {
+    const exportTemplatesDisposable = vscode.commands.registerCommand('wizly.exportTemplates', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             vscode.window.showErrorMessage('Wizly: Please open a folder first.');
@@ -261,18 +269,23 @@ export function activate(context: vscode.ExtensionContext) {
 
             const extTemplatesDir = path.join(__dirname, '..', 'templates');
             if (fs.existsSync(extTemplatesDir)) {
-                const files = fs.readdirSync(extTemplatesDir);
                 let copiedCount = 0;
-                for (const file of files) {
-                    if (file.endsWith('.ejs')) {
-                        const src = path.join(extTemplatesDir, file);
-                        const dest = path.join(templatesDir, file);
-                        if (!fs.existsSync(dest)) {
+                const copyDir = (srcDir: string, destDir: string) => {
+                    if (!fs.existsSync(destDir)) {
+                        fs.mkdirSync(destDir, { recursive: true });
+                    }
+                    for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+                        const src = path.join(srcDir, entry.name);
+                        const dest = path.join(destDir, entry.name);
+                        if (entry.isDirectory()) {
+                            copyDir(src, dest);
+                        } else if (entry.name.endsWith('.ejs') && !fs.existsSync(dest)) {
                             fs.copyFileSync(src, dest);
                             copiedCount++;
                         }
                     }
-                }
+                };
+                copyDir(extTemplatesDir, templatesDir);
                 if (copiedCount > 0) {
                     vscode.window.showInformationMessage(`Wizly: Exported ${copiedCount} templates to ${templatesDir}`);
                 } else {
@@ -286,7 +299,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let exportRulesDisposable = vscode.commands.registerCommand('wizly.exportRules', async () => {
+    const exportRulesDisposable = vscode.commands.registerCommand('wizly.exportRules', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             vscode.window.showErrorMessage('Wizly: Please open a folder first.');

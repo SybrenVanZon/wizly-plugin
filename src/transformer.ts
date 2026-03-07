@@ -172,7 +172,6 @@ export async function transformText(text: string, filePath?: string, options?: {
             }
             
             try {
-                if (!rule.replaceAfterBeautify) {
                     const re = new RegExp(rule.regex, rule.flags ?? "gm");
                     let usedTemplate = false;
 
@@ -312,7 +311,6 @@ export async function transformText(text: string, filePath?: string, options?: {
                             vscode.window.showErrorMessage(`Wizly: Template not found: ${rule.templateFile} (Rule: ${rule.name})`);
                         }
                     }
-                }
             } catch (error) {
                 console.error(`Error applying rule "${rule.description}": ${error}`);
             }
@@ -321,11 +319,29 @@ export async function transformText(text: string, filePath?: string, options?: {
     
     newText = applySmartLabelPlaceholders(newText, labelMap, settings);
     newText = newText.replace(eofMarker, '');
-    
-    return formatWithPrettier(newText, filePath, labelMap, settings, options?.modes);
+
+    newText = await formatWithPrettier(newText, filePath, settings);
+
+    if (tagEnabled && filePath) {
+        const style = resolveCommentStyle(filePath);
+        const now = new Date();
+        const dateTime = formatDateTime(now, settings.transformTag.dateFormat, settings.transformTag.timeFormat);
+        const tpl = template || `Changed by Wizly on {date} at {time}`;
+        const tagContent = tpl
+            .replace(/\{date\}/g, dateTime.split(' ')[0])
+            .replace(/\{time\}/g, dateTime.split(' ')[1] || '');
+        const commentMap: Record<typeof style, string> = {
+            html: `<!-- ${tagContent} -->`,
+            block: `/* ${tagContent} */`,
+            line: `// ${tagContent}`,
+        };
+        newText = commentMap[style] + '\n' + newText;
+    }
+
+    return newText;
 }
 
-async function formatWithPrettier(text: string, filePath?: string, labelMap?: LabelMap, settings?: WizlySettings, modes?: any[]): Promise<string> {
+async function formatWithPrettier(text: string, filePath?: string, settings?: WizlySettings): Promise<string> {
     try {
         const p = await loadPrettier();
         let resolvedConfig: any = {};
@@ -368,85 +384,7 @@ async function formatWithPrettier(text: string, filePath?: string, labelMap?: La
         if (settings?.removeEmptyLinesAfterPrettier) {
             newText = newText.replace(/^[ \t]*\r?\n/gm, "");
         }
-        
-        const activeModes = modes || getModes();
-        
-        activeModes.forEach((mode: any) => {
-            if (!mode.active) { return; }
-            mode.rules.forEach((rule: any) => {
-                if (!rule.active) { return; }
-                try {
-                    if (rule.replaceAfterBeautify) {
-                        const re = new RegExp(rule.regex, rule.flags ?? "gm");
-                        
-                        if (rule.templateFile) {
-                            const tplPath = resolveTemplatePath(rule.templateFile);
-                            if (tplPath) {
-                                const templateContent = fs.readFileSync(tplPath, 'utf8');
-                            newText = newText.replace(re, (...args: any[]) => {
-                                    const groups = args.length > 2 && typeof args[args.length - 1] === 'object' ? args[args.length - 1] : {};
-                                    const data: any = { ...groups };
-                                    for (let i = 0; i < args.length - 2; i++) {
-                                        if (typeof args[i] === 'string') {
-                                            data[`p${i}`] = args[i];
-                                        }
-                                    }
 
-                                    data.getLabel = (magic: string) => {
-                                        if (!labelMap || !settings){ return null; };
-                                        const cn = resolveControlName(magic, settings);
-                                        return cn ? labelMap[cn] : null;
-                                    };
-
-                                    data.startsWith = (str: string, prefix: string) => {
-                                        let cleanStr = str;
-                                        const m = settings?.smartLabelMatcher;
-                                        if (m && m.enabled && m.labelPrefix) {
-                                            cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
-                                        }
-                                        cleanStr = cleanStr.replace(/^mgc\./, '');
-                                        return cleanStr.startsWith(prefix);
-                                    };
-
-                                    data.endsWith = (str: string, suffix: string) => {
-                                        let cleanStr = str;
-                                        const m = settings?.smartLabelMatcher;
-                                        if (m && m.enabled && m.labelPrefix) {
-                                            cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
-                                        }
-                                        cleanStr = cleanStr.replace(/^mgc\./, '');
-                                        return cleanStr.endsWith(suffix);
-                                    };
-
-                                    data.includes = (str: string, substr: string) => {
-                                        let cleanStr = str;
-                                        const m = settings?.smartLabelMatcher;
-                                        if (m && m.enabled && m.labelPrefix) {
-                                            cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
-                                        }
-                                        cleanStr = cleanStr.replace(/^mgc\./, '');
-                                        return cleanStr.includes(substr);
-                                    };
-
-                                try {
-                                        const extensionTemplatesDir = path.join(__dirname, '..', 'templates');
-                                        return ejs.render(templateContent, data, { filename: tplPath, views: [extensionTemplatesDir] });
-                                    } catch (err) {
-                                        console.error(`EJS render error for rule ${rule.name}:`, err);
-                                        return args[0];
-                                    }
-                                });
-                            }
-                        } else {
-                            newText = newText.replace(re, rule.replacement || '');
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Error applying rule "${rule.description}": ${error}`);
-                }
-            });
-        });
-        
         return newText;
     } catch (error) {
         vscode.window.showWarningMessage(`Prettier formatting failed: ${error}`);

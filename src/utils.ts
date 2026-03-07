@@ -90,10 +90,7 @@ export function resolveTemplatePath(templateFile: string): string | null {
     // Fallback for tests running in out/test/suite context?
     // No, utils.js is in out/
     
-    // Debugging: Throw if not found to catch in tests
-    throw new Error(`Template not found: ${templateFile} at ${extensionTemplate}`);
-    
-    return null;
+    throw new Error(`Template not found: ${templateFile} (looked at ${extensionTemplate})`);
 }
 
 export function resolveControlName(magicParam: string, settings: WizlySettings): string | null {

@@ -70,7 +70,6 @@ interface TestRule {
     replacement?: string;
     templateFile?: string;
     active: boolean;
-    replaceAfterBeautify: boolean;
     filePattern: string;
 }
 
@@ -166,7 +165,6 @@ suite('Wizly Integration Tests', function() {
                     replacement: typeof r.replacement === 'string' ? r.replacement : '',
                     templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
                     active: r.active !== false,
-                    replaceAfterBeautify: !!r.replaceAfterBeautify,
                     filePattern: String(r.filePattern ?? '*.html')
                 };
             });

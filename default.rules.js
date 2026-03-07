@@ -8,7 +8,7 @@ module.exports = {
         /[\s\S]*<div\s*novalidate\s*\[formGroup\]="screenFormGroup"\s*>[\s\S]*?<div[\s\S]*?\[magic\]="(?<magic>[\s\S]*?)"[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
       templateFile: "page.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -17,7 +17,7 @@ module.exports = {
       regex: /<button(?<inputAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[^>]*?)>(?!\s*\.\.\.\s*<\/button>)(?<content>[\s\S]*?)<\/button>/gm,
       templateFile: "button.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -26,7 +26,7 @@ module.exports = {
       regex: /<div(?<inputAttrsBefore>[^>]*?)>\s*<mat-tab-group(?<groupAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<groupAttrsAfter>[^>]*?)>[\s\S]*?<\/mat-tab-group>\s*(?<content>[\s\S]*?)<\/div>/gm,
       templateFile: "tab.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -35,7 +35,7 @@ module.exports = {
       regex: /<mat-card(?<cardAttrsBefore>[^>]*?)\[style\.visibility\]="(?<attrVisible>.*?)"(?<cardAttrsAfter>[^>]*?)>\s*<magic-subform(?<subformAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<subformAttrsAfter>[^>]*?)>[\s\S]*?<\/magic-subform>\s*<\/mat-card>/gm,
       templateFile: "subform.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -46,7 +46,7 @@ module.exports = {
         /<label\s*\[magic\]="(?<magic>.*?)"(?<rowid>(?:\s*\[rowId\]="row\.rowId")?)\s*[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<\/label>/gm,
       templateFile: "label.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -56,7 +56,7 @@ module.exports = {
       regex: /<div style="display: flex; flex-direction: row">/gm,
       templateFile: "flex-row.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -65,7 +65,7 @@ module.exports = {
       regex: /<div>\s*<mat-checkbox(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>\s*(?<content>[\s\S]*?)\s*<\/mat-checkbox>\s*<\/div>/gm,
       templateFile: "checkbox.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -74,7 +74,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)\[matAutocomplete\]="(?<autoName>.*?)"(?<inputAttrsAfter>[\s\S]*?)\[magic\]="(?<magic>.*?)"[\s\S]*?>\s*(?:<mat-autocomplete[\s\S]*?<\/mat-autocomplete>)?\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
       templateFile: "editable-combo.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -83,7 +83,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<mat-select(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<\/mat-select>\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
       templateFile: "select.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -92,7 +92,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)type=['"]radio['"](?<inputAttrsAfter>[\s\S]*?)\[magic\]="(?<magic>.*?)"[\s\S]*?>\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
       templateFile: "radio.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -101,7 +101,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)type=['"]time['"](?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<\/mat-form-field>\s*<\/div>/gm,
       templateFile: "input-time.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -110,7 +110,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<mat-datepicker-toggle(?<toggleAttrs>[\s\S]*?)>[\s\S]*?<\/mat-datepicker-toggle>\s*<mat-datepicker(?<datepickerAttrs>[\s\S]*?)><\/mat-datepicker>\s*<\/mat-form-field>\s*<\/div>/gm,
       templateFile: "input-date.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -119,7 +119,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input\s+matInput(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)\[matAutocomplete\]="(?<autoName>.*?)"[\s\S]*?>\s*<mgError\s*\[magic\]=\k<magic>\s*>\s*<\/mgError>\s*<mat-autocomplete\s*#\k<autoName>="matAutocomplete"[\s\S]*?<\/mat-autocomplete>\s*<\/div>\s*<\/mat-form-field>\s*(?<zoom><button(?<zoomButtonAttrsBefore>[\s\S]*?)\[magic\]="\k<magic>"(?<zoomButtonAttrsAfter>[\s\S]*?)>[\s\S]*?<\/button>)?\s*<\/div>/gm,
       templateFile: "input-autocomplete.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -128,7 +128,7 @@ module.exports = {
       regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input\s+matInput\s+currencyMask(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>\s*<mgError\s*\[magic\]=\k<magic>\s*>\s*<\/mgError>\s*<\/div>\s*<\/mat-form-field>\s*(?<zoom><button(?<zoomButtonAttrsBefore>[\s\S]*?)\[magic\]="\k<magic>"(?<zoomButtonAttrsAfter>[\s\S]*?)>[\s\S]*?<\/button>)?\s*<\/div>/gm,
       templateFile: "input-number.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -138,7 +138,7 @@ module.exports = {
       regex: /<div>\s*(<mat-form-field\b[^>]*>)\s*<div>\s*(<input[\s\S]*?matInput\b[^>]*>)[\s\S]*?<\/mat-form-field>\s*(?<zoom><button[\s\S]*?>[\s\S]*?<\/button>)?\s*[\s\S]*?<\/div>/gm,
       templateFile: "input-text.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html"
     },
     {
@@ -148,7 +148,7 @@ module.exports = {
         /(?<attr><div[^>]*>)\s*<mat-table[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<mat-header-row[\s\S]*?<\/mat-paginator>\s*<\/div>/gm,
       templateFile: "table.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -157,7 +157,7 @@ module.exports = {
       regex: /<ng-container\s*\[magic\]="(?<magic>.*?)"\s*\[matColumnDef\]="\k<magic>"\s*>\s*<mat-header-cell[\s\S]*?<\/mat-header-cell>\s*<mat-cell\b[^>]*magicMark="magicTableRowContainer"[^>]*>\s*<div\b[^>]*>\s*<div\b[^>]*>\s*(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*<\/mat-cell>\s*<\/ng-container>/gm,
       templateFile: "table-column.ejs",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
     {
@@ -169,7 +169,7 @@ module.exports = {
       replacement:
         "<ng-container *ngIf=\"$<if>\"><$<tag>$<beforeAttr>$<afterAttr>>$<content></$<tag>></ng-container>",
       active: true,
-      replaceAfterBeautify: false,
+
       filePattern: "*.html",
     },
   ],
