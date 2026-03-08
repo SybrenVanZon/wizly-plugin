@@ -1,0 +1,22 @@
+ 
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.P_ControlName)"
+        [matTooltip]="mg.getTitle(mgc.P_ControlName)"
+    >
+        <div>
+            <input
+                matInput
+                type='time'
+                step=1
+                [magic]="mgc.P_ControlName"
+                [placeholder]="mg.getPlaceholder(mgc.P_ControlName)"
+                [formControlName]="mgc.P_ControlName"
+                required
+            >
+            <mgError [magic]=mgc.P_ControlName> </mgError>
+        </div>
+    </mat-form-field>
+</div>
+
+

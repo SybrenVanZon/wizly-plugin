@@ -1,0 +1,23 @@
+<mat-form-field
+  [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+  [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+>
+  <input
+    matInput
+    [magic]="mgc.V_ControlName"
+    [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+    [formControlName]="mgc.V_ControlName"
+    [matAutocomplete]="auto_V_ControlName"
+    mgFormat
+    required
+  />
+  <mat-autocomplete #auto_V_ControlName="matAutocomplete">
+    @for (option of mg.getFilteredList(mgc.V_ControlName); track option) {
+      <mat-option [value]="option.displayValue">
+        {{ option.displayValue }}
+      </mat-option>
+    }
+  </mat-autocomplete>
+
+  <mgError [magic]="mgc.V_ControlName" mgError></mgError>
+</mat-form-field>

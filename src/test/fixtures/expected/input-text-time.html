@@ -1,0 +1,22 @@
+<mat-form-field
+  [style.visibility]="mg.getVisible(mgc.P_ControlName)"
+  [matTooltip]="mg.getTitle(mgc.P_ControlName)"
+>
+  <input
+    matInput
+    [matTimepicker]="picker_P_ControlName"
+    [magic]="mgc.P_ControlName"
+    [formControlName]="mgc.P_ControlName"
+    [placeholder]="mg.getPlaceholder(mgc.P_ControlName)"
+    mgFormat
+    [required]="true"
+  />
+  @if (!mg.checkIsReadOnly(mgc.P_ControlName)) {
+    <mat-timepicker-toggle matSuffix [for]="picker_P_ControlName">
+      <mat-icon matDatepickerToggleIcon>access_time</mat-icon>
+    </mat-timepicker-toggle>
+  }
+  <mat-timepicker #picker_P_ControlName></mat-timepicker>
+
+  <mgError [magic]="mgc.P_ControlName" mgError></mgError>
+</mat-form-field>

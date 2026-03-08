@@ -42,8 +42,8 @@ Checks if the string contains the specified substring.
 
 **Usage:**
 ```ejs
-<% if (includes(magic, 'Date')) { %>
-  <!-- Logic for Date fields -->
+<% if (includes(magic, 'Save')) { %>
+  <!-- Logic for submit button with save icon -->
 <% } %>
 ```
 
@@ -51,7 +51,7 @@ Checks if the string contains the specified substring.
 
 ### `getLabel(magic)`
 
-Retrieves the label text associated with the given magic ID, if available.
+Retrieves the label text associated with the given magic control name, if available.
 
 **Note:** The original `<label>` tag is automatically removed from the output, regardless of whether this helper function is used.
 
@@ -61,14 +61,14 @@ Retrieves the label text associated with the given magic ID, if available.
 ```
 
 ### Configuration
-You can customize the prefixes in your `.vswizly.js` file:
+You can customize the prefixes in your `.vswizly.js` file, the prefixes should be either string or an array of strings:
 
 ```javascript
 module.exports = {
   smartLabelMatcher: {
     enabled: true,
     labelPrefix: "L_",    // The prefix used for label elements
-    controlPrefix: "V_"    // The prefix used for input controls
+    controlPrefix: ["V_", "P_"]    // The prefix used for controls
   }
 };
 ```
@@ -76,21 +76,21 @@ module.exports = {
 ### Matching Logic
 The matcher strips the prefixes to find the common "base name".
 
-| Control ID (`magic`) | Label ID (`[magic]`) | Match? | Base Name |
+| Control Name (`magic`) | Label (`[magic]`) | Match? | Base Name |
 | :--- | :--- | :--- | :--- |
 | `mgc.V_FirstName` | `mgc.L_FirstName` | ✅ Yes | `FirstName` |
 | `mgc.V_Email` | `mgc.L_EmailAddress` | ❌ No | - |
-| `mgc.V_Phone` | `mgc.L_Phone` | ✅ Yes | `Phone` |
+| `mgc.P_Phone` | `mgc.L_Phone` | ✅ Yes | `Phone` |
 
-### `getAttribute(attributeString, attributeName)`
+### `getAttribute(regexGroup, attributeName)`
 
-Extracts the value of a specific attribute from a raw attribute string.
+Extracts the value of a specific attribute from a raw attribute string (regex capture group).
 
 **Usage:**
 ```ejs
-<% const min = getAttribute(inputAttrs, 'min'); %>
-<% if (min) { %>
-  [min]="<%= min %>"
+<% const min = getAttribute(input, 'style'); %>
+<% if (style) { %>
+  [style]="<%= style %>"
 <% } %>
 ```
 

@@ -60,7 +60,7 @@ module.exports = {
     {
       name: "Input - Combo (Editable)",
       description: "Combobox with editable yes",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)\[matAutocomplete\]="(?<autoName>.*?)"(?<inputAttrsAfter>[\s\S]*?)\[magic\]="(?<magic>.*?)"[\s\S]*?>\s*(?:<mat-autocomplete[\s\S]*?<\/mat-autocomplete>)?\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
+      regex: /<div>\s*(?<input><editable-combo[\s\S]*?<\/editable-combo>)[\s\S]*?<\/div>/gm,
       templateFile: "editable-combo.ejs",
       active: true,
       filePattern: "*.html"
@@ -82,49 +82,17 @@ module.exports = {
       filePattern: "*.html"
     },
     {
-      name: "Input - Time",
-      description: "Converts time inputs (type='time') to matTimepicker",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)type=['"]time['"](?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<\/mat-form-field>\s*<\/div>/gm,
-      templateFile: "input-time.ejs",
-      active: true,
-      filePattern: "*.html"
-    },
-    {
-      name: "Input - Date",
-      description: "Converts date inputs with matDatepicker",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<mat-datepicker-toggle(?<toggleAttrs>[\s\S]*?)>[\s\S]*?<\/mat-datepicker-toggle>\s*<mat-datepicker(?<datepickerAttrs>[\s\S]*?)><\/mat-datepicker>\s*<\/mat-form-field>\s*<\/div>/gm,
-      templateFile: "input-date.ejs",
-      active: true,
-      filePattern: "*.html"
-    },
-    {
-      name: "Input - Autocomplete",
-      description: "Converts inputs with autocomplete and optional zoom button",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input\s+matInput(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)\[matAutocomplete\]="(?<autoName>.*?)"[\s\S]*?>\s*<mgError\s*\[magic\]=\k<magic>\s*>\s*<\/mgError>\s*<mat-autocomplete\s*#\k<autoName>="matAutocomplete"[\s\S]*?<\/mat-autocomplete>\s*<\/div>\s*<\/mat-form-field>\s*(?<zoom><button(?<zoomButtonAttrsBefore>[\s\S]*?)\[magic\]="\k<magic>"(?<zoomButtonAttrsAfter>[\s\S]*?)>[\s\S]*?<\/button>)?\s*<\/div>/gm,
-      templateFile: "input-autocomplete.ejs",
-      active: true,
-      filePattern: "*.html"
-    },
-    {
-      name: "Input - Number",
-      description: "Converts numeric inputs with currencyMask and optional zoom button",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input\s+matInput\s+currencyMask(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>\s*<mgError\s*\[magic\]=\k<magic>\s*>\s*<\/mgError>\s*<\/div>\s*<\/mat-form-field>\s*(?<zoom><button(?<zoomButtonAttrsBefore>[\s\S]*?)\[magic\]="\k<magic>"(?<zoomButtonAttrsAfter>[\s\S]*?)>[\s\S]*?<\/button>)?\s*<\/div>/gm,
-      templateFile: "input-number.ejs",
-      active: true,
-      filePattern: "*.html"
-    },
-    {
-      name: "Input - Text",
-      description: "Converts standard text inputs (and textareas) with optional zoom button",
-      regex: /<div>\s*(<mat-form-field\b[^>]*>)\s*<div>\s*(<input[\s\S]*?matInput\b[^>]*>)[\s\S]*?<\/mat-form-field>\s*(?<zoom><button[\s\S]*?>[\s\S]*?<\/button>)?\s*[\s\S]*?<\/div>/gm,
-      templateFile: "input-text.ejs",
+      name: "Input",
+      description: "Converts all input types (text, date, time, number, autocomplete) with optional zoom button",
+      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(<div>)?\s*(?<input><input[\s\S]*?matInput\b[^>]*>)[\s\S]*?<\/mat-form-field>\s*(?<zoom><button[\s\S]*?>[\s\S]*?<\/button>)?\s*[\s\S]*?<\/div>/gm,
+      templateFile: "input-base.ejs",
       active: true,
       filePattern: "*.html"
     },
     {
       name: "Table",
       description: "Converts magic table structure to clean native table with material directives",
-      regex: /(?<attr><div[^>]*>)\s*<mat-table[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<mat-header-row[\s\S]*?<\/mat-paginator>\s*<\/div>/gm,
+      regex: /(?<table><div[^>]*>)\s*<mat-table[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<mat-header-row[\s\S]*?<\/mat-paginator>\s*<\/div>/gm,
       templateFile: "table.ejs",
       active: true,
       filePattern: "*.html",

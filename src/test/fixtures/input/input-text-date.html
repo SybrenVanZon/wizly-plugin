@@ -1,0 +1,28 @@
+ 
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+        [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+        [magic]="mgc.V_ControlName"
+        [eventsOnly]=true
+    >
+        <input
+            matInput
+            [matDatepicker]="V_ControlName"
+            [magic]="mgc.V_ControlName"
+            [formControlName]="mgc.V_ControlName"
+            [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+            [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+            mgFormat
+        >
+        <mat-datepicker-toggle
+            matSuffix
+            [for]="V_ControlName"
+            *ngIf="!mg.checkIsReadOnly(mgc.V_ControlName)"
+        >
+        </mat-datepicker-toggle>
+        <mat-datepicker #V_ControlName></mat-datepicker>
+    </mat-form-field>
+</div>
+
+

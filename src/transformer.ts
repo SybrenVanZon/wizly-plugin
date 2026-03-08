@@ -236,7 +236,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                 data.attrPlaceholder = findAttr(['[placeholder]', 'placeholder'], allGroupAttrs);
                                 data.attrDisabled = findAttr(['[disabled]', 'disabled'], allGroupAttrs);
 
-                                const typeMatch = allGroupAttrs.match(/type="([^"]*)"/i);
+                                const typeMatch = allGroupAttrs.match(/type=["']([^"']*)["']/i);
                                 data.inputType = typeMatch ? typeMatch[1] : 'text';
                                 
                                 const dynReq = findAttr(['[required]'], allGroupAttrs);

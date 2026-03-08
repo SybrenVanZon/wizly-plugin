@@ -12,6 +12,7 @@
       [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
       [formControlName]="mgc.V_ControlName"
       mgFormat
+      [required]="mg.getMustInput(mgc.V_ControlName)"
     />
 
     <mgError [magic]="mgc.V_ControlName" mgError></mgError>
