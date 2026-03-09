@@ -68,7 +68,7 @@ module.exports = {
     {
       name: "Input - Combo (Select)",
       description: "Converts non-editable combo boxes (mat-select) to clean mat-select with @for",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<mat-select(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>[\s\S]*?<\/mat-select>\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
+      regex: /<div>\s*(?<formField><mat-form-field[\s\S]*?)(?<input><mat-select[\s\S]*?<\/mat-select>)\s*<\/mat-form-field>[\s\S]*?<\/div>/gm,
       templateFile: "select.ejs",
       active: true,
       filePattern: "*.html"
