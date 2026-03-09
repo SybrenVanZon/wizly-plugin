@@ -1,5 +1,10 @@
 <div class="d-flex flex-row">
-  <span>{{ mg.getText(mgc.L_ControlName) }}</span>
+  <span
+    [style.visibility]="mg.getVisible(mgc.L_ControlName)"
+    [matTooltip]="mg.getTitle(mgc.L_ControlName)"
+  >
+    {{ mg.getText(mgc.L_ControlName) }}
+  </span>
 
   <mat-form-field
     [style.visibility]="mg.getVisible(mgc.V_ControlName)"

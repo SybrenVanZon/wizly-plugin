@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "Page",
       description:"Updates the base structure of the page and use the propper form tag",
-      regex: /[\s\S]*<div\s*novalidate\s*\[formGroup\]="screenFormGroup"\s*>[\s\S]*?<div[\s\S]*?\[magic\]="(?<magic>[\s\S]*?)"[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
+      regex: /(?<page><div\s*novalidate[\s\S]*?>[\s\S]*?>)(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
       templateFile: "page.ejs",
       active: true,
       filePattern: "*.html",
@@ -11,7 +11,7 @@ module.exports = {
     {
       name: "Button",
       description: "Converts magic buttons except zoom buttons",
-      regex: /<button(?<inputAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[^>]*?)>(?!\s*\.\.\.\s*<\/button>)(?<content>[\s\S]*?)<\/button>/gm,
+      regex: /(?<button><button[\s\S]*?>)(?<content>[\s\S]*?)<\/button>/gm,
       templateFile: "button.ejs",
       active: true,
       filePattern: "*.html",
@@ -19,7 +19,7 @@ module.exports = {
     {
       name: "Tab",
       description: "Converts magic tabs to mat-tab-group (preserving content)",
-      regex: /<div(?<inputAttrsBefore>[^>]*?)>\s*<mat-tab-group(?<groupAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<groupAttrsAfter>[^>]*?)>[\s\S]*?<\/mat-tab-group>\s*(?<content>[\s\S]*?)<\/div>/gm,
+      regex: /(?<matTabGroup><mat-tab-group[\s\S]*?>)\s*(?<matTab><mat-tab[\s\S]*?<\/mat-tab>)\s*<\/mat-tab-group>/gm,
       templateFile: "tab.ejs",
       active: true,
       filePattern: "*.html",
@@ -27,7 +27,7 @@ module.exports = {
     {
       name: "Subforms",
       description: "Remove mat-card from subforms",
-      regex: /<mat-card(?<cardAttrsBefore>[^>]*?)\[style\.visibility\]="(?<attrVisible>.*?)"(?<cardAttrsAfter>[^>]*?)>\s*<magic-subform(?<subformAttrsBefore>[^>]*?)\[magic\]="(?<magic>.*?)"(?<subformAttrsAfter>[^>]*?)>[\s\S]*?<\/magic-subform>\s*<\/mat-card>/gm,
+      regex: /(?<matCard><mat-card)[\s\S]*?>\s*(?<subform><magic-subform[\s\S]*?<\/magic-subform>)\s*<\/mat-card>/gm,
       templateFile: "subform.ejs",
       active: true,
       filePattern: "*.html",
@@ -35,10 +35,9 @@ module.exports = {
     {
       name: "Labels",
       description: "Replace labels with spans, labels should only be used for form elements",
-      regex: /<label\s*\[magic\]="(?<magic>.*?)"(?<rowid>(?:\s*\[rowId\]="row\.rowId")?)\s*[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<\/label>/gm,
+      regex: /(?<label><label[\s\S]*?>)(?<content>[\s\S]*?)<\/label>/gm,
       templateFile: "label.ejs",
       active: true,
-
       filePattern: "*.html",
     },
     {
@@ -52,7 +51,7 @@ module.exports = {
     {
       name: "Input - Checkbox",
       description: "Converts checkboxes (mat-checkbox) to clean mat-checkbox",
-      regex: /<div>\s*<mat-checkbox(?<inputAttrsBefore>[\s\S]*?)\[magic\]="(?<magic>.*?)"(?<inputAttrsAfter>[\s\S]*?)>\s*(?<content>[\s\S]*?)\s*<\/mat-checkbox>\s*<\/div>/gm,
+      regex: /<div>\s*(?<input><mat-checkbox[\s\S]*?>)(?<content>[\s\S]*?)<\/mat-checkbox>[\s\S]*?<\/div>/gm,
       templateFile: "checkbox.ejs",
       active: true,
       filePattern: "*.html"
@@ -76,7 +75,7 @@ module.exports = {
     {
       name: "Input - Radio",
       description: "Converts radio inputs to mat-radio-group",
-      regex: /<div>\s*<mat-form-field(?:\s+style="[^"]*")?\s*(?<formFieldAttrs>[^>]*)>[\s\S]*?<div>\s*<input(?:\s+matInput)?(?<inputAttrsBefore>[\s\S]*?)type=['"]radio['"](?<inputAttrsAfter>[\s\S]*?)\[magic\]="(?<magic>.*?)"[\s\S]*?>\s*(?:<mgError[\s\S]*?<\/mgError>)?\s*<\/div>\s*<\/mat-form-field>\s*<\/div>/gm,
+      regex: /(?<matRadioGroup><mat-radio-group[\s\S]*?>)[\s\S]*?<\/mat-radio-group>\s*<mgError[\s\S]*?<\/mgError>/gm,
       templateFile: "radio.ejs",
       active: true,
       filePattern: "*.html"

@@ -34,15 +34,23 @@ export function extractLabelAndRemove(textOriginal: string, settings: WizlySetti
         'gm'
     );
     
+    const controlPrefixes = m.controlPrefix ?? ['V_', 'P_'];
+
     let text = textOriginal.replace(reLabel, (fullMatch, ...args) => {
         const groups = args.length > 0 && typeof args[args.length - 1] === 'object' ? args[args.length - 1] : {};
         const idFull = groups.magic || '';
         const id = resolveControlName(idFull, settings);
         const content = (groups.content || '').trim();
-        
+
         if (id && content) {
-            map[id] = content;
-            return ''; // Remove the label tag completely
+            const hasMatchingControl = controlPrefixes.some((prefix: string) => {
+                const controlMagic = `mgc.${prefix}${id}`;
+                return textOriginal.includes(controlMagic);
+            });
+            if (hasMatchingControl) {
+                map[id] = content;
+                return ''; // Remove the label tag completely
+            }
         }
         return fullMatch;
     });

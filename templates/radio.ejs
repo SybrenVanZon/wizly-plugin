@@ -8,6 +8,7 @@
     <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
     [formControlName]="<%= magic %>"
+    (change)="task.mgOnRadioSelectionChanged(<%= magic %>)"
     <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >

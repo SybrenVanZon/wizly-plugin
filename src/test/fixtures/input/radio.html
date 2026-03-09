@@ -1,0 +1,20 @@
+ 
+<mat-radio-group
+    (change)="task.mgOnRadioSelectionChanged(mgc.Radio_Button1)"
+    [magic]="mgc.Radio_Button1"
+    [style.visibility]="mg.getVisible(mgc.Radio_Button1)"
+    [matTooltip]="mg.getTitle(mgc.Radio_Button1)"
+    [magic]="mgc.Radio_Button1"
+    [formControlName]="mgc.Radio_Button1"
+    required
+>
+    <mat-radio-button
+        *ngFor="let o of mg.getItemListValues(mgc.Radio_Button1);"
+        [value]="o.index"
+    >
+        {{o.displayValue}}
+    </mat-radio-button>
+</mat-radio-group>
+<mgError [magic]=mgc.Radio_Button1> </mgError>
+
+

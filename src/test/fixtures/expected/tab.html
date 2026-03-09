@@ -1,0 +1,33 @@
+<div>
+  <mat-tab-group
+    [magic]="mgc.Tab1"
+    (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab1, $event.index)"
+    [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab1)"
+  >
+    @for (o of mg.getItemListValues(mgc.Tab1); track o) {
+      <mat-tab [label]="mg.getTabpageText(mgc.Tab1, o.index)"></mat-tab>
+    }
+  </mat-tab-group>
+  <div
+    class="tab_content"
+    [style.display]="mg.isTabPageLayerSelected(mgc.Tab1, 1) ? 'flex' : 'none'"
+    style="flex-direction: column"
+  >
+    <div class="d-flex flex-row">
+      <span>
+        {{ mg.getText(mgc.Label2) }}
+      </span>
+    </div>
+  </div>
+  <div
+    class="tab_content"
+    [style.display]="mg.isTabPageLayerSelected(mgc.Tab1, 2) ? 'flex' : 'none'"
+    style="flex-direction: column"
+  >
+    <div class="d-flex flex-row">
+      <span>
+        {{ mg.getText(mgc.Label3) }}
+      </span>
+    </div>
+  </div>
+</div>

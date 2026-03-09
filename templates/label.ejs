@@ -1,1 +1,6 @@
-<span><%- content %></span>
+<span
+    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    <%- content %>
+</span>
