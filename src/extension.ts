@@ -184,16 +184,21 @@ async function transformCurrentFile() {
             doc.positionAt(text.length)
         );
 
+        if (newText === text) {
+            vscode.window.showInformationMessage('Wizly: File already transformed, skipped.');
+            return;
+        }
+
         // Apply the transformed text
         await editor.edit((editBuilder: vscode.TextEditorEdit) => {
             editBuilder.replace(fullRange, newText);
         });
-        
+
         // Move cursor to the beginning of the document
         const newPosition = new vscode.Position(0, 0);
         editor.selection = new vscode.Selection(newPosition, newPosition);
         editor.revealRange(new vscode.Range(newPosition, newPosition));
-        
+
         vscode.window.showInformationMessage('HTML transformation completed!');
     } catch (error) {
         vscode.window.showErrorMessage(`Error during transformation: ${error}`);
