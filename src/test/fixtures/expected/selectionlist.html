@@ -1,0 +1,16 @@
+<mat-selection-list
+  multiple
+  [style.visibility]="mg.getVisible(mgc.List_Box1)"
+  [matTooltip]="mg.getTitle(mgc.List_Box1)"
+  [magic]="mgc.List_Box1"
+  [formControlName]="mgc.List_Box1"
+  [required]="true"
+  [disabled]="mg.isDisabled(mgc.List_Box1)"
+>
+  @for (o of mg.getItemListValues(mgc.List_Box1); track o) {
+    <mat-list-option [value]="o.index">
+      {{ o.displayValue }}
+    </mat-list-option>
+  }
+</mat-selection-list>
+<mgError [magic]="mgc.List_Box1"></mgError>

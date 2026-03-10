@@ -2,9 +2,10 @@
     mat-raised-button 
     color="primary" 
     [magic]="<%= magic %>" 
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
     <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 > 
-    {{mg.getValue(<%= magic %>)}} 
+    {{mg.getValue(<%= magicFuncParam %>)}} 
 </button>

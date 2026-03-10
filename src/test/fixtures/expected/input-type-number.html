@@ -10,7 +10,7 @@
     [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
     [formControlName]="mgc.V_ControlName"
     mgFormat
-    required
+    [required]="true"
   />
 
   <mgError [magic]="mgc.V_ControlName" mgError></mgError>

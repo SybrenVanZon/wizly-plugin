@@ -7,7 +7,7 @@
     <% if (attrPlaceholder) { %>[placeholder]="<%= attrPlaceholder %>"<% } %>
     [formControlName]="<%= magic %>"
     mgFormat
-    <% if (attrRequired && attrRequired !== 'true') { %>[required]="<%= attrRequired %>"<% } else if (attrRequired === 'true') { %>required<% } %>
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >
 
@@ -18,7 +18,6 @@
     color="primary"
     [magic]="<%= magic %>"
     <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
-    (click)="onZoom(<%= magic %><% if (typeof rowId !== 'undefined' && rowId) { %>, <%= rowId %><% } %>)"
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >
     <mat-icon><%= zoomIcon %></mat-icon>

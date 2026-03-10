@@ -1,0 +1,8 @@
+@if (mg.isImageExists(mgc.Image2)) {
+  <img
+    [magic]="mgc.Image2"
+    [style.visibility]="mg.getVisible(mgc.Image2)"
+    [matTooltip]="mg.getTitle(mgc.Image2)"
+    [src]="mg.getImage(mgc.Image2)"
+  />
+}

@@ -6,7 +6,7 @@
     <% if (attrPlaceholder) { %>[placeholder]="<%= attrPlaceholder %>"<% } %>
     [formControlName]="<%= magic %>"
     mgFormat
-    <% if (attrRequired && attrRequired !== 'true') { %>[required]="<%= attrRequired %>"<% } else if (attrRequired === 'true') { %>required<% } %>
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >
 

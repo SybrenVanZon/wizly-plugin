@@ -15,11 +15,11 @@
         [magic]="<%= magic %>"
         <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
         [formControlName]="<%= magic %>"
-        <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+        <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
         <% if (attrPlaceholder) { %>placeholder="<%= attrPlaceholder %>"<% } %>
         <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
     >
-        @for (o of mg.getItemListValues(<%= magic %><% if (typeof rowId !== 'undefined' && rowId) { %>, <%= rowId %><% } %>); track o) {
+        @for (o of mg.getItemListValues(<%= magicFuncParam %>); track o) {
             <mat-option [value]="o.index">
                 {{o.displayValue}}
             </mat-option>

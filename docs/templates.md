@@ -31,6 +31,10 @@ Use this for **logic** (JavaScript code).
 
 ---
 
+## Available Variables
+
+See [Template Variables](template-variables.md) for an overview of all variables available in templates, including `magic`, `rowId`, `magicFuncParam`, and more.
+
 ## Available Helper Functions
 
 See [Template Helper Functions](helpers.md) for detailed documentation on `getLabel(magicId)`, `include()`, and other available helpers.

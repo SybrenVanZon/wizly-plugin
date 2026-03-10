@@ -8,11 +8,11 @@
     <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
     [formControlName]="<%= magic %>"
-    (change)="task.mgOnRadioSelectionChanged(<%= magic %>)"
-    <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    (change)="task.mgOnRadioSelectionChanged(<%= magicFuncParam %>)"
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >
-    @for (o of mg.getItemListValues(<%= magic %><% if (typeof rowId !== 'undefined' && rowId) { %>, <%= rowId %><% } %>); track o) {
+    @for (o of mg.getItemListValues(<%= magicFuncParam %>); track o) {
         <mat-radio-button [value]="o.index">
             {{o.displayValue}}
         </mat-radio-button>

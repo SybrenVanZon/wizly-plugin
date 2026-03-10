@@ -6,7 +6,7 @@
     [magic]="<%= magic %>"
     <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
     [formControlName]="<%= magic %>"
-    <% if (attrRequired === 'true') { %>required<% } else if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrPlaceholder) { %>placeholder="<%= attrPlaceholder %>"<% } %>
     <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>

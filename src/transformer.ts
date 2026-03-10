@@ -222,7 +222,6 @@ export async function transformText(text: string, filePath?: string, options?: {
                                     return null;
                                 };
 
-                                const inputAttrs = (data.inputAttrs || '') + (data.inputAttrsBefore || '') + ' ' + (data.inputAttrsAfter || '');
                                 data.zoomButtonAttrs = (data.zoomButtonAttrs || '') + (data.zoomButtonAttrsBefore || '') + ' ' + (data.zoomButtonAttrsAfter || '');
                                 const hasNamedGroups = typeof args[args.length - 1] === 'object';
                                 const captureGroupEnd = hasNamedGroups ? args.length - 3 : args.length - 2;
@@ -238,6 +237,9 @@ export async function transformText(text: string, filePath?: string, options?: {
 
                                 data.magic = data.magic ?? findAttr(['[magic]', 'magic'], allGroupAttrs);
                                 data.rowId = findAttr(['[rowId]'], allGroupAttrs);
+
+                                data.magicFuncParam = data.rowId ? `${data.magic}, ${data.rowId}` : data.magic;
+
                                 data.attrVisible = findAttr(['[style.visibility]'], allGroupAttrs);
                                 data.ngIf = findAttr(['*ngIf'], allGroupAttrs);
                                 data.attrTooltip = findAttr(['[matTooltip]', 'matTooltip'], allGroupAttrs);

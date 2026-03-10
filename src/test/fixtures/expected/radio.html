@@ -4,7 +4,7 @@
   [matTooltip]="mg.getTitle(mgc.Radio_Button1)"
   [formControlName]="mgc.Radio_Button1"
   (change)="task.mgOnRadioSelectionChanged(mgc.Radio_Button1)"
-  required
+  [required]="true"
 >
   @for (o of mg.getItemListValues(mgc.Radio_Button1); track o) {
     <mat-radio-button [value]="o.index">

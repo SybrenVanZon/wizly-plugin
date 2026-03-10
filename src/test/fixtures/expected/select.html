@@ -5,7 +5,7 @@
   <mat-select
     [magic]="mgc.V_ControlName"
     [formControlName]="mgc.V_ControlName"
-    required
+    [required]="true"
   >
     @for (o of mg.getItemListValues(mgc.V_ControlName); track o) {
       <mat-option [value]="o.index">
