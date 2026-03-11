@@ -16,6 +16,83 @@ import {
     matchesFilePattern
 } from './utils';
 
+export type TabPageContent = Record<string, (string | null)[]>;
+
+export function extractTabContentAndRemove(textOriginal: string): { tabPageContent: TabPageContent, text: string } {
+    const tabPageContent: TabPageContent = {};
+    const results: { start: number, end: number, magicName: string, tabIndex: number, innerContent: string }[] = [];
+
+    // Find all <div class="tab_content" ...> blocks and extract their inner content
+    let searchPos = 0;
+    while (true) {
+        // Find next div with tab_content class
+        const startMatch = /(<div\b[^>]*\bclass="[^"]*\btab_content\b[^"]*"[^>]*>)/gm;
+        startMatch.lastIndex = searchPos;
+        const found = startMatch.exec(textOriginal);
+        if (!found) { break; }
+
+        const openTagStart = found.index;
+        const openTagEnd = found.index + found[0].length;
+
+        // Extract magic name and tab index from [style.display] binding
+        // e.g. isTabPageLayerSelected(mgc.Tab1, 2)
+        const layerMatch = /isTabPageLayerSelected\(mgc\.(\w+),\s*(\d+)\)/.exec(found[0]);
+        if (!layerMatch) {
+            searchPos = openTagEnd;
+            continue;
+        }
+        const magicName = layerMatch[1];
+        const tabIndex = parseInt(layerMatch[2], 10);
+
+        // Stack-based: find the matching closing </div>
+        let depth = 1;
+        let pos = openTagEnd;
+        while (depth > 0 && pos < textOriginal.length) {
+            const nextOpen = textOriginal.indexOf('<div', pos);
+            const nextClose = textOriginal.indexOf('</div>', pos);
+            if (nextClose === -1) { break; }
+
+            if (nextOpen !== -1 && nextOpen < nextClose) {
+                depth++;
+                pos = nextOpen + 4;
+            } else {
+                depth--;
+                if (depth === 0) {
+                    const blockEnd = nextClose + 6; // length of '</div>'
+                    const innerContent = textOriginal.slice(openTagEnd, nextClose).trim();
+                    results.push({ start: openTagStart, end: blockEnd, magicName, tabIndex, innerContent });
+                    searchPos = blockEnd;
+                } else {
+                    pos = nextClose + 6;
+                }
+            }
+        }
+        if (depth > 0) {
+            searchPos = openTagEnd;
+        }
+    }
+
+    // Build tabPageContent and remove blocks from text (process in reverse to preserve indices)
+    let text = textOriginal;
+    for (let i = results.length - 1; i >= 0; i--) {
+        const { start, end, magicName, tabIndex, innerContent } = results[i];
+        if (!tabPageContent[magicName]) {
+            tabPageContent[magicName] = [null]; // index 0 unused (Magic is 1-based)
+        }
+        tabPageContent[magicName][tabIndex] = innerContent;
+        text = text.slice(0, start) + text.slice(end);
+    }
+
+    // Remove empty divs left behind after removal
+    for (let i = 0; i < 3; i++) {
+        const oldText = text;
+        text = text.replace(/<div\b[^>]*>\s*<\/div>/gmi, '');
+        if (text === oldText) { break; }
+    }
+
+    return { tabPageContent, text };
+}
+
 export function extractLabelAndRemove(textOriginal: string, settings: WizlySettings): { map: LabelMap, text: string } {
     const m = settings.smartLabelMatcher;
     if (!m || !m.enabled) {
@@ -150,6 +227,7 @@ export async function transformText(text: string, filePath?: string, options?: {
         zoomIcon: (cachedSettings?.zoomIcon ?? vscode.workspace.getConfiguration('wizly').get<string>('zoomIcon', 'more_horiz')) as string,
         smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? vscode.workspace.getConfiguration('wizly').get('smartLabelMatcher'),
         removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
+        smartTabMatcher: cachedSettings?.smartTabMatcher ?? vscode.workspace.getConfiguration('wizly').get<boolean>('smartTabMatcher', false),
     };
 
     // Use provided settings or fallback to VS Code config
@@ -161,7 +239,10 @@ export async function transformText(text: string, filePath?: string, options?: {
     }
 
     const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
-    let newText = textWithoutLabels;
+    const { tabPageContent, text: textWithoutTabContent } = settings.smartTabMatcher
+        ? extractTabContentAndRemove(textWithoutLabels)
+        : { tabPageContent: {}, text: textWithoutLabels };
+    let newText = textWithoutTabContent;
     
     const eofMarker = '~~WIZLY_EOF~~';
     if (!newText.endsWith(eofMarker)) {
@@ -175,6 +256,11 @@ export async function transformText(text: string, filePath?: string, options?: {
             
             if (filePath && rule.filePattern && !matchesFilePattern(filePath, rule.filePattern)) {
                 return;
+            }
+
+            if (rule.activeWhen) {
+                const settingValue = (settings as any)[rule.activeWhen];
+                if (!settingValue) { return; }
             }
             
             try {
@@ -196,6 +282,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                 }
 
                                 data.zoomIcon = settings.zoomIcon || 'more_horiz';
+                                data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
 
                                 data.getLabel = (magic: string) => {
                                     if (!settings){ return null; };

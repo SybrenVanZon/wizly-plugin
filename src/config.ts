@@ -11,6 +11,7 @@ export interface RegexRule {
     replacement?: string;
     templateFile?: string;
     active: boolean;
+    activeWhen?: string;
     filePattern: string;
 }
 
@@ -36,6 +37,7 @@ export type WizlySettings = {
         controlPrefix: string[];
     };
     removeEmptyLinesAfterPrettier?: boolean;
+    smartTabMatcher?: boolean;
 };
 
 let cachedModes: Mode[] | null = null;
@@ -182,6 +184,10 @@ function loadSettingsFromConfigSync(filePath: string) {
             newSettings.removeEmptyLinesAfterPrettier = !!data.removeEmptyLinesAfterPrettier;
         }
 
+        if (data && typeof data.smartTabMatcher !== 'undefined') {
+            newSettings.smartTabMatcher = !!data.smartTabMatcher;
+        }
+
         cachedSettings = newSettings;
     } catch (err) {
         console.error(`Failed to load Wizly settings from ${filePath}:`, err);
@@ -237,6 +243,7 @@ export function sanitizeRules(rawRules: any[]): RegexRule[] {
                 replacement: typeof r.replacement === 'string' ? r.replacement : undefined,
                 templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
                 active: r.active !== false,
+                activeWhen: typeof r.activeWhen === 'string' ? r.activeWhen : undefined,
                 filePattern: String(r.filePattern ?? '*.html')
             };
         });

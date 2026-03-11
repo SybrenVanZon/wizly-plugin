@@ -186,6 +186,11 @@ suite('Wizly Integration Tests', function() {
                 if (file.includes('no-label')) {
                     settings.smartLabelMatcher.enabled = false;
                 }
+
+                // Enable smart tab matcher for specific test cases
+                if (file.includes('tab-full')) {
+                    settings.smartTabMatcher = true;
+                }
     
                 const modes = [{ name: 'Test', active: true, rules }];
     

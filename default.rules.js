@@ -25,6 +25,15 @@ module.exports = {
       filePattern: "*.html",
     },
     {
+      name: "Tab wrapping div",
+      description: "Removes the wrapping div of a tab group, will only work if you use smartTabMatcher",
+      regex: /<div>\s*(?<content><mat-tab-group[\s\S]*?<\/mat-tab-group>)\s*<\/div>/gm,
+      replacement: "$<content>",
+      active: true,
+      activeWhen: 'smartTabMatcher',
+      filePattern: "*.html",
+    },
+    {
       name: "Tab",
       description: "Captures the tab-group created by Magic Tab element, content is not handeled automaticly",
       regex: /(?<matTabGroup><mat-tab-group[\s\S]*?>)\s*(?<matTab><mat-tab[\s\S]*?<\/mat-tab>)\s*<\/mat-tab-group>/gm,

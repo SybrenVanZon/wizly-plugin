@@ -147,6 +147,11 @@
           "default": false,
           "description": "Remove empty lines from the output after Prettier formatting. Prettier tends to introduce empty lines between block elements; enable this to strip them."
         },
+        "wizly.smartTabMatcher": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, extracts tab_content divs and places their inner content inside the corresponding mat-tab elements. Required for Angular Material tab animations."
+        },
         "wizly.smartLabelMatcher": {
           "type": "object",
           "description": "Configure automatic label matching behavior.",
