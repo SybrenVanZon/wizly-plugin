@@ -10,7 +10,7 @@ Magic's base template for time input.
 | **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
 | **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
-| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrPlaceholder`** | Hint text (rendered as `<mat-hint>`). | `[placeholder]`, `placeholder` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 | **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
 

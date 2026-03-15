@@ -20,12 +20,13 @@
                   type="text"
                   [magic]="mgc.V_ControlName"
                   [rowId]="row.rowId"
-                  [placeholder]="
-                    mg.getPlaceholder(mgc.V_ControlName, row.rowId)
-                  "
                   [formControlName]="mgc.V_ControlName"
                   mgFormat
                 />
+
+                <mat-hint>
+                  {{ mg.getPlaceholder(mgc.V_ControlName, row.rowId) }}
+                </mat-hint>
 
                 <mat-error>
                   <mgError

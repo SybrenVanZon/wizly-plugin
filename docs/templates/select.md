@@ -11,7 +11,7 @@ Magic's base template for select.
 | **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
 | **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
-| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrPlaceholder`** | Hint text (rendered as `<mat-hint>`). | `[placeholder]`, `placeholder` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
 ## Transformation

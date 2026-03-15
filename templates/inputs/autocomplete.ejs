@@ -2,7 +2,6 @@
     matInput
     [magic]="<%= magic %>"
     <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
-    <% if (attrPlaceholder) { %>[placeholder]="<%= attrPlaceholder %>"<% } %>
     [formControlName]="<%= magic %>"
     [matAutocomplete]="auto_<%= magic.replace('mgc.', '') %>"
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>

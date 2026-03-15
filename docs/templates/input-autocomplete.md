@@ -12,7 +12,7 @@ Magic's base template for autocomplete input.
 | **`zoomIcon`** | The icon to use for the zoom button (default: `more_horiz`). | zoom button's `mat-icon` content |
 | **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
-| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrPlaceholder`** | Hint text (rendered as `<mat-hint>`). | `[placeholder]`, `placeholder` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 | **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
 | **`inputType`** | The input type (e.g. `text`, `password`). Defaults to `text`. | `[type]`, `type` |

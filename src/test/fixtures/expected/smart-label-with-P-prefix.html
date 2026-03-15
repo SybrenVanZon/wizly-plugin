@@ -7,10 +7,11 @@
         matInput
         type="text"
         [magic]="mgc.P_ControlName"
-        [placeholder]="mg.getPlaceholder(mgc.P_ControlName)"
         [formControlName]="mgc.P_ControlName"
         mgFormat
       />
+
+      <mat-hint>{{ mg.getPlaceholder(mgc.P_ControlName) }}</mat-hint>
 
       <mat-error>
         <mgError [magic]="mgc.P_ControlName"></mgError>

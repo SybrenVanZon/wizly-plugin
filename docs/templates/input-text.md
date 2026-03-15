@@ -12,7 +12,7 @@ Magic's base template for text input.
 | **`zoom`** | `'true'` if a zoom button was detected. | sibling zoom `<button>` element |
 | **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
-| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrPlaceholder`** | Hint text (rendered as `<mat-hint>`). | `[placeholder]`, `placeholder` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 | **`required`** | Required attribute. | `required`, `[required]` |
 | **`readonly`** | Readonly attribute. | `readonly`, `[readonly]` |

@@ -15,11 +15,12 @@
               matInput
               type="text"
               [magic]="mgc.V_UserName"
-              [placeholder]="mg.getPlaceholder(mgc.V_UserName)"
               [formControlName]="mgc.V_UserName"
               mgFormat
               [required]="true"
             />
+
+            <mat-hint>{{ mg.getPlaceholder(mgc.V_UserName) }}</mat-hint>
 
             <mat-error>
               <mgError [magic]="mgc.V_UserName"></mgError>
@@ -34,11 +35,12 @@
               matInput
               type="password"
               [magic]="mgc.V_Password"
-              [placeholder]="mg.getPlaceholder(mgc.V_Password)"
               [formControlName]="mgc.V_Password"
               mgFormat
               [required]="true"
             />
+
+            <mat-hint>{{ mg.getPlaceholder(mgc.V_Password) }}</mat-hint>
 
             <mat-error>
               <mgError [magic]="mgc.V_Password"></mgError>

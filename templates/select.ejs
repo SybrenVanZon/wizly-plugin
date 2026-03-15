@@ -16,7 +16,6 @@
         <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
         [formControlName]="<%= magic %>"
         <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
-        <% if (attrPlaceholder) { %>placeholder="<%= attrPlaceholder %>"<% } %>
         <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
     >
         @for (o of mg.getItemListValues(<%= magicFuncParam %>); track o) {
@@ -25,6 +24,9 @@
             </mat-option>
         }
     </mat-select>
+    <% if (attrPlaceholder) { %>
+    <mat-hint>{{ <%= attrPlaceholder %> }}</mat-hint>
+    <% } %>
 </mat-form-field>
 <%- include('partials/mg-error') %>
 

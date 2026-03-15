@@ -1,11 +1,10 @@
 <mat-form-field
-  [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+  [class.d-none]="mg.getVisible(mgc.V_ControlName) === 'hidden'"
   [matTooltip]="mg.getTitle(mgc.V_ControlName)"
 >
   <input
     matInput
     [magic]="mgc.V_ControlName"
-    [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
     [formControlName]="mgc.V_ControlName"
     [matAutocomplete]="auto_V_ControlName"
     mgFormat
@@ -18,6 +17,8 @@
       </mat-option>
     }
   </mat-autocomplete>
+
+  <mat-hint>{{ mg.getPlaceholder(mgc.V_ControlName) }}</mat-hint>
 
   <mat-error>
     <mgError [magic]="mgc.V_ControlName"></mgError>

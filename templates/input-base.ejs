@@ -27,6 +27,10 @@ const partial = `inputs/${inputKind}`;
 
     <%- include(partial) %>
 
+    <% if (attrPlaceholder) { %>
+    <mat-hint>{{ <%= attrPlaceholder %> }}</mat-hint>
+    <% } %>
+
     <%- include('partials/mg-error') %>
 
 </mat-form-field>

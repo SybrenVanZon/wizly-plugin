@@ -14,7 +14,7 @@ Magic's base template for number input.
 | **`currencyMask`** | Always included for this template type. | _(always set)_ |
 | **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
-| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrPlaceholder`** | Hint text (rendered as `<mat-hint>`). | `[placeholder]`, `placeholder` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
 ## Transformation
@@ -57,6 +57,8 @@ Magic's base template for number input.
     <button mat-icon-button matSuffix ...>
         <mat-icon>more_horiz</mat-icon>
     </button>
+
+    <mat-hint>Placeholder tekst</mat-hint>
 
     <mgError [magic]="mgc.V_ControlName" mgError></mgError>
 </mat-form-field>

@@ -1,6 +1,6 @@
 <mat-selection-list
   multiple
-  [style.visibility]="mg.getVisible(mgc.List_Box1)"
+  [class.d-none]="mg.getVisible(mgc.List_Box1) === 'hidden'"
   [matTooltip]="mg.getTitle(mgc.List_Box1)"
   [magic]="mgc.List_Box1"
   [formControlName]="mgc.List_Box1"

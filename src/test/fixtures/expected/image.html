@@ -1,7 +1,7 @@
 @if (mg.isImageExists(mgc.Image2)) {
   <img
     [magic]="mgc.Image2"
-    [style.visibility]="mg.getVisible(mgc.Image2)"
+    [class.d-none]="mg.getVisible(mgc.Image2) === 'hidden'"
     [matTooltip]="mg.getTitle(mgc.Image2)"
     [src]="mg.getImage(mgc.Image2)"
   />

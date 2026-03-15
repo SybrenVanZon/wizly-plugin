@@ -1,24 +1,25 @@
 <div class="d-flex flex-row">
   <span
-    [style.visibility]="mg.getVisible(mgc.L_ControlName)"
+    [class.d-none]="mg.getVisible(mgc.L_ControlName) === 'hidden'"
     [matTooltip]="mg.getTitle(mgc.L_ControlName)"
   >
     {{ mg.getText(mgc.L_ControlName) }}
   </span>
 
   <mat-form-field
-    [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+    [class.d-none]="mg.getVisible(mgc.V_ControlName) === 'hidden'"
     [matTooltip]="mg.getTitle(mgc.V_ControlName)"
   >
     <input
       matInput
       type="text"
       [magic]="mgc.V_ControlName"
-      [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
       [formControlName]="mgc.V_ControlName"
       mgFormat
       [required]="mg.getMustInput(mgc.V_ControlName)"
     />
+
+    <mat-hint>{{ mg.getPlaceholder(mgc.V_ControlName) }}</mat-hint>
 
     <mat-error>
       <mgError [magic]="mgc.V_ControlName"></mgError>

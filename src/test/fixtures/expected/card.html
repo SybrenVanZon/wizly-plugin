@@ -1,6 +1,6 @@
 <mat-card
   [magic]="mgc.Group1"
-  [style.visibility]="mg.getVisible(mgc.Group1)"
+  [class.d-none]="mg.getVisible(mgc.Group1) === 'hidden'"
   [matTooltip]="mg.getTitle(mgc.Group1)"
 >
   <mat-card-content>
