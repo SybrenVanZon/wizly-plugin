@@ -1,0 +1,69 @@
+<form novalidate [formGroup]="screenFormGroup" [magic]="mgc.login">
+  <div class="d-flex flex-row">
+    <mat-card [magic]="mgc.Card_Login">
+      <mat-card-content>
+        <div class="d-flex flex-row">
+          <span>
+            {{ mg.getText(mgc.L_CardHeader) }}
+          </span>
+        </div>
+        <div class="d-flex flex-row">
+          <mat-form-field>
+            <mat-label>{{ mg.getText(mgc.L_UserName) }}</mat-label>
+
+            <input
+              matInput
+              type="text"
+              [magic]="mgc.V_UserName"
+              [placeholder]="mg.getPlaceholder(mgc.V_UserName)"
+              [formControlName]="mgc.V_UserName"
+              mgFormat
+              [required]="true"
+            />
+
+            <mat-error>
+              <mgError [magic]="mgc.V_UserName"></mgError>
+            </mat-error>
+          </mat-form-field>
+        </div>
+        <div class="d-flex flex-row">
+          <mat-form-field>
+            <mat-label>{{ mg.getText(mgc.L_Password) }}</mat-label>
+
+            <input
+              matInput
+              type="password"
+              [magic]="mgc.V_Password"
+              [placeholder]="mg.getPlaceholder(mgc.V_Password)"
+              [formControlName]="mgc.V_Password"
+              mgFormat
+              [required]="true"
+            />
+
+            <mat-error>
+              <mgError [magic]="mgc.V_Password"></mgError>
+            </mat-error>
+          </mat-form-field>
+        </div>
+        <div class="d-flex flex-row">
+          <mat-card [magic]="mgc.Actions_Login">
+            <mat-card-content>
+              <div class="d-flex flex-row">
+                <button
+                  mat-raised-button
+                  color="primary"
+                  [magic]="mgc.B_Forgot"
+                >
+                  {{ mg.getValue(mgc.B_Forgot) }}
+                </button>
+                <button mat-raised-button color="primary" [magic]="mgc.B_login">
+                  {{ mg.getValue(mgc.B_login) }}
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</form>

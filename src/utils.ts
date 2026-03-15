@@ -130,7 +130,7 @@ export function resolveControlName(magicParam: string, settings: WizlySettings):
 }
 
 export function extractBalancedTag(text: string, startIndex: number): string | null {
-    const openTagMatch = text.slice(startIndex).match(/^<(\w+)(?:\s|>)/);
+    const openTagMatch = text.slice(startIndex).match(/^<([\w-]+)(?:\s|>)/);
     if (!openTagMatch) {
         return null;
     }
@@ -158,7 +158,8 @@ export function extractBalancedTag(text: string, startIndex: number): string | n
 
         // Check for opening tag
         const tagCheck = text.slice(nextTag);
-        const match = tagCheck.match(new RegExp(`^<${tagName}(?:\\s|>)`));
+        const escapedTagName = tagName.replace(/[-]/g, '\\-');
+        const match = tagCheck.match(new RegExp(`^<${escapedTagName}(?:\\s|>)`));
         if (match) {
             depth++;
             i = nextTag + match[0].length;

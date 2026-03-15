@@ -13,7 +13,8 @@ import {
     resolveControlName,
     resolveTemplatePath,
     isHtmlFile,
-    matchesFilePattern
+    matchesFilePattern,
+    extractBalancedTag
 } from './utils';
 
 export type TabPageContent = Record<string, (string | null)[]>;
@@ -267,7 +268,94 @@ export async function transformText(text: string, filePath?: string, options?: {
                     const re = new RegExp(rule.regex, rule.flags ?? "gm");
                     let usedTemplate = false;
 
-                    if (rule.templateFile) {
+                    if (rule.templateFile && rule.useBalancedTag) {
+                        const tplPath = resolveTemplatePath(rule.templateFile);
+                        if (tplPath) {
+                            usedTemplate = true;
+                            const templateContent = fs.readFileSync(tplPath, 'utf8');
+
+                            const renderBalancedMatch = (_matchStart: number, openingTag: string, fullElement: string): string => {
+                                const content = fullElement.slice(openingTag.length, fullElement.lastIndexOf(`</`));
+                                const groups = (new RegExp(rule.regex, rule.flags ?? 'gm')).exec(openingTag)?.groups ?? {};
+                                const data: any = { ...groups, content };
+                                const allGroupAttrs = openingTag;
+
+                                data.zoomIcon = settings.zoomIcon || 'more_horiz';
+                                data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
+                                data.getLabel = (magic: string) => {
+                                    if (!settings) { return null; }
+                                    const cn = resolveControlName(magic, settings);
+                                    return cn ? labelMap[cn] : null;
+                                };
+                                data.getAttribute = (attrString: string, attrName: string) => {
+                                    if (!attrString || !attrName) { return null; }
+                                    const esc = attrName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                    const attrRe = new RegExp(`${esc}\\s*=\\s*"([^"]*)"`, 'i');
+                                    const m = attrRe.exec(attrString);
+                                    return m ? m[1] : null;
+                                };
+                                const findAttr = (keys: string[], ...sources: (string | undefined)[]) => {
+                                    for (const source of sources) {
+                                        if (!source) { continue; }
+                                        for (const key of keys) {
+                                            const val = data.getAttribute(source, key);
+                                            if (val) { return val; }
+                                        }
+                                    }
+                                    return null;
+                                };
+                                data.magic = data.magic ?? findAttr(['[magic]', 'magic'], allGroupAttrs);
+                                data.rowId = findAttr(['[rowId]'], allGroupAttrs);
+                                data.magicFuncParam = data.rowId ? `${data.magic}, ${data.rowId}` : data.magic;
+                                data.attrVisible = findAttr(['[style.visibility]'], allGroupAttrs);
+                                data.ngIf = findAttr(['*ngIf'], allGroupAttrs);
+                                data.attrTooltip = findAttr(['[matTooltip]', 'matTooltip'], allGroupAttrs);
+
+                                data.startsWith = (str: string, prefix: string) => str.replace(/^mgc\./, '').startsWith(prefix);
+                                data.endsWith = (str: string, suffix: string) => str.replace(/^mgc\./, '').endsWith(suffix);
+                                data.includes = (str: string, substr: string) => str.replace(/^mgc\./, '').includes(substr);
+                                data.include = (templateName: string, includeData?: any) => {
+                                    const resolvedName = templateName.endsWith('.ejs') ? templateName : `${templateName}.ejs`;
+                                    const includeTplPath = resolveTemplatePath(resolvedName);
+                                    if (!includeTplPath) { return `<!-- Template not found: ${resolvedName} -->`; }
+                                    const incContent = fs.readFileSync(includeTplPath, 'utf8');
+                                    const extensionTemplatesDir = path.join(__dirname, '..', 'templates');
+                                    return ejs.render(incContent, { ...data, ...includeData }, { filename: includeTplPath, views: [extensionTemplatesDir] });
+                                };
+
+                                try {
+                                    const extensionTemplatesDir = path.join(__dirname, '..', 'templates');
+                                    return ejs.render(templateContent, data, { filename: tplPath, views: [extensionTemplatesDir] });
+                                } catch (err) {
+                                    console.error(`EJS render error for rule ${rule.name}:`, err);
+                                    vscode.window.showErrorMessage(`Template render error in ${rule.name}: ${err}`);
+                                    return fullElement;
+                                }
+                            };
+
+                            // Collect all matches, process right-to-left so inner elements are handled before outer
+                            const matches: { index: number; openingTag: string; fullElement: string }[] = [];
+                            re.lastIndex = 0;
+                            let match: RegExpExecArray | null;
+                            while ((match = re.exec(newText)) !== null) {
+                                const openingTag = match[0];
+                                const fullElement = extractBalancedTag(newText, match.index);
+                                if (fullElement) {
+                                    matches.push({ index: match.index, openingTag, fullElement });
+                                    re.lastIndex = match.index + openingTag.length;
+                                }
+                            }
+                            for (let i = matches.length - 1; i >= 0; i--) {
+                                const { index, openingTag } = matches[i];
+                                const currentFullElement = extractBalancedTag(newText, index);
+                                if (!currentFullElement) { continue; }
+                                const rendered = renderBalancedMatch(index, openingTag, currentFullElement);
+                                newText = newText.slice(0, index) + rendered + newText.slice(index + currentFullElement.length);
+                            }
+                        }
+                    }
+
+                    if (rule.templateFile && !rule.useBalancedTag) {
                         const tplPath = resolveTemplatePath(rule.templateFile);
                         if (tplPath) {
                             usedTemplate = true;

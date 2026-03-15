@@ -1,0 +1,96 @@
+<div
+    novalidate
+    [formGroup]="screenFormGroup"
+>
+    <div
+        style="display: flex; flex-direction: column"
+        [magic]="mgc.login"
+    >
+        <div style="display: flex; flex-direction: row">
+            <mat-card
+                [magic]="mgc.Card_Login"
+                class="container_border"
+            >
+                <div style="display: flex; flex-direction: row">
+                    <label
+                        [magic]="mgc.L_CardHeader"
+                        class="lable_overflow"
+                    >
+                        {{mg.getText(mgc.L_CardHeader)}}
+                    </label>
+                </div>
+                <div style="display: flex; flex-direction: row">
+                    <label
+                        [magic]="mgc.L_UserName"
+                        class="lable_overflow"
+                    >
+                        {{mg.getText(mgc.L_UserName)}}
+                    </label>
+                    <div>
+                        <mat-form-field>
+                            <div>
+                                <input
+                                    matInput
+                                    [magic]="mgc.V_UserName"
+                                    [placeholder]="mg.getPlaceholder(mgc.V_UserName)"
+                                    [formControlName]="mgc.V_UserName"
+                                    mgFormat
+                                    required
+                                >
+                                <mgError [magic]=mgc.V_UserName> </mgError>
+                            </div>
+                        </mat-form-field>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: row">
+                    <label
+                        [magic]="mgc.L_Password"
+                        class="lable_overflow"
+                    >
+                        {{mg.getText(mgc.L_Password)}}
+                    </label>
+                    <div>
+                        <mat-form-field>
+                            <div>
+                                <input
+                                    matInput
+                                    [magic]="mgc.V_Password"
+                                    [attr.required]=""
+                                    type="password"
+                                    [placeholder]="mg.getPlaceholder(mgc.V_Password)"
+                                    [formControlName]="mgc.V_Password"
+                                    mgFormat
+                                    required
+                                >
+                                <mgError [magic]=mgc.V_Password> </mgError>
+                            </div>
+                        </mat-form-field>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: row">
+                    <mat-card
+                        [magic]="mgc.Actions_Login"
+                        class="container_border"
+                    >
+                        <div style="display: flex; flex-direction: row">
+                            <button
+                                mat-raised-button
+                                color="primary"
+                                [magic]="mgc.B_Forgot"
+                            >
+                                {{mg.getValue(mgc.B_Forgot)}}
+                            </button>
+                            <button
+                                mat-raised-button
+                                color="primary"
+                                [magic]="mgc.B_login"
+                            >
+                                {{mg.getValue(mgc.B_login)}}
+                            </button>
+                        </div>
+                    </mat-card>
+                </div>
+            </mat-card>
+        </div>
+    </div>
+</div>

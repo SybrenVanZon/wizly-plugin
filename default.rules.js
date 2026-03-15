@@ -52,7 +52,8 @@ module.exports = {
     {
       name: "Card",
       description: "Captures the mat-card element created by Magic Group element`, the rule should be placed after subform",
-      regex: /(?<card><mat-card[\s\S]*?>\r?\n)(?<content>[\s\S]*?)<\/mat-card>/gm,
+      regex: /(?<card><mat-card[\s\S]*?>)/gm,
+      useBalancedTag: true,
       templateFile: "card.ejs",
       active: true,
       filePattern: "*.html",

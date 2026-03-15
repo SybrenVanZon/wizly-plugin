@@ -17,6 +17,7 @@ This document expands on the bundled default rules included with Wizly. These ru
 - `templateFile`: path to the EJS template file to use for replacements. Supports named group references via `$<groupName>`. Use an empty string to remove matched content.
 - `active`: enable or disable the rule (`true`/`false`).
 - `filePattern`: glob‑like file name filter (e.g., `*.html`, `*.ts`). Supports `*` and `?`, matched case‑insensitively.
+- `useBalancedTag`: when `true`, Wizly uses a stack-based parser instead of the regex to find the matching closing tag. This correctly handles nested elements of the same type (e.g. `<mat-card>` inside `<mat-card>`). The regex in this mode should only match the **opening tag** — the content between opening and closing tag is extracted automatically and passed to the template as `content`. Rules with this flag are applied innermost-first so nested structures are always processed in the right order.
 
 ## Advanced Fields in Rules
 

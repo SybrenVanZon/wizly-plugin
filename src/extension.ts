@@ -199,6 +199,7 @@ async function transformCurrentFile() {
         editor.selection = new vscode.Selection(newPosition, newPosition);
         editor.revealRange(new vscode.Range(newPosition, newPosition));
 
+        await doc.save();
         vscode.window.showInformationMessage('HTML transformation completed!');
     } catch (error) {
         vscode.window.showErrorMessage(`Error during transformation: ${error}`);

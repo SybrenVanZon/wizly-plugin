@@ -13,6 +13,7 @@ export interface RegexRule {
     active: boolean;
     activeWhen?: string;
     filePattern: string;
+    useBalancedTag?: boolean;
 }
 
 export interface Mode {
@@ -244,7 +245,8 @@ export function sanitizeRules(rawRules: any[]): RegexRule[] {
                 templateFile: typeof r.templateFile === 'string' ? r.templateFile : undefined,
                 active: r.active !== false,
                 activeWhen: typeof r.activeWhen === 'string' ? r.activeWhen : undefined,
-                filePattern: String(r.filePattern ?? '*.html')
+                filePattern: String(r.filePattern ?? '*.html'),
+                useBalancedTag: r.useBalancedTag === true ? true : undefined
             };
         });
 }
