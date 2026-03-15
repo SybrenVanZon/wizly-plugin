@@ -31,3 +31,31 @@ The flex-row template outputs Bootstrap utility classes. Either include Bootstra
 ```
 
 > If you already use Bootstrap, no additional CSS is needed for these classes.
+
+---
+
+# Angular Module Requirements
+
+## MatIconModule
+
+Wizly-generated templates use `<mat-icon>` for zoom buttons. Add `MatIconModule` to the imports of your shared Angular module (e.g. `magic.gen.lib.module.ts`):
+
+```typescript
+import { MatIconModule } from '@angular/material/icon';
+
+@NgModule({
+  imports: [
+    // ...
+    MatIconModule,
+  ],
+})
+export class MagicGenLibModule {}
+```
+
+## Material Icons stylesheet
+
+Add the Material Icons font to your `index.html` so icon names render correctly:
+
+```html
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+```

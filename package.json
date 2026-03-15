@@ -139,8 +139,8 @@
         },
         "wizly.zoomIcon": {
           "type": "string",
-          "default": "more_horiz",
-          "description": "Material icon name used for zoom buttons (e.g. 'more_horiz', 'search', 'open_in_new')."
+          "default": "search",
+          "description": "Material icon name used for zoom buttons (e.g. 'search', 'more_horiz', 'open_in_new')."
         },
         "wizly.removeEmptyLinesAfterPrettier": {
           "type": "boolean",

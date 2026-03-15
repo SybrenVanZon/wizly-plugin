@@ -225,7 +225,7 @@ export async function transformText(text: string, filePath?: string, options?: {
             timeFormat: (cachedSettings?.transformTag?.timeFormat ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.timeFormat', 'HH:mm')) as string,
             template: (cachedSettings?.transformTag?.template ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.template')) as string | undefined,
         },
-        zoomIcon: (cachedSettings?.zoomIcon ?? vscode.workspace.getConfiguration('wizly').get<string>('zoomIcon', 'more_horiz')) as string,
+        zoomIcon: (cachedSettings?.zoomIcon ?? vscode.workspace.getConfiguration('wizly').get<string>('zoomIcon', 'search')) as string,
         smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? vscode.workspace.getConfiguration('wizly').get('smartLabelMatcher'),
         removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
         smartTabMatcher: cachedSettings?.smartTabMatcher ?? vscode.workspace.getConfiguration('wizly').get<boolean>('smartTabMatcher', false),
@@ -280,7 +280,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                 const data: any = { ...groups, content };
                                 const allGroupAttrs = openingTag;
 
-                                data.zoomIcon = settings.zoomIcon || 'more_horiz';
+                                data.zoomIcon = settings.zoomIcon || 'search';
                                 data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
                                 data.getLabel = (magic: string) => {
                                     if (!settings) { return null; }
@@ -369,7 +369,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                     }
                                 }
 
-                                data.zoomIcon = settings.zoomIcon || 'more_horiz';
+                                data.zoomIcon = settings.zoomIcon || 'search';
                                 data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
 
                                 data.getLabel = (magic: string) => {
