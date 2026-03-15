@@ -8,7 +8,7 @@
     [formControlName]="<%= magic %>"
     <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
     <% if (attrPlaceholder) { %>placeholder="<%= attrPlaceholder %>"<% } %>
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >

@@ -3,7 +3,7 @@
     [dataSource]="dataSource" 
     matSort 
     (matSortChange)="tableService.sortData($event)"
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
 >
     
@@ -21,6 +21,6 @@
     [pageSize]="10" 
     [pageSizeOptions]="[5, 10, 20]" 
     (page)="tableService.mgOnPaginateChange($event)"
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
 >
 </mat-paginator>

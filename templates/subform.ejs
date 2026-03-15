@@ -1,5 +1,5 @@
 <magic-subform 
     [magic]="<%= magic %>" 
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
 > 
 </magic-subform>

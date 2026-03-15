@@ -25,6 +25,7 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **Zoom button icon**: New `zoomIcon` setting to configure the icon used in zoom buttons.
 
 ### Changed
+- **Visibility via CSS class**: Templates now use `[class.d-none]="... === 'hidden'"` instead of `[style.visibility]="..."`. Add `.d-none { display: none !important; }` to your project CSS (or use Bootstrap).
 - **`replaceAfterBeautify` removed**: The `replaceAfterBeautify` rule property has been removed. Transformation tag insertion now always runs before Prettier formatting.
 - **Input templates consolidated**: Input type templates have been unified for simpler maintenance.
 - **`magicFuncParam` introduced**: Templates now use a unified `magicFuncParam` variable that combines the `magic` attribute and optional `rowId` into a single function parameter (e.g. `mg.getValue(magic, rowId)`).

@@ -5,7 +5,7 @@
 <mat-checkbox
     [magic]="<%= magic %>"
     <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
     [formControlName]="<%= magic %>"
     <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>

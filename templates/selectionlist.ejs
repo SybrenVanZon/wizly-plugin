@@ -3,7 +3,7 @@
 <% } %>
         <mat-selection-list
             multiple
-            <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+            <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
             <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
             [magic]="<%= magic %>"
             <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>

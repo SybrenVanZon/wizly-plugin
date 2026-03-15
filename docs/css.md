@@ -10,6 +10,10 @@ The `<mgError>` component needs to be displayed as a block-level element so it t
 mgError {
   display: inline-block;
 }
+
+.d-none {
+  display: none !important;
+}
 ```
 
 ## Flex row (`d-flex flex-row`)

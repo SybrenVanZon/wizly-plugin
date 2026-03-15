@@ -2,7 +2,7 @@
     [magic]="<%= magic %>"
     (selectedTabChange)="task.mgOnTabSelectionChanged(<%= magic %>, $event.index)"
     [selectedIndex]="mg.getTabSelectedIndex(<%= magic %>)"
-    <% if (attrVisible) { %>[style.visibility]="<%= attrVisible %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
 >
 <%
