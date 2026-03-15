@@ -9,7 +9,7 @@
     const tabName = magic.replace(/^mgc\./, '');
     const tabPages = tabPageContent && tabPageContent[tabName];
     if (tabPages) {
-        for (let i = 1; i < tabPages.length; i++) {
+        for (let i = 0; i < tabPages.length; i++) {
 %>
     <mat-tab [label]="mg.getTabpageText(<%= magic %>, <%= i %>)">
         <%- tabPages[i] %>

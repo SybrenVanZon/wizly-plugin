@@ -78,9 +78,9 @@ export function extractTabContentAndRemove(textOriginal: string): { tabPageConte
     for (let i = results.length - 1; i >= 0; i--) {
         const { start, end, magicName, tabIndex, innerContent } = results[i];
         if (!tabPageContent[magicName]) {
-            tabPageContent[magicName] = [null]; // index 0 unused (Magic is 1-based)
+            tabPageContent[magicName] = [];
         }
-        tabPageContent[magicName][tabIndex] = innerContent;
+        tabPageContent[magicName][tabIndex - 1] = innerContent;
         text = text.slice(0, start) + text.slice(end);
     }
 
