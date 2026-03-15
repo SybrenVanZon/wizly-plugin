@@ -4,10 +4,10 @@ Magic's base template for table columns (native HTML).
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`magic`** | The Magic ID of the column (e.g., `mgc.Column38`). |
-| **`content`** | The inner content of the cell (inputs, labels, buttons). |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID of the column (e.g., `mgc.Column38`). | `[magic]` |
+| **`content`** | The inner content of the cell (inputs, labels, buttons). | _(inner HTML)_ |
 
 ## Transformation
 

@@ -4,10 +4,10 @@ Magic's base template for label.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| `content` | The inner text/HTML of the label. |
-| `magic` | The Magic ID of the label (not used in default template, but available). |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID of the label (not used in default template, but available). | `[magic]` |
+| **`content`** | The inner text/HTML of the label. | _(inner HTML)_ |
 
 ## Transformation
 

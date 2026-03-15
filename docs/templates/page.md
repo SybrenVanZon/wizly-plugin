@@ -4,10 +4,10 @@ Magic's base template for page.
 
 ## Available Variables
 
-| Variable | Description | Example |
+| Variable | Description | Source Attributes Searched |
 | :--- | :--- | :--- |
-| `magic` | The unique Magic ID of the page container. | `mgc.page_123` |
-| `content` | The inner HTML content of the page (all child elements). | `<mat-form-field>...</mat-form-field>` |
+| **`magic`** | The Magic ID of the page container. | `[magic]` |
+| **`content`** | The inner HTML content of the page (all child elements). | _(inner HTML)_ |
 
 ## Transformation
 

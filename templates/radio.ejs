@@ -18,7 +18,7 @@
         </mat-radio-button>
     }
 </mat-radio-group>
-<mgError [magic]="<%= magic %>" <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>> </mgError>
+<%- include('partials/mg-error') %>
 
 <% if (typeof rowId !== 'undefined' && rowId) { %>
     } @else {

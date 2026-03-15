@@ -18,5 +18,7 @@
   }
   <mat-timepicker #picker_P_ControlName></mat-timepicker>
 
-  <mgError [magic]="mgc.P_ControlName" mgError></mgError>
+  <mat-error>
+    <mgError [magic]="mgc.P_ControlName"></mgError>
+  </mat-error>
 </mat-form-field>

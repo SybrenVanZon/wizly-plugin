@@ -20,6 +20,8 @@
       [required]="mg.getMustInput(mgc.V_ControlName)"
     />
 
-    <mgError [magic]="mgc.V_ControlName" mgError></mgError>
+    <mat-error>
+      <mgError [magic]="mgc.V_ControlName"></mgError>
+    </mat-error>
   </mat-form-field>
 </div>

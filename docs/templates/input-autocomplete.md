@@ -4,18 +4,18 @@ Magic's base template for autocomplete input.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`magic`** | The Magic ID (e.g., `mgc.V_ControlName`). |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. |
-| **`zoom`** | `'true'` if a zoom button was detected. |
-| **`zoomIcon`** | The icon to use for the zoom button (default: `more_horiz`). |
-| **`attrVisible`** | Controls visibility. |
-| **`attrTooltip`** | Tooltip text. |
-| **`attrPlaceholder`** | Placeholder text. |
-| **`attrDisabled`** | Disabled state. (From optional zoom button) |
-| **`attrRequired`** | Extracted static or dynamic required attribute. |
-| **`inputType`** | The input type (e.g. `text`, `password`). Defaults to `text`. |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_ControlName`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`zoom`** | `'true'` if a zoom button was detected. | sibling zoom `<button>` element |
+| **`zoomIcon`** | The icon to use for the zoom button (default: `more_horiz`). | zoom button's `mat-icon` content |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
+| **`inputType`** | The input type (e.g. `text`, `password`). Defaults to `text`. | `[type]`, `type` |
 
 ## Transformation
 

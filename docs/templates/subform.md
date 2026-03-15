@@ -4,9 +4,9 @@ Magic's base template for subform.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| `content` | The full `<magic-subform>` element string captured from the source. |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`content`** | The full `<magic-subform>` element string captured from the source. | _(inner HTML)_ |
 
 ## Transformation
 

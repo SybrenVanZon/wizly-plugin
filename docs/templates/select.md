@@ -4,15 +4,15 @@ Magic's base template for select.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| `magic` | The Magic control name (e.g., `mgc.MySelect`). |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. |
-| `attrRequired` | The `required` attribute value. |
-| `attrPlaceholder` | The placeholder text. |
-| `attrVisible` | The visibility binding (e.g., `mg.isVisible(...)`). |
-| `attrTooltip` | The tooltip text. |
-| `attrDisabled` | The disabled state binding. |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.MySelect`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
+| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
 ## Transformation
 

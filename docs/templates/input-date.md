@@ -4,15 +4,15 @@ Magic's base template for date input.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`magic`** | The Magic ID (e.g., `mgc.V_Date`). |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. |
-| **`attrVisible`** | Controls visibility. |
-| **`attrTooltip`** | Tooltip text. |
-| **`attrPlaceholder`** | Placeholder text. |
-| **`attrDisabled`** | Disabled state. |
-| **`attrRequired`** | Extracted static or dynamic required attribute. |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_Date`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
 
 ## Transformation
 

@@ -4,18 +4,18 @@ Magic's base template for text input.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`magic`** | The Magic ID (e.g., `mgc.V_ControlName`). |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. |
-| **`type`** | Input type (text or password). |
-| **`zoom`** | `'true'` if a zoom button was detected. |
-| **`attrVisible`** | Controls visibility. |
-| **`attrTooltip`** | Tooltip text. |
-| **`attrPlaceholder`** | Placeholder text. |
-| **`attrDisabled`** | Disabled state (often from zoom button). |
-| **`required`** | Extracted `required` attribute. |
-| **`readonly`** | Extracted `readonly` attribute. |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_ControlName`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`type`** | Input type (`text` or `password`). | `[type]`, `type` |
+| **`zoom`** | `'true'` if a zoom button was detected. | sibling zoom `<button>` element |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrPlaceholder`** | Placeholder text. | `[placeholder]`, `placeholder` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
+| **`required`** | Required attribute. | `required`, `[required]` |
+| **`readonly`** | Readonly attribute. | `readonly`, `[readonly]` |
 
 ## Transformation
 

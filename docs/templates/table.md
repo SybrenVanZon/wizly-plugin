@@ -4,11 +4,11 @@ Magic's base template for tables (native HTML table with Material directives).
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`attrVisible`** | Controls visibility. |
-| **`attrTooltip`** | Tooltip text. |
-| **`content`** | The inner HTML of the table (the columns). |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`content`** | The inner HTML of the table (the columns). | _(inner HTML)_ |
 
 ## Row-Level FormGroup
 By default, Magic applies the `[formGroup]` binding inside each cell (per column). This template optimizes the structure by moving the binding up to the `<tr mat-row>` element. This ensures that each row has its own form group context, allowing for inline editing within cells without needing extra wrapper `<div>` elements in each cell.

@@ -7,7 +7,9 @@ Magic's base template for buttons.
 | Variable | Description | Source Attributes Searched |
 | :--- | :--- | :--- |
 | **`magic`** | The Magic ID (e.g., `mgc.V_BtnControlName`). | `[magic]` |
-| **`attrVisible`** | Controls visibility. | `[style.visibility]`, `*ngIf` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`ngIf`** | Conditional rendering expression. | `*ngIf` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
 | **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
 | **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
@@ -40,4 +42,3 @@ Magic's base template for buttons.
     {{mg.getValue(mgc.V_BtnControlName)}} 
 </button>
 ```
-*(Note: The button template primarily cleans up attributes or applies standard styling logic if configured.)*

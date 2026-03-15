@@ -26,7 +26,7 @@
         }
     </mat-select>
 </mat-form-field>
-<mgError [magic]="<%= magic %>" <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>> </mgError>
+<%- include('partials/mg-error') %>
 
 <% if (typeof rowId !== 'undefined' && rowId) { %>
     } @else {

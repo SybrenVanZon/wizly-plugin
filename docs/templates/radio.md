@@ -4,14 +4,14 @@ Magic's base template for radio group.
 
 ## Available Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `magic` | The value of the `magic` or `[magic]` attribute. | `mgc.vt_Gender` |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `row.rowId` |
-| `attrVisible` | The visibility binding. | `mg.getVisible(mgc.vt_Gender)` |
-| `attrTooltip` | The tooltip binding. | `mg.getTitle(mgc.vt_Gender)` |
-| `attrRequired` | The required state. | `true` |
-| `attrDisabled` | The disabled state binding. | `mg.checkIsReadOnly(...)` |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.vt_Gender`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
 ## Transformation
 

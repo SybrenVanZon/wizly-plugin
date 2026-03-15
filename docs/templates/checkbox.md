@@ -4,14 +4,14 @@ Magic's base template for checkbox.
 
 ## Available Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `magic` | The value of the `magic` or `[magic]` attribute. | `mgc.vt_IsActive` |
-| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `row.rowId` |
-| `attrVisible` | The visibility binding (e.g. from `[style.visibility]`). | `mg.getVisible(mgc.vt_IsActive)` |
-| `attrTooltip` | The tooltip binding (e.g. from `[matTooltip]`). | `mg.getTitle(mgc.vt_IsActive)` |
-| `attrRequired` | The required state (static `true` or dynamic binding). | `true` or `mg.isRequired(...)` |
-| `attrDisabled` | The disabled state binding. | `mg.checkIsReadOnly(...)` |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_IsActive`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
 
 ## Transformation
 

@@ -4,12 +4,12 @@ Magic's base template for tab group.
 
 ## Available Variables
 
-| Variable | Description |
-| :--- | :--- |
-| **`magic`** | The Magic ID (e.g., `mgc.Tab14`). |
-| **`attrVisible`** | Controls visibility. |
-| **`attrTooltip`** | Tooltip text. |
-| **`tabPageContent`** | Object with tab content per Magic tab group (see [smartTabMatcher](#smarttabmatcher)). |
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.Tab14`). | `[magic]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`tabPageContent`** | Object with tab content per Magic tab group (see [smartTabMatcher](#smarttabmatcher)). | _(extracted by smartTabMatcher)_ |
 
 ## Transformation
 

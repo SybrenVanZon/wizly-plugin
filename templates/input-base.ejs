@@ -27,11 +27,7 @@ const partial = `inputs/${inputKind}`;
 
     <%- include(partial) %>
 
-    <mgError
-        [magic]="<%= magic %>"
-        <% if (hasRowId) { %>[rowId]="<%= rowId %>"<% } %>
-        mgError
-    ></mgError>
+    <%- include('partials/mg-error') %>
 
 </mat-form-field>
 

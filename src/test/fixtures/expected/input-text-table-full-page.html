@@ -27,11 +27,12 @@
                   mgFormat
                 />
 
-                <mgError
-                  [magic]="mgc.V_ControlName"
-                  [rowId]="row.rowId"
-                  mgError
-                ></mgError>
+                <mat-error>
+                  <mgError
+                    [magic]="mgc.V_ControlName"
+                    [rowId]="row.rowId"
+                  ></mgError>
+                </mat-error>
               </mat-form-field>
             } @else {
               <span [magic]="mgc.V_ControlName" [rowId]="row.rowId">
