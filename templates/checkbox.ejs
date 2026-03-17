@@ -1,0 +1,22 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-checkbox
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+    [formControlName]="<%= magic %>"
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+    {{mg.getText(<%= magicFuncParam %>)}}
+</mat-checkbox>
+<%- include('partials/mg-error') %>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

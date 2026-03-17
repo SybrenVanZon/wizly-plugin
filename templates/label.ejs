@@ -1,0 +1,6 @@
+<span
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    <%- content %>
+</span>

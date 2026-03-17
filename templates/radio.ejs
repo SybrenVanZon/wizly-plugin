@@ -1,0 +1,27 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-radio-group
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+    [formControlName]="<%= magic %>"
+    (change)="task.mgOnRadioSelectionChanged(<%= magicFuncParam %>)"
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+    @for (o of mg.getItemListValues(<%= magicFuncParam %>); track o) {
+        <mat-radio-button [value]="o.index">
+            {{o.displayValue}}
+        </mat-radio-button>
+    }
+</mat-radio-group>
+<%- include('partials/mg-error') %>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

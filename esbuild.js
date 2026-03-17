@@ -35,7 +35,7 @@ async function main() {
 		sourcesContent: false,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode', 'prettier'],
+		external: ['vscode', 'prettier', 'ejs'],
 		logLevel: 'silent',
 		plugins: [
 			/* add to the end of plugins array */

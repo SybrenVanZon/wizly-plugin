@@ -1,0 +1,42 @@
+<%
+const hasRowId = !!rowId;
+const inputStr = input ?? '';
+const label = getLabel(magic);
+
+let inputKind = 'text';
+if (options) inputKind = 'number';
+else if (getAttribute(inputStr, '[matDatepicker]')) inputKind = 'date';
+else if (getAttribute(inputStr, '[matAutocomplete]')) inputKind = 'autocomplete';
+else if (inputType === 'time') inputKind = 'time';
+
+const partial = `inputs/${inputKind}`;
+%>
+
+<% if (hasRowId) { %>
+@if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-form-field
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+
+    <% if (!hasRowId && label) { %>
+    <mat-label><%= label %></mat-label>
+    <% } %>
+
+    <%- include(partial) %>
+
+    <% if (attrPlaceholder) { %>
+    <mat-hint>{{ <%= attrPlaceholder %> }}</mat-hint>
+    <% } %>
+
+    <%- include('partials/mg-error') %>
+
+</mat-form-field>
+
+<% if (hasRowId) { %>
+} @else {
+    <%- include('partials/table-readonly') %>
+}
+<% } %>

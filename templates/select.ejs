@@ -1,0 +1,37 @@
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    @if (mg.isRowInRowEditing(row)) {
+<% } %>
+
+<mat-form-field
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    <% if (typeof rowId === 'undefined' || !rowId) { %>
+        <% if (getLabel(magic)) { %>
+        <mat-label><%= getLabel(magic) %></mat-label>
+        <% } %>
+    <% } %>
+    <mat-select
+        [magic]="<%= magic %>"
+        <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+        [formControlName]="<%= magic %>"
+        <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+        <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+    >
+        @for (o of mg.getItemListValues(<%= magicFuncParam %>); track o) {
+            <mat-option [value]="o.index">
+                {{o.displayValue}}
+            </mat-option>
+        }
+    </mat-select>
+    <% if (attrPlaceholder) { %>
+    <mat-hint>{{ <%= attrPlaceholder %> }}</mat-hint>
+    <% } %>
+</mat-form-field>
+<%- include('partials/mg-error') %>
+
+<% if (typeof rowId !== 'undefined' && rowId) { %>
+    } @else {
+        <%- include('partials/table-readonly') %>
+    }
+<% } %>

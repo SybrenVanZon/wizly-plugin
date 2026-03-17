@@ -14,18 +14,15 @@ This document expands on the bundled default rules included with Wizly. These ru
 - `description`: short human‑readable summary of what the rule does.
 - `regex`: pattern to match. Use a string (with optional `flags`) or a `RegExp` literal. Named groups are supported (e.g., `(?<content>[\s\S]*?)`).
 - `flags`: regex flags when `regex` is a string (Wizly applies `g` and `m` by default to all replacements).
-- `replacement`: replacement text; supports named group references via `$<groupName>`. Use an empty string to remove matched content.
+- `templateFile`: path to the EJS template file to use for replacements. Supports named group references via `$<groupName>`. Use an empty string to remove matched content.
 - `active`: enable or disable the rule (`true`/`false`).
-- `replaceAfterBeautify`: set `true` to perform replacement after Prettier formatting; `false` applies before formatting.
 - `filePattern`: glob‑like file name filter (e.g., `*.html`, `*.ts`). Supports `*` and `?`, matched case‑insensitively.
+- `useBalancedTag`: when `true`, Wizly uses a stack-based parser instead of the regex to find the matching closing tag. This correctly handles nested elements of the same type (e.g. `<mat-card>` inside `<mat-card>`). The regex in this mode should only match the **opening tag** — the content between opening and closing tag is extracted automatically and passed to the template as `content`. Rules with this flag are applied innermost-first so nested structures are always processed in the right order.
 
 ## Advanced Fields in Rules
 
-In addition to the essentials shown in the README (`name`, `regex`, `replacement`, `active`, `filePattern`), rules support:
-
-- `description`: human‑readable summary of the rule.
+In addition to the essentials shown in the README (`name`, `regex`, `templateFile`, `active`, `filePattern`), rules support:
 - `flags`: regex flags to apply when `regex` is a string (Wizly also applies `g` and `m` by default).
-- `replaceAfterBeautify`: set `true` to perform replacement after Prettier formatting.
 
 ## Examples
 

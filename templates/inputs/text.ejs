@@ -1,0 +1,24 @@
+<input
+    matInput
+    <% if (inputType && inputType !== 'text') { %>type="<%= inputType %>"<% } else { %>type="text"<% } %>
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    [formControlName]="<%= magic %>"
+    mgFormat
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+
+<% if (zoom) { %>
+<button
+    mat-icon-button
+    matSuffix
+    color="primary"
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+    <mat-icon><%= zoomIcon %></mat-icon>
+</button>
+<% } %>
+

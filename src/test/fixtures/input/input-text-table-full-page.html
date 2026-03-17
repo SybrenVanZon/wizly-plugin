@@ -1,0 +1,92 @@
+ 
+<div
+    novalidate
+    [formGroup]="screenFormGroup"
+>
+    <div
+        style="display: flex; flex-direction: column"
+        [magic]="mgc.tableinputtext"
+    >
+        <div style="display: flex; flex-direction: row">
+            <div class="example-container mat-elevation-z8 Table1TableContainerProps">
+                <mat-table
+                    #table
+                    [dataSource]="dataSource"
+                    class="container_border"
+                    matSort
+                    matSortDisableClear
+                    (matSortChange)="tableService.sortData($event)"
+                >
+                    <ng-container
+                        [magic]="mgc.Column2"
+                        [matColumnDef]="mgc.Column2"
+                    >
+                        <mat-header-cell *matHeaderCellDef>
+                            {{mg.getText(mgc.Column2)}}
+                        </mat-header-cell>
+                        <mat-cell
+                            *matCellDef="let row"
+                            magicMark="magicTableRowContainer"
+                        >
+                            <div
+                                style="display: flex; flex-direction: row"
+                                *ngIf="mg.ifRowCreated(row)"
+                            >
+                                <div
+                                    [formGroup]="mg.getFormGroupByRow(row.rowId)"
+                                    style="display: flex; flex-direction: row"
+                                >
+                                    <div>
+                                        <mat-form-field *ngIf="mg.isRowInRowEditing(row)">
+                                            <div>
+                                                <input
+                                                    *ngIf="mg.isRowInRowEditing(row)"
+                                                    matInput
+                                                    [magic]="mgc.V_ControlName"
+                                                    [rowId]="row.rowId"
+                                                    [placeholder]="mg.getPlaceholder(mgc.V_ControlName, row.rowId)"
+                                                    [formControlName]="mgc.V_ControlName"
+                                                    mgFormat
+                                                >
+                                                <mgError
+                                                    [magic]=mgc.V_ControlName
+                                                    [rowId]="row.rowId"
+                                                > </mgError>
+                                            </div>
+                                        </mat-form-field>
+                                        <label
+                                            *ngIf="!mg.isRowInRowEditing(row)"
+                                            [magic]="mgc.V_ControlName"
+                                            [rowId]="row.rowId"
+                                        >
+                                            {{mg.getValue(mgc.V_ControlName, row.rowId)
+          }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </mat-cell>
+                    </ng-container>
+                    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+                    <mat-row
+                        *matRowDef="let row; columns: displayedColumns;"
+                        class="table_row"
+                        [ngClass]="{ 'selected': selection.isSelected(row)}"
+                        [magicRow]="row?.rowId"
+                        (click)="row? tableService.selectRow(row.rowId) : null"
+                    >
+                    </mat-row>
+                </mat-table>
+                <mat-paginator
+                    #paginator
+                    [pageSize]="10"
+                    [pageSizeOptions]="[5, 10, 20]"
+                    (page)="tableService.mgOnPaginateChange($event)"
+                >
+                </mat-paginator>
+            </div>
+        </div>
+    </div>
+</div>
+
+

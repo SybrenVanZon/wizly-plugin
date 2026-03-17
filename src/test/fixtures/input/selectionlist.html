@@ -1,0 +1,22 @@
+ 
+<div>
+    <mat-selection-list
+        multiple
+        [formControlName]="mgc.List_Box1"
+        [magic]="mgc.List_Box1"
+        [style.visibility]="mg.getVisible(mgc.List_Box1)"
+        [matTooltip]="mg.getTitle(mgc.List_Box1)"
+        required
+        [disabled]="mg.isDisabled(mgc.List_Box1 )"
+    >
+        <mat-list-option
+            *ngFor="let o of mg.getItemListValues(mgc.List_Box1);"
+            [value]="o.index"
+        >
+            {{o.displayValue}}
+        </mat-list-option>
+    </mat-selection-list>
+    <mgError [magic]=mgc.List_Box1> </mgError>
+</div>
+
+

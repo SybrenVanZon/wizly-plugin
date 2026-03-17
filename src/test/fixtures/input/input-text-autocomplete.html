@@ -1,0 +1,33 @@
+ 
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+        [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+    >
+        <div>
+            <input
+                matInput
+                [magic]="mgc.V_ControlName"
+                [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+                [formControlName]="mgc.V_ControlName"
+                [matAutocomplete]="V_ControlName"
+                mgFormat
+                required
+            >
+            <mgError [magic]=mgc.V_ControlName> </mgError>
+            <mat-autocomplete
+                #V_ControlName="matAutocomplete"
+                [magic]="mgc.V_ControlName"
+            >
+                <mat-option
+                    *ngFor="let o of mg.getFilteredList(mgc.V_ControlName);"
+                    [value]="o.displayValue"
+                >
+                    {{o.displayValue}}
+                </mat-option>
+            </mat-autocomplete>
+        </div>
+    </mat-form-field>
+</div>
+
+

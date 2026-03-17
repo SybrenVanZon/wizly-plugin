@@ -1,0 +1,70 @@
+# Input Checkbox Template
+
+Magic's base template for checkbox.
+
+## Available Variables
+
+| Variable | Description | Source Attributes Searched |
+| :--- | :--- | :--- |
+| **`magic`** | The Magic ID (e.g., `mgc.V_IsActive`). | `[magic]` |
+| **`rowId`** | The row ID binding (e.g., `row.rowId`), present only in table contexts. | `[rowId]` |
+| **`attrVisible`** | Controls visibility. | `[style.visibility]` |
+| **`attrTooltip`** | Tooltip text. | `[matTooltip]`, `matTooltip` |
+| **`attrRequired`** | Required state (static or dynamic). | `[required]`, `required` |
+| **`attrDisabled`** | Disabled state. | `[disabled]`, `disabled` |
+
+## Transformation
+
+### Standard Usage (Form)
+
+**Input (Magic HTML)**
+```html
+<div>
+    <mat-checkbox 
+        [magic]="mgc.V_Checkbox" 
+        [style.visibility]="mg.getVisible(mgc.V_Checkbox)" 
+        ...
+    > 
+        {{mg.getText(mgc.V_Checkbox)}} 
+    </mat-checkbox>
+</div>
+```
+
+**Output (Angular Material)**
+```html
+<mat-checkbox
+    [magic]="mgc.V_Checkbox"
+    [formControlName]="mgc.V_Checkbox"
+    [style.visibility]="mg.getVisible(mgc.V_Checkbox)"
+    ...
+>
+    {{mg.getText(mgc.V_Checkbox)}}
+</mat-checkbox>
+<mgError [magic]="mgc.V_Checkbox"> </mgError>
+```
+
+### Table Usage (Row Context)
+
+When a `[rowId]` attribute is detected, the template switches to "Table Row Mode". This mode:
+1.  Uses `@if (mg.isRowInRowEditing(row))` to toggle between edit and read-only mode.
+2.  Passes `[rowId]` to all relevant elements (`mat-checkbox`, `mgError`).
+3.  Includes `partials/table-readonly.ejs` for the read-only state.
+
+**Output (Angular Material)**
+```html
+@if (mg.isRowInRowEditing(row)) {
+    <mat-checkbox
+        [magic]="mgc.V_Checkbox"
+        [rowId]="row.rowId"
+        ...
+    >
+        {{mg.getText(mgc.V_Checkbox)}}
+    </mat-checkbox>
+    <mgError [magic]="mgc.V_Checkbox" [rowId]="row.rowId"> </mgError>
+} @else {
+    <!-- Included via partials/table-readonly.ejs -->
+    <span ...>
+        {{ mg.getValue(mgc.V_Checkbox, row.rowId) }}
+    </span>
+}
+```

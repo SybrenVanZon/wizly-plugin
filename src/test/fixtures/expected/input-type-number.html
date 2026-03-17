@@ -1,0 +1,20 @@
+<mat-form-field
+  [class.d-none]="mg.getVisible(mgc.V_ControlName) === 'hidden'"
+  [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+>
+  <input
+    matInput
+    currencyMask
+    [options]="mg.getNumericPicture(mg.getPicture(mgc.V_ControlName))"
+    [magic]="mgc.V_ControlName"
+    [formControlName]="mgc.V_ControlName"
+    mgFormat
+    [required]="true"
+  />
+
+  <mat-hint>{{ mg.getPlaceholder(mgc.V_ControlName) }}</mat-hint>
+
+  <mat-error>
+    <mgError [magic]="mgc.V_ControlName"></mgError>
+  </mat-error>
+</mat-form-field>

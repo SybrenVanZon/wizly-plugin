@@ -1,0 +1,12 @@
+<mat-checkbox
+  [magic]="mgc.Check_Box2"
+  [class.d-none]="mg.getVisible(mgc.Check_Box2) === 'hidden'"
+  [matTooltip]="mg.getTitle(mgc.Check_Box2)"
+  [formControlName]="mgc.Check_Box2"
+  [required]="mg.getMustInput(mgc.Check_Box2)"
+>
+  {{ mg.getText(mgc.Check_Box2) }}
+</mat-checkbox>
+<mat-error>
+  <mgError [magic]="mgc.Check_Box2"></mgError>
+</mat-error>

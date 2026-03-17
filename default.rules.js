@@ -2,188 +2,141 @@ module.exports = {
   rules: [
     {
       name: "Page",
-      description:
-        "Updates the base structure of the page and use the propper form tag",
-      regex:
-        /[\s\S]*<div\s*novalidate\s*\[formGroup\]="screenFormGroup"\s*>\s*<div[\s\S]*?\[magic\]="(?<magic>[\s\S]*?)"\s*>\s*(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
-      replacement:
-        "<form novalidate [formGroup]=\"screenFormGroup\" [magic]=\"$<magic>\">\n$<content>\n</form>",
+      description:"Captures the the base div elements Magic creates from the Form",
+      regex: /(?<page><div\s*novalidate[\s\S]*?>[\s\S]*?>)(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
+      templateFile: "page.ejs",
       active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
     },
     {
-      name: "Mat form fields",
-      description:
-        "Remove unnecessary divs from mat form fields and removes inconsistent error handling and reapply them propperly",
-      regex:
-        /<div>\s*<mat-form-field(?<formfield_attr>[\s\S]*?)>\s*(?:<div>\s*)?(?<content>[\s\S]*?)\s*(?:<mgError[\S\s]*<\/mgError>\s*)?\s*(?:<\/div>\s*)?<\/mat-form-field>\s*(?<extra>[\s\S]*?)<\/div>/gm,
-      replacement: "<mat-form-field$<formfield_attr>>$<content></mat-form-field>$<extra>",
+      name: "Button",
+      description: "Captures all button elements created by Magic Button element, zoom or table action ",
+      regex: /(?<button><button[\s\S]*?>)(?<content>[\s\S]*?)<\/button>/gm,
+      templateFile: "button.ejs",
       active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
     },
     {
-      name: "Wrapping divs",
-      description:
-        "Remove unnecessary wrapper divs from varius form elements",
-      regex:
-        /<div>\s*(?<elem><(?:mat-select|mat-checkbox|mat-selection-list|editable-combo)\b[\s\S]*?<\/(?:mat-select|mat-checkbox|mat-selection-list|editable-combo)>)\s*<\/div>/gm,
-      replacement: "$<elem>",
+      name: "Image",
+      description: "Captures the image tag and wrapping div created from Magic Image element",
+      regex: /(<div[\s\S]*?>)\s*(?<imgage><img[\s\S]*?\/>)\s*<\/div>/gm,
+      templateFile: "image.ejs",
       active: true,
-      replaceAfterBeautify: false,
+      filePattern: "*.html",
+    },
+    {
+      name: "Tab wrapping div",
+      description: "Removes the wrapping div of a tab group, will only work if you use smartTabMatcher",
+      regex: /<div>\s*(?<content><mat-tab-group[\s\S]*?<\/mat-tab-group>)\s*<\/div>/gm,
+      replacement: "$<content>",
+      active: true,
+      activeWhen: 'smartTabMatcher',
+      filePattern: "*.html",
+    },
+    {
+      name: "Tab",
+      description: "Captures the tab-group created by Magic Tab element, content is not handeled automaticly",
+      regex: /(?<matTabGroup><mat-tab-group[\s\S]*?>)\s*(?<matTab><mat-tab[\s\S]*?<\/mat-tab>)\s*<\/mat-tab-group>/gm,
+      templateFile: "tab.ejs",
+      active: true,
       filePattern: "*.html",
     },
     {
       name: "Subforms",
-      description: "Remove mat-card from subforms",
-      regex:
-        /<mat-card[\s\S]*>\s*(?<subform><magic-subform[\s\S]*<\/magic-subform>)\s*<\/mat-card>/gm,
-      replacement: "$<subform>",
+      description: "Captures the magic-subform tag and its wrapping mat-card created by Magic Subform element",
+      regex: /(?<matCard><mat-card)[\s\S]*?>\s*(?<subform><magic-subform[\s\S]*?<\/magic-subform>)\s*<\/mat-card>/gm,
+      templateFile: "subform.ejs",
       active: true,
-      replaceAfterBeautify: false,
+      filePattern: "*.html",
+    },
+    {
+      name: "Card",
+      description: "Captures the mat-card element created by Magic Group element`, the rule should be placed after subform",
+      regex: /(?<card><mat-card[\s\S]*?>)/gm,
+      useBalancedTag: true,
+      templateFile: "card.ejs",
+      active: true,
       filePattern: "*.html",
     },
     {
       name: "Labels",
-      description:
-        "Replace labels with spans, labels should only be used for form elements",
-      regex:
-        /<label\s*\[magic\]="(?<magic>.*?)"(?<rowid>(?:\s*\[rowId\]="row\.rowId")?)\s*[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<\/label>/gm,
-      replacement: "<span>$<content></span>",
+      description: "Captures the label tag created by Magic Label element",
+      regex: /(?<label><label[\s\S]*?>)(?<content>[\s\S]*?)<\/label>/gm,
+      templateFile: "label.ejs",
       active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Visibility (bootstrap utility class)",
-      description:
-        "Remove inline styling in favor of class and also make it display none so it won't take up extra space",
-      regex: /\[style\.visibility\]="(?<visibility>.*)"/gm,
-      replacement: "[ngClass]=\"{'d-none':$<visibility>} === 'hidden'\"",
-      active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
     },
     {
       name: "Flex row",
-      description:
-        "Replace inline styling of flex row with bootstrap utility class",
+      description: "Replace inline styling of flex row with bootstrap utility class",
       regex: /<div style="display: flex; flex-direction: row">/gm,
-      replacement: "<div class=\"d-flex flex-row\">",
+      templateFile: "flex-row.ejs",
       active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
+    },
+    {
+      name: "Input - Checkbox",
+      description: "Captures the mat-input tag and wrapping div created by Magic Check Box element",
+      regex: /<div>\s*(?<input><mat-checkbox[\s\S]*?>)(?<content>[\s\S]*?)<\/mat-checkbox>[\s\S]*?<\/div>/gm,
+      templateFile: "checkbox.ejs",
+      active: true,
+      filePattern: "*.html"
+    },
+    {
+      name: "Editable Combo",
+      description: "Captures the editable-combo tag and wrapping div created by Magic Combo Box element with property Editable = true",
+      regex: /<div>\s*(?<input><editable-combo[\s\S]*?<\/editable-combo>)[\s\S]*?<\/div>/gm,
+      templateFile: "editable-combo.ejs",
+      active: true,
+      filePattern: "*.html"
+    },
+    {
+      name: "Select",
+      description: "Captures the mat-select tag and wrapping div and mat-form-field created by Magic Combo Box element with property Editable = false",
+      regex: /<div>\s*(?<formField><mat-form-field[\s\S]*?)(?<input><mat-select[\s\S]*?<\/mat-select>)\s*<\/mat-form-field>[\s\S]*?<\/div>/gm,
+      templateFile: "select.ejs",
+      active: true,
+      filePattern: "*.html"
+    },
+    {
+      name: "Selectionlist",
+      description: "Captures the mat-selection-list tag and wrapping div created by Magic List Box with element",
+      regex: /<div>\s*(?<matSelectionList><mat-selection-list[\s\S]*?>)[\s\S]*?<\/mat-selection-list>\s*<mgError[\s\S]*?<\/mgError>\s*<\/div>/gm,
+      templateFile: "selectionlist.ejs",
+      active: true,
+      filePattern: "*.html"
+    },
+    {
+      name: "Input - Radio",
+      description: "Captures the mat-radio-group created by Magic Radio Button element",
+      regex: /(?<matRadioGroup><mat-radio-group[\s\S]*?>)[\s\S]*?<\/mat-radio-group>\s*<mgError[\s\S]*?<\/mgError>/gm,
+      templateFile: "radio.ejs",
+      active: true,
+      filePattern: "*.html"
+    },
+    {
+      name: "Input",
+      description: "Captures all matInput (text, date, time, number, autocomplete) with optional zoom button created by Magic Edit element",
+      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(<div>)?\s*(?<input><input[\s\S]*?matInput\b[^>]*>)[\s\S]*?<\/mat-form-field>\s*(?<zoom><button[\s\S]*?>[\s\S]*?<\/button>)?\s*[\s\S]*?<\/div>/gm,
+      templateFile: "input-base.ejs",
+      active: true,
+      filePattern: "*.html"
     },
     {
       name: "Table",
-      description: "Remove unnecessary divs from tables",
-      regex:
-        /<div\s*class="example-container[\S ]*?ContainerProps[\s\S]*?(?<table><mat-table[\s\S]*<\/mat-paginator>)\s*<\/div>/gm,
-      replacement: "$<table>",
+      description: "Captures mat-table tag created by Magic Table element",
+      regex: /(?<table><div[^>]*>)\s*<mat-table[\s\S]*?>\s*(?<content>[\s\S]*?)\s*<mat-header-row[\s\S]*?<\/mat-paginator>\s*<\/div>/gm,
+      templateFile: "table.ejs",
       active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
     },
     {
-      name: "Table - native",
-      description:
-        "Convert mat-table to native table to support better column handling en row and col span",
-      regex: /<mat-table[\s\S](?<content>[\s\S]*)<\/mat-table>/gm,
-      replacement: "<table mat-table $<content></table>",
+      name: "Table Column",
+      description: "Captures all matColumnDef created by Magic Table element",
+      regex: /<ng-container\s*\[magic\]="(?<magic>.*?)"\s*\[matColumnDef\]="\k<magic>"\s*>\s*<mat-header-cell[\s\S]*?<\/mat-header-cell>\s*<mat-cell\b[^>]*magicMark="magicTableRowContainer"[^>]*>\s*<div\b[^>]*>\s*<div\b[^>]*>\s*(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*<\/mat-cell>\s*<\/ng-container>/gm,
+      templateFile: "table-column.ejs",
       active: true,
-      replaceAfterBeautify: false,
       filePattern: "*.html",
-    },
-    {
-      name: "Table head row - native",
-      description: "Replace mat-header-row with native tr",
-      regex: /<mat-header-row[\s\S](?<prop>[\s\S]*)<\/mat-header-row>/gm,
-      replacement: "<tr mat-header-row $<prop></tr>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Table row - native",
-      description: "Replace mat-row with native tr",
-      regex: /<mat-row[\s\S](?<prop>[\s\S]*)>\s*<\/mat-row>/gm,
-      replacement:
-        "<tr mat-row $<prop> [formGroup]=\"mg.getFormGroupByRow(row.rowId)\"></tr>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Table column head - native",
-      description: "Replace mat-header-cell with native th",
-      regex: /<mat-header-cell[\s\S](?<prop>[\s\S]*?)<\/mat-header-cell>/gm,
-      replacement: "<th mat-header-cell $<prop></th>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Table column - native",
-      description: "Replace mat-cell with native td",
-      regex: /<mat-cell[\s\S](?<prop>[\s\S]*?)<\/mat-cell>/gm,
-      replacement: "<td mat-cell $<prop></td>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Table remove formgroup divs",
-      description: "Remove unnecessary formgroup divs from tables",
-      regex:
-        /<div\s*\[formGroup\]="mg.getFormGroupByRow\(row\.rowId\)"\s*(?:style="[\S\s]*?")?>[\s\S]*?(?<content>[\s\S]*?)<\/div>/gm,
-      replacement: "$<content>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Table ngif divs",
-      description: "Change divs with ngif to ng-container",
-      regex:
-        /<div\s*(?:style=".*?")?\s*\*ngIf="(?<if>.*?)"\s*>[\s\S]*?(?<content>[\S\s]*?)<\/div>/gm,
-      replacement: "<ng-container *ngIf=\"$<if>\">$<content></ng-container>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Replace inner ngIf",
-      description:
-        "Replace inner ngIf to wrapping ng-container for future replace with @If and propper tab handling",
-      regex:
-        /<(?<tag>\w+)(?<beforeAttr>[^>]*)\s\*ngIf="(?<if>[^"]+)"(?<afterAttr>[^>]*)>(?<content>[\s\S]*?)<\/\1>/gm,
-      replacement:
-        "<ng-container *ngIf=\"$<if>\"><$<tag>$<beforeAttr>$<afterAttr>>$<content></$<tag>></ng-container>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Remove magic classes - native",
-      description: "Remove default magic table classes",
-      regex: /class="(table_row|container_border)"/gm,
-      replacement: "",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
-    {
-      name: "Change ngIf to @if",
-      description:
-        "Replace inner ngIf to wrapping ng-container for future replace with @If and propper tab handling",
-      regex:
-        /<(?<tag>\w+)(?<beforeAttr>[^>]*)\s\*ngIf="(?<if>[^"]+)"(?<afterAttr>[^>]*)>(?<content>[\s\S]*?)<\/\1>/gm,
-      replacement:
-        "<ng-container *ngIf=\"$<if>\"><$<tag>$<beforeAttr>$<afterAttr>>$<content></$<tag>></ng-container>",
-      active: true,
-      replaceAfterBeautify: false,
-      filePattern: "*.html",
-    },
+    }
   ],
 };

@@ -1,0 +1,44 @@
+ 
+<div>
+    <mat-tab-group
+        [magic]="mgc.Tab1"
+        (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab1, $event.index)"
+        [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab1)"
+    >
+        <mat-tab
+            *ngFor="let o of mg.getItemListValues(mgc.Tab1)"
+            [label]="mg.getTabpageText(mgc.Tab1, o.index)"
+        >
+        </mat-tab>
+    </mat-tab-group>
+    <div
+        class="tab_content"
+        [style.display]="mg.isTabPageLayerSelected(mgc.Tab1, 1) ? 'flex' : 'none' "
+        style="flex-direction: column"
+    >
+        <div style="display: flex; flex-direction: row">
+            <label
+                [magic]="mgc.Label2"
+                class="lable_overflow"
+            >
+                {{mg.getText(mgc.Label2)}}
+            </label>
+        </div>
+    </div>
+    <div
+        class="tab_content"
+        [style.display]="mg.isTabPageLayerSelected(mgc.Tab1, 2) ? 'flex' : 'none' "
+        style="flex-direction: column"
+    >
+        <div style="display: flex; flex-direction: row">
+            <label
+                [magic]="mgc.Label3"
+                class="lable_overflow"
+            >
+                {{mg.getText(mgc.Label3)}}
+            </label>
+        </div>
+    </div>
+</div>
+
+

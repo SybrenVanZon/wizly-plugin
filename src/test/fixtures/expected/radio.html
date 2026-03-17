@@ -1,0 +1,17 @@
+<mat-radio-group
+  [magic]="mgc.Radio_Button1"
+  [class.d-none]="mg.getVisible(mgc.Radio_Button1) === 'hidden'"
+  [matTooltip]="mg.getTitle(mgc.Radio_Button1)"
+  [formControlName]="mgc.Radio_Button1"
+  (change)="task.mgOnRadioSelectionChanged(mgc.Radio_Button1)"
+  [required]="true"
+>
+  @for (o of mg.getItemListValues(mgc.Radio_Button1); track o) {
+    <mat-radio-button [value]="o.index">
+      {{ o.displayValue }}
+    </mat-radio-button>
+  }
+</mat-radio-group>
+<mat-error>
+  <mgError [magic]="mgc.Radio_Button1"></mgError>
+</mat-error>

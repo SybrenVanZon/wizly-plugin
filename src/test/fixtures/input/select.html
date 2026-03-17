@@ -1,0 +1,23 @@
+ 
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+        [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+    >
+        <mat-select
+            [magic]="mgc.V_ControlName"
+            [formControlName]="mgc.V_ControlName"
+            required
+        >
+            <mat-option
+                *ngFor="let o of mg.getItemListValues(mgc.V_ControlName);"
+                [value]="o.index"
+            >
+                {{o.displayValue}}
+            </mat-option>
+        </mat-select>
+    </mat-form-field>
+    <mgError [magic]=mgc.V_ControlName> </mgError>
+</div>
+
+

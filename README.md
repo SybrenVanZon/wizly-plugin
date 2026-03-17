@@ -22,9 +22,10 @@ whole team applies the same rules.
 - Auto‑transform on file creation (`autoTransformOnCreate`)
 - Optional info toast (`autoTransformToast`)
 - Transform tag to avoid re‑processing
-- Commands: Transform current file, Transform uncommitted files, Export default config
+- Commands: Transform current file, Transform uncommitted files, Export settings / templates / advanced rules
+- Status bar showing active rule count with quick access to the config file
 - Works with another editor: keep VS Code open with `autoTransformOnCreate: true`; new `.html` files in the workspace transform automatically.
-- Compatibility: Requires `VS Code 1.103.0+`
+- Compatibility: Requires `VS Code 1.109.0+`
 
 ### Bundled Default Rules
 
@@ -53,7 +54,9 @@ Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command 
 
 - `Wizly: Transform Current File` — transform the active file
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
-- `Wizly: Export Default Rules to .vswizly.js` — writes a starter `.vswizly.js` at the workspace root for team‑sharing (fails if the file exists)
+- `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
+- `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
+- `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
 
 
 ### Creating Custom Rules
@@ -71,23 +74,24 @@ See `docs/rules.md` for advanced rule fields, rationale, and tips. For full befo
 
 ## ⚙️ Configuration
 
-### Optional Auto Transform Settings
+### VS Code Settings
 
-Use a single project config to enable optional features:
+The following settings can be configured in VS Code (`settings.json` or the Settings UI under **Wizly**):
 
-```js
-module.exports = {
-  autoTransformOnCreate: true,
-  autoTransformToast: true, // show an info toast per new file
-  transformTag: {
-    enable: true,
-    dateFormat: "YYYY-MM-DD",
-    timeFormat: "HH:mm",
-    template: "Changed by Wizly on {date} at {time}"
-  },
-  rules: [ /* ... */ ]
-};
-```
+| Setting | Default | Description |
+|---|---|---|
+| `wizly.autoTransformOnCreate` | `false` | Automatically transform new `.html` files on creation |
+| `wizly.autoTransformToast` | `true` | Show a notification after an automatic transform |
+| `wizly.transformTag.enable` | `true` | Insert a "Changed by Wizly" comment at the top of transformed files |
+| `wizly.transformTag.dateFormat` | `"YYYY-MM-DD"` | Date format used in the transform tag |
+| `wizly.transformTag.timeFormat` | `"HH:mm"` | Time format used in the transform tag |
+| `wizly.transformTag.template` | `"Changed by Wizly on {date} at {time}"` | Template for the transform tag comment |
+| `wizly.zoomIcon` | `"search"` | Material icon name used for zoom buttons (e.g. `"search"`, `"more_horiz"`, `"open_in_new"`) |
+| `wizly.removeEmptyLinesAfterPrettier` | `false` | Strip empty lines introduced by Prettier between block elements |
+| `wizly.smartTabMatcher` | `false` | Extract `tab_content` divs and place their content inside `mat-tab` elements (required for Angular Material tab animations) |
+| `wizly.smartLabelMatcher.enabled` | `false` | Enable smart label matching |
+| `wizly.smartLabelMatcher.labelPrefix` | `"L_"` | Prefix for label magic attributes |
+| `wizly.smartLabelMatcher.controlPrefix` | `["V_", "P_"]` | Prefix(es) for control magic attributes — string or array of strings |
 
 ### Prettier Integration
 
@@ -100,6 +104,8 @@ Wizly uses Prettier to format HTML after applying regex rules.
 
 ## Known Limitations
 
+- Tested with Magic xpa **4.12.1**. Other versions may produce different HTML output that requires rule adjustments.
+- Designed for the **Material Design** rendering engine only. It does **not** work with SmartUX.
 - Regex is not well‑suited for deeply nested or recursive HTML structures. Prefer narrow, targeted patterns and consider splitting complex transforms into multiple rules.
 
 Rules execute in order (top to bottom). Later rules run on the output of earlier rules, so order matters. Place broader patterns first and more specific ones after to get the desired result.
@@ -107,6 +113,31 @@ Rules execute in order (top to bottom). Later rules run on the output of earlier
 ### Optional Transform Tag
 
 Add a tag at the top of transformed files to avoid re‑processing and provide an audit trail. Placeholders `{date}` and `{time}` are supported; see the configuration example above.
+
+### Smart Label Matcher
+
+When `wizly.smartLabelMatcher.enabled` is `true`, the extension automatically moves standalone `<label>` elements into the corresponding `<mat-form-field>` as a `<mat-label>`.
+
+**How it works:**
+1. Looks for `<label>` elements with `[magic]` attributes that start with `labelPrefix` (default `L_`)
+2. Checks if there is a corresponding control element with a `[magic]` attribute starting with one of the `controlPrefix` values (default `["V_", "P_"]`)
+3. If the control is inside a `<mat-form-field>`, the standalone label is removed
+4. The label content is wrapped in `<mat-label>` and inserted before the control element
+
+**Example:**
+```html
+<!-- Before transformation -->
+<label [magic]="mgc.L_firstName">First Name</label>
+<mat-form-field>
+  <input [magic]="mgc.V_firstName" />
+</mat-form-field>
+
+<!-- After transformation -->
+<mat-form-field>
+  <mat-label>First Name</mat-label>
+  <input [magic]="mgc.V_firstName" />
+</mat-form-field>
+```
 
 ## 🎯 Example
 
@@ -122,8 +153,18 @@ See `docs/rules.md` for details on the EOF marker, named groups, and regex flags
 
 - Node.js 16+
 
-Note: End users installing the extension do not need Node.js. Runtime compatibility is governed by `engines.vscode` in `package.json` (currently `^1.103.0`).
+Note: End users installing the extension do not need Node.js. Runtime compatibility is governed by `engines.vscode` in `package.json` (currently `^1.109.0`).
 
+
+## 📚 Documentation
+
+| Document | Description |
+|---|---|
+| [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
+| [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
+| [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
+| [docs/helpers.md](docs/helpers.md) | Helper functions available inside templates |
+| [docs/css.md](docs/css.md) | CSS conventions used in the generated output |
 
 ## 📝 Changelog
 

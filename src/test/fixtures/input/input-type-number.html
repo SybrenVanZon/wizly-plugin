@@ -1,0 +1,23 @@
+ 
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.V_ControlName)"
+        [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+    >
+        <div>
+            <input
+                matInput
+                currencyMask
+                [options]="mg.getNumericPicture(mg.getPicture(mgc.V_ControlName))"
+                [magic]="mgc.V_ControlName"
+                [placeholder]="mg.getPlaceholder(mgc.V_ControlName)"
+                [formControlName]="mgc.V_ControlName"
+                mgFormat
+                required
+            >
+            <mgError [magic]=mgc.V_ControlName> </mgError>
+        </div>
+    </mat-form-field>
+</div>
+
+

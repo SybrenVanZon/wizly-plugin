@@ -1,0 +1,21 @@
+<mat-tab-group
+  [magic]="mgc.Tab1"
+  (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab1, $event.index)"
+  [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab1)"
+>
+  <mat-tab [label]="mg.getTabpageText(mgc.Tab1, 0)">
+    <div class="d-flex flex-row">
+      <span>
+        {{ mg.getText(mgc.Label2) }}
+      </span>
+    </div>
+  </mat-tab>
+
+  <mat-tab [label]="mg.getTabpageText(mgc.Tab1, 1)">
+    <div class="d-flex flex-row">
+      <span>
+        {{ mg.getText(mgc.Label3) }}
+      </span>
+    </div>
+  </mat-tab>
+</mat-tab-group>

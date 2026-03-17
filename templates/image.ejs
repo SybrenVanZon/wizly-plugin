@@ -1,0 +1,9 @@
+@if(mg.isImageExists(<%= magicFuncParam %>)){
+    <img
+        [magic]="<%= magic %>"
+        <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+        <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+        <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+        [src]="mg.getImage(<%= magicFuncParam %>)"
+    />
+}

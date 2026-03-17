@@ -1,0 +1,16 @@
+<input
+    matInput
+    [matTimepicker]="picker_<%= magic.replace('mgc.', '') %>"
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    [formControlName]="<%= magic %>"
+    mgFormat
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+@if (!mg.checkIsReadOnly(<%= magicFuncParam %>)) {
+    <mat-timepicker-toggle matSuffix [for]="picker_<%= magic.replace('mgc.', '') %>">
+        <mat-icon matDatepickerToggleIcon>access_time</mat-icon>
+    </mat-timepicker-toggle>
+}
+<mat-timepicker #picker_<%= magic.replace('mgc.', '') %>></mat-timepicker>

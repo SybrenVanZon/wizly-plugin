@@ -1,0 +1,31 @@
+<input
+    matInput
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    [formControlName]="<%= magic %>"
+    [matAutocomplete]="auto_<%= magic.replace('mgc.', '') %>"
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+    mgFormat
+    <% if (attrRequired) { %>[required]="<%= attrRequired %>"<% } %>
+>
+<mat-autocomplete #auto_<%= magic.replace('mgc.', '') %>="matAutocomplete">
+    @for (option of mg.getFilteredList(<%= magicFuncParam %>); track option) {
+        <mat-option [value]="option.displayValue">
+            {{option.displayValue}}
+        </mat-option>
+    }
+</mat-autocomplete>
+
+<% if (zoom) { %>
+<button
+    mat-icon-button
+    matSuffix
+    color="primary"
+    [magic]="<%= magic %>"
+    <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
+    <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
+>
+    <mat-icon><%= zoomIcon %></mat-icon>
+</button>
+<% } %>
+

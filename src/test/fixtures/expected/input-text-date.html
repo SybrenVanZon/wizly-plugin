@@ -1,0 +1,25 @@
+<mat-form-field
+  [class.d-none]="mg.getVisible(mgc.V_ControlName) === 'hidden'"
+  [matTooltip]="mg.getTitle(mgc.V_ControlName)"
+>
+  <input
+    matInput
+    [matDatepicker]="picker_V_ControlName"
+    [magic]="mgc.V_ControlName"
+    [formControlName]="mgc.V_ControlName"
+    mgFormat
+  />
+  @if (!mg.checkIsReadOnly(mgc.V_ControlName)) {
+    <mat-datepicker-toggle
+      matSuffix
+      [for]="picker_V_ControlName"
+    ></mat-datepicker-toggle>
+  }
+  <mat-datepicker #picker_V_ControlName></mat-datepicker>
+
+  <mat-hint>{{ mg.getPlaceholder(mgc.V_ControlName) }}</mat-hint>
+
+  <mat-error>
+    <mgError [magic]="mgc.V_ControlName"></mgError>
+  </mat-error>
+</mat-form-field>

@@ -1,0 +1,61 @@
+# Required CSS
+
+This page documents the CSS that must be present in your project for Wizly-generated templates to render correctly.
+
+## mgError
+
+The `<mgError>` component needs to be displayed as a block-level element so it takes up the full width inside its `<mat-error>` wrapper.
+
+```css
+mgError {
+  display: inline-block;
+}
+
+.d-none {
+  display: none !important;
+}
+```
+
+## Flex row (`d-flex flex-row`)
+
+The flex-row template outputs Bootstrap utility classes. Either include Bootstrap in your project, or add the following custom CSS:
+
+```css
+.d-flex {
+  display: flex;
+}
+
+.flex-row {
+  flex-direction: row;
+}
+```
+
+> If you already use Bootstrap, no additional CSS is needed for these classes.
+
+---
+
+# Angular Module Requirements
+
+## MatIconModule
+
+Wizly-generated templates use `<mat-icon>` for zoom buttons. Add `MatIconModule` to the imports of your shared Angular module (e.g. `magic.gen.lib.module.ts`):
+
+```typescript
+import { MatIconModule } from '@angular/material/icon';
+
+@NgModule({
+  imports: [
+    // ...
+    MatIconModule,
+  ],
+})
+export class MagicGenLibModule {}
+```
+
+## Material Icons stylesheet
+
+Add the Material Icons font to your `index.html` so icon names render correctly:
+
+```html
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+```

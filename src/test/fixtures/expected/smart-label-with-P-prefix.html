@@ -1,0 +1,21 @@
+<form novalidate [formGroup]="screenFormGroup" [magic]="mgc.inputtext">
+  <div class="d-flex flex-row">
+    <mat-form-field>
+      <mat-label>{{ mg.getText(mgc.L_ControlName) }}</mat-label>
+
+      <input
+        matInput
+        type="text"
+        [magic]="mgc.P_ControlName"
+        [formControlName]="mgc.P_ControlName"
+        mgFormat
+      />
+
+      <mat-hint>{{ mg.getPlaceholder(mgc.P_ControlName) }}</mat-hint>
+
+      <mat-error>
+        <mgError [magic]="mgc.P_ControlName"></mgError>
+      </mat-error>
+    </mat-form-field>
+  </div>
+</form>

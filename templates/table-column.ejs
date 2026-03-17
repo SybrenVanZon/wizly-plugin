@@ -1,0 +1,8 @@
+<ng-container matColumnDef="<%= magic %>" magicMark="magicTableRowContainer">
+    <th mat-header-cell *matHeaderCellDef> {{mg.getText(<%= magic %>)}} </th>
+    <td mat-cell *matCellDef="let row">
+        @if(mg.ifRowCreated(row)){
+            <%- content %>
+        }
+    </td>
+</ng-container>

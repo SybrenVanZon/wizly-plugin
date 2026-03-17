@@ -1,0 +1,9 @@
+<mat-card 
+    [magic]="<%= magic %>"
+    <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
+    <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
+>
+    <mat-card-content>
+        <%- content %>
+    </mat-card-content>
+</mat-card>
