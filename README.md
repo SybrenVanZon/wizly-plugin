@@ -160,6 +160,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 
 | Document | Description |
 |---|---|
+| [docs/getting-started.md](docs/getting-started.md) | Getting started: install, transform, configure, and customize |
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
