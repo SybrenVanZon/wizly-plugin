@@ -3,6 +3,11 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.2.2] - 2026-03-23
+
+### Fixed
+- **Tab label undefined check**: The `[label]` binding in the `smartTabMatcher` path now uses `(mg.getItemListValues(...) || []).length ? ... : ''` to prevent console errors and the Angular NG8107 warning about optional chaining on non-nullable types.
+
 ## [0.2.0] - 2026-03-15
 
 ### Added
