@@ -11,7 +11,7 @@
     if (tabPages) {
         for (let i = 0; i < tabPages.length; i++) {
 %>
-    <mat-tab [label]="mg.getTabpageText(<%= magic %>, <%= i %>)">
+    <mat-tab [label]="(mg.getItemListValues(<%= magic %>) || []).length ? mg.getTabpageText(<%= magic %>, <%= i %>): ''">
         <%- tabPages[i] %>
     </mat-tab>
 <%  }

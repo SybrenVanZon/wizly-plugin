@@ -50,10 +50,22 @@ Magic's base template for tab group.
     (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab14, $event.index)"
     [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab14)"
 >
-    <mat-tab [label]="mg.getTabpageText(mgc.Tab14, 1)">
+    <mat-tab
+        [label]="
+            (mg.getItemListValues(mgc.Tab14) || []).length
+                ? mg.getTabpageText(mgc.Tab14, 1)
+                : ''
+        "
+    >
         <!-- content of tab 1 -->
     </mat-tab>
-    <mat-tab [label]="mg.getTabpageText(mgc.Tab14, 2)">
+    <mat-tab
+        [label]="
+            (mg.getItemListValues(mgc.Tab14) || []).length
+                ? mg.getTabpageText(mgc.Tab14, 2)
+                : ''
+        "
+    >
         <!-- content of tab 2 -->
     </mat-tab>
 </mat-tab-group>
