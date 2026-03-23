@@ -11,7 +11,7 @@ module.exports = {
     {
       name: "Button",
       description: "Captures all button elements created by Magic Button element, zoom or table action ",
-      regex: /(?<button><button[\s\S]*?>)(?<content>[\s\S]*?)<\/button>/gm,
+      regex: /(?<button><button\b[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
       templateFile: "button.ejs",
       active: true,
       filePattern: "*.html",
@@ -19,7 +19,7 @@ module.exports = {
     {
       name: "Image",
       description: "Captures the image tag and wrapping div created from Magic Image element",
-      regex: /(<div[\s\S]*?>)\s*(?<imgage><img[\s\S]*?\/>)\s*<\/div>/gm,
+      regex: /(<div\b[^>]*>)\s*(?<image><img\b[^>]*\/>)\s*<\/div>/gm,
       templateFile: "image.ejs",
       active: true,
       filePattern: "*.html",
@@ -36,7 +36,7 @@ module.exports = {
     {
       name: "Tab",
       description: "Captures the tab-group created by Magic Tab element, content is not handeled automaticly",
-      regex: /(?<matTabGroup><mat-tab-group[\s\S]*?>)\s*(?<matTab><mat-tab[\s\S]*?<\/mat-tab>)\s*<\/mat-tab-group>/gm,
+      regex: /(?<matTabGroup><mat-tab-group\b[^>]*>)\s*(?<matTab><mat-tab[\s\S]*?<\/mat-tab>)\s*<\/mat-tab-group>/gm,
       templateFile: "tab.ejs",
       active: true,
       filePattern: "*.html",
@@ -44,7 +44,7 @@ module.exports = {
     {
       name: "Subforms",
       description: "Captures the magic-subform tag and its wrapping mat-card created by Magic Subform element",
-      regex: /(?<matCard><mat-card)[\s\S]*?>\s*(?<subform><magic-subform[\s\S]*?<\/magic-subform>)\s*<\/mat-card>/gm,
+      regex: /(?<matCard><mat-card\b[^>]*>)\s*(?<subform><magic-subform[\s\S]*?<\/magic-subform>)\s*<\/mat-card>/gm,
       templateFile: "subform.ejs",
       active: true,
       filePattern: "*.html",
@@ -52,7 +52,7 @@ module.exports = {
     {
       name: "Card",
       description: "Captures the mat-card element created by Magic Group element`, the rule should be placed after subform",
-      regex: /(?<card><mat-card[\s\S]*?>)/gm,
+      regex: /(?<card><mat-card\b[^>]*>)/gm,
       useBalancedTag: true,
       templateFile: "card.ejs",
       active: true,
@@ -61,7 +61,7 @@ module.exports = {
     {
       name: "Labels",
       description: "Captures the label tag created by Magic Label element",
-      regex: /(?<label><label[\s\S]*?>)(?<content>[\s\S]*?)<\/label>/gm,
+      regex: /(?<label><label\b[^>]*>)(?<content>[\s\S]*?)<\/label>/gm,
       templateFile: "label.ejs",
       active: true,
       filePattern: "*.html",
@@ -77,7 +77,7 @@ module.exports = {
     {
       name: "Input - Checkbox",
       description: "Captures the mat-input tag and wrapping div created by Magic Check Box element",
-      regex: /<div>\s*(?<input><mat-checkbox[\s\S]*?>)(?<content>[\s\S]*?)<\/mat-checkbox>[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<input><mat-checkbox\b[^>]*>)(?<content>[\s\S]*?)<\/mat-checkbox>[\s\S]*?<\/div>/gm,
       templateFile: "checkbox.ejs",
       active: true,
       filePattern: "*.html"
@@ -93,7 +93,7 @@ module.exports = {
     {
       name: "Select",
       description: "Captures the mat-select tag and wrapping div and mat-form-field created by Magic Combo Box element with property Editable = false",
-      regex: /<div>\s*(?<formField><mat-form-field[\s\S]*?)(?<input><mat-select[\s\S]*?<\/mat-select>)\s*<\/mat-form-field>[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(?<input><mat-select[\s\S]*?<\/mat-select>)\s*<\/mat-form-field>[\s\S]*?<\/div>/gm,
       templateFile: "select.ejs",
       active: true,
       filePattern: "*.html"
@@ -101,7 +101,7 @@ module.exports = {
     {
       name: "Selectionlist",
       description: "Captures the mat-selection-list tag and wrapping div created by Magic List Box with element",
-      regex: /<div>\s*(?<matSelectionList><mat-selection-list[\s\S]*?>)[\s\S]*?<\/mat-selection-list>\s*<mgError[\s\S]*?<\/mgError>\s*<\/div>/gm,
+      regex: /<div>\s*(?<matSelectionList><mat-selection-list\b[^>]*>)[\s\S]*?<\/mat-selection-list>\s*<mgError[\s\S]*?<\/mgError>\s*<\/div>/gm,
       templateFile: "selectionlist.ejs",
       active: true,
       filePattern: "*.html"
@@ -109,7 +109,7 @@ module.exports = {
     {
       name: "Input - Radio",
       description: "Captures the mat-radio-group created by Magic Radio Button element",
-      regex: /(?<matRadioGroup><mat-radio-group[\s\S]*?>)[\s\S]*?<\/mat-radio-group>\s*<mgError[\s\S]*?<\/mgError>/gm,
+      regex: /(?<matRadioGroup><mat-radio-group\b[^>]*>)[\s\S]*?<\/mat-radio-group>\s*<mgError[\s\S]*?<\/mgError>/gm,
       templateFile: "radio.ejs",
       active: true,
       filePattern: "*.html"

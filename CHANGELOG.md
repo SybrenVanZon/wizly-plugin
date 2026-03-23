@@ -8,6 +8,12 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 ### Fixed
 - **Tab label undefined check**: The `[label]` binding in the `smartTabMatcher` path now uses `(mg.getItemListValues(...) || []).length ? ... : ''` to prevent console errors and the Angular NG8107 warning about optional chaining on non-nullable types.
 
+## [0.2.1] - 2026-03-23
+
+### Fixed
+- **Auto-save skipped for extensionless files**: Transforms are still applied, but files without an extension are no longer automatically saved afterwards.
+- **Regex greedy opening tags**: Replaced `[\s\S]*?>` with `\b[^>]*>` for all opening tag patterns in `default.rules.js`. This prevents rules from accidentally matching across element boundaries or matching similarly named tags (e.g. `<mat-card-content>` being matched by the `mat-card` pattern). Affected rules: Button, Image, Tab, Subforms, Card, Labels, Checkbox, Select, Selectionlist, Radio.
+
 ## [0.2.0] - 2026-03-15
 
 ### Added
