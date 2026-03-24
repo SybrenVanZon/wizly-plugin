@@ -400,10 +400,12 @@ export function activate(context: vscode.ExtensionContext) {
     legacyWatcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
     context.subscriptions.push(legacyWatcher);
 
-    // Auto-transform newly created HTML files
+    // Auto-transform newly created or externally recreated HTML files
     const htmlWatcher = vscode.workspace.createFileSystemWatcher('**/*.html');
-    htmlWatcher.onDidCreate(async (uri) => {
-        const autoTransform = getCachedSettings()?.autoTransformOnCreate
+
+    const autoTransformFile = async (uri: vscode.Uri) => {
+        const settings = getCachedSettings();
+        const autoTransform = settings?.autoTransformOnCreate
             ?? vscode.workspace.getConfiguration('wizly').get<boolean>('autoTransformOnCreate', false);
         if (!autoTransform) { return; }
 
@@ -432,7 +434,21 @@ export function activate(context: vscode.ExtensionContext) {
         } catch (error) {
             console.error(`Wizly: Failed to auto-transform ${filePath}:`, error);
         }
+    };
+
+    htmlWatcher.onDidCreate(autoTransformFile);
+
+    // Also handle files that are externally recreated (e.g. overwritten by a generator).
+    // Only runs when transformTag is enabled — the transform tag acts as an idempotency guard,
+    // so re-running on an already-transformed file is a safe no-op.
+    htmlWatcher.onDidChange(async (uri) => {
+        const settings = getCachedSettings();
+        const tagEnabled = settings?.transformTag?.enable
+            ?? vscode.workspace.getConfiguration('wizly').get<boolean>('transformTag.enable', false);
+        if (!tagEnabled) { return; }
+        await autoTransformFile(uri);
     });
+
     context.subscriptions.push(htmlWatcher);
 }
 
