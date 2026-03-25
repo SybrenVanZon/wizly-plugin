@@ -3,6 +3,11 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.2.3] - 2026-03-25
+
+### Added
+- **Auto-transform on external file change**: HTML files that are externally recreated (e.g. by a build tool) are now automatically re-transformed when the transform tag is present. Uses an `onDidChange` watcher; idempotency is guaranteed by the transform tag.
+
 ## [0.2.2] - 2026-03-23
 
 ### Fixed
