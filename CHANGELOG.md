@@ -3,6 +3,22 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.2.3] - 2026-03-25
+
+### Added
+- **Auto-transform on external file change**: HTML files that are externally recreated (e.g. by a build tool) are now automatically re-transformed when the transform tag is present. Uses an `onDidChange` watcher; idempotency is guaranteed by the transform tag.
+
+## [0.2.2] - 2026-03-23
+
+### Fixed
+- **Tab label undefined check**: The `[label]` binding in the `smartTabMatcher` path now uses `(mg.getItemListValues(...) || []).length ? ... : ''` to prevent console errors and the Angular NG8107 warning about optional chaining on non-nullable types.
+
+## [0.2.1] - 2026-03-23
+
+### Fixed
+- **Auto-save skipped for extensionless files**: Transforms are still applied, but files without an extension are no longer automatically saved afterwards.
+- **Regex greedy opening tags**: Replaced `[\s\S]*?>` with `\b[^>]*>` for all opening tag patterns in `default.rules.js`. This prevents rules from accidentally matching across element boundaries or matching similarly named tags (e.g. `<mat-card-content>` being matched by the `mat-card` pattern). Affected rules: Button, Image, Tab, Subforms, Card, Labels, Checkbox, Select, Selectionlist, Radio.
+
 ## [0.2.0] - 2026-03-15
 
 ### Added
