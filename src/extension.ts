@@ -107,9 +107,11 @@ async function transformUncommittedFiles() {
                         );
                         edit.replace(uri, fullRange, transformedText);
                         await vscode.workspace.applyEdit(edit);
-                        
-                        // Save the file
-                        await document.save();
+
+                        // Save the file (skip files without extension)
+                        if (path.extname(filePath)) {
+                            await document.save();
+                        }
                     }
                     
                     processedCount++;
@@ -199,7 +201,9 @@ async function transformCurrentFile() {
         editor.selection = new vscode.Selection(newPosition, newPosition);
         editor.revealRange(new vscode.Range(newPosition, newPosition));
 
-        await doc.save();
+        if (path.extname(filePath)) {
+            await doc.save();
+        }
         vscode.window.showInformationMessage('HTML transformation completed!');
     } catch (error) {
         vscode.window.showErrorMessage(`Error during transformation: ${error}`);
@@ -423,7 +427,9 @@ export function activate(context: vscode.ExtensionContext) {
                 );
                 edit.replace(uri, fullRange, transformedText);
                 await vscode.workspace.applyEdit(edit);
-                await document.save();
+                if (path.extname(filePath)) {
+                    await document.save();
+                }
 
                 const showToast = getCachedSettings()?.autoTransformToast
                     ?? vscode.workspace.getConfiguration('wizly').get<boolean>('autoTransformToast', true);

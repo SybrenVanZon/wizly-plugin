@@ -46,7 +46,7 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:html",
-"workspaceContains:.vswizly.js",
+    "workspaceContains:.vswizly.js",
     "workspaceContains:.vswizly/wizly.config.js"
   ],
   "contributes": {
@@ -168,17 +168,30 @@
             },
             "controlPrefix": {
               "oneOf": [
-                { "type": "string" },
-                { "type": "array", "items": { "type": "string" } }
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               ],
-              "default": ["V_", "P_"],
+              "default": [
+                "V_",
+                "P_"
+              ],
               "description": "Prefix(es) for target control IDs. Can be a single string or an array (e.g. ['V_', 'P_'])."
             }
           },
           "default": {
             "enabled": false,
             "labelPrefix": "L_",
-            "controlPrefix": ["V_", "P_"]
+            "controlPrefix": [
+              "V_",
+              "P_"
+            ]
           }
         }
       }

@@ -12,13 +12,13 @@ when `autoTransformOnCreate` is enabled; you don’t need to manually edit the
 generated HTML, which saves time and yields consistent, maintainable output.
 
 Wizly is a VS Code extension that uses a project configuration file.
-You can export `.vswizly.js` and keep it in version control so the
+You can export `.vswizly/` and keep it in version control so the
 whole team applies the same rules.
 
 ## ✨ Features
 
 - Regex‑based HTML post‑processing
-- Shared project config via `.vswizly.js` (version‑controlled)
+- Shared project config via `.vswizly/` (version‑controlled)
 - Auto‑transform on file creation (`autoTransformOnCreate`)
 - Optional info toast (`autoTransformToast`)
 - Transform tag to avoid re‑processing
@@ -46,31 +46,17 @@ Tables:
 
 ## 🚀 Usage
 
-### Shortcuts
-
-Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command palette and type "Wizly".
+New to Wizly? See the [Getting Started guide](docs/getting-started.md).
 
 ### Commands
 
+Open the command palette with `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) and type "Wizly":
+
 - `Wizly: Transform Current File` — transform the active file
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
-- `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
-- `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
+- `Wizly: Export Settings` — creates a `.vswizly/` folder at the workspace root with a starter config (fails if it already exists)
+- `Wizly: Export Templates` — exports the built-in EJS templates to `.vswizly/templates/` so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
-
-
-### Creating Custom Rules
-
-Edit the project config file directly to tailor transformations for your codebase.
-
-Use a versioned `.vswizly.js` at the workspace root to share rules across your team. Changes are automatically reloaded. If the file is missing, Wizly uses built‑in defaults.
-
-1. Run `Wizly: Export Default Rules to .vswizly.js`
-2. Open the file in the project root
-3. Add, modify, or disable rules as needed
-4. Save — changes are picked up automatically
-
-See `docs/rules.md` for advanced rule fields, rationale, and tips. For full before/after samples, see `examples/`.
 
 ## ⚙️ Configuration
 
@@ -110,42 +96,13 @@ Wizly uses Prettier to format HTML after applying regex rules.
 
 Rules execute in order (top to bottom). Later rules run on the output of earlier rules, so order matters. Place broader patterns first and more specific ones after to get the desired result.
 
-### Optional Transform Tag
-
-Add a tag at the top of transformed files to avoid re‑processing and provide an audit trail. Placeholders `{date}` and `{time}` are supported; see the configuration example above.
-
-### Smart Label Matcher
-
-When `wizly.smartLabelMatcher.enabled` is `true`, the extension automatically moves standalone `<label>` elements into the corresponding `<mat-form-field>` as a `<mat-label>`.
-
-**How it works:**
-1. Looks for `<label>` elements with `[magic]` attributes that start with `labelPrefix` (default `L_`)
-2. Checks if there is a corresponding control element with a `[magic]` attribute starting with one of the `controlPrefix` values (default `["V_", "P_"]`)
-3. If the control is inside a `<mat-form-field>`, the standalone label is removed
-4. The label content is wrapped in `<mat-label>` and inserted before the control element
-
-**Example:**
-```html
-<!-- Before transformation -->
-<label [magic]="mgc.L_firstName">First Name</label>
-<mat-form-field>
-  <input [magic]="mgc.V_firstName" />
-</mat-form-field>
-
-<!-- After transformation -->
-<mat-form-field>
-  <mat-label>First Name</mat-label>
-  <input [magic]="mgc.V_firstName" />
-</mat-form-field>
-```
-
 ## 🎯 Example
 
-See `examples/` for full before/after sample. 
+See [examples/](examples/) for full before/after sample.
 
 ## ℹ️ How Replace Works
 
-See `docs/rules.md` for details on the EOF marker, named groups, and regex flags.
+See [docs/rules.md](docs/rules.md) for details on the EOF marker, named groups, and regex flags.
 
 ## 🛠️ Development
 

@@ -3,7 +3,13 @@
   (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab1, $event.index)"
   [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab1)"
 >
-  <mat-tab [label]="mg.getTabpageText(mgc.Tab1, 0)">
+  <mat-tab
+    [label]="
+      (mg.getItemListValues(mgc.Tab1) || []).length
+        ? mg.getTabpageText(mgc.Tab1, 0)
+        : ''
+    "
+  >
     <div class="d-flex flex-row">
       <span>
         {{ mg.getText(mgc.Label2) }}
@@ -11,7 +17,13 @@
     </div>
   </mat-tab>
 
-  <mat-tab [label]="mg.getTabpageText(mgc.Tab1, 1)">
+  <mat-tab
+    [label]="
+      (mg.getItemListValues(mgc.Tab1) || []).length
+        ? mg.getTabpageText(mgc.Tab1, 1)
+        : ''
+    "
+  >
     <div class="d-flex flex-row">
       <span>
         {{ mg.getText(mgc.Label3) }}
