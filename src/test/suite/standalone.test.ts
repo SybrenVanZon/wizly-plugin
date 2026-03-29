@@ -46,6 +46,17 @@ suite('Wizly Utils Test Suite', () => {
 		assert.strictEqual(utils.resolveControlName('lbl_Test', settings as any), 'Test');
 	});
 
+	test('resolveControlName: Multiple label prefixes', () => {
+		const settings = {
+			transformTag: { enable: false, dateFormat: '', timeFormat: '' },
+			smartLabelMatcher: { enabled: true, labelPrefix: ['lbl_', 'L_'], controlPrefix: ['vt_', 'V_'] }
+		};
+		
+		assert.strictEqual(utils.resolveControlName('mgc.L_Test', settings as any), 'Test');
+		assert.strictEqual(utils.resolveControlName('mgc.lbl_Other', settings as any), 'Other');
+		assert.strictEqual(utils.resolveControlName('mgc.V_Control', settings as any), 'Control');
+	});
+
 	test('resolveControlName: No match returns null', () => {
 		const settings = {
 			transformTag: { enable: false, dateFormat: '', timeFormat: '' },
@@ -186,11 +197,62 @@ suite('Wizly Integration Tests', function() {
                 if (file.includes('no-label')) {
                     settings.smartLabelMatcher.enabled = false;
                 }
+				
+				if (file.includes('smart-label-array')) {
+					settings.smartLabelMatcher.labelPrefix = ['L_', 'LBL_'];
+				}
 
                 // Enable smart tab matcher for specific test cases
                 if (file.includes('tab-full')) {
                     settings.smartTabMatcher = true;
                 }
+
+				if (file.includes('custom-smart-zoom-combobox-wildcard')) {
+					settings.customSmartMatchers = [
+						{
+							name: 'smartZoomMatcher',
+							enabled: true,
+							filePattern: '*.html',
+							regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
+							remove: true,
+							matchOn: {
+								targetPrefix: 'Btn_',
+								targetSuffix: 'Zoom',
+								controlPrefix: ['V_', 'P_'],
+								controlSuffix: '*'
+							}
+						}
+					];
+				} else if (file.includes('custom-smart-zoom-combobox-no-wildcard')) {
+					settings.customSmartMatchers = [
+						{
+							name: 'smartZoomMatcher',
+							enabled: true,
+							filePattern: '*.html',
+							regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
+							remove: true,
+							matchOn: {
+								targetPrefix: 'Btn_',
+								targetSuffix: 'Zoom',
+								controlPrefix: ['V_', 'P_']
+							}
+						}
+					];
+				} else if (file.includes('custom-smart-zoom')) {
+					settings.customSmartMatchers = [
+						{
+							name: 'smartZoomMatcher',
+							enabled: true,
+							filePattern: '*.html',
+							regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
+							remove: true,
+							matchOn: {
+								targetPrefix: 'Z_',
+								controlPrefix: 'V_'
+							}
+						}
+					];
+				}
     
                 const modes = [{ name: 'Test', active: true, rules }];
     

@@ -246,7 +246,8 @@ export function activate(context: vscode.ExtensionContext) {
         labelPrefix: 'L_',
         controlPrefix: ['V_', 'P_']
     },
-    smartTabMatcher: false
+    smartTabMatcher: false,
+    customSmartMatchers: []
 };`;
                 fs.writeFileSync(configPath, defaultConfigContent, 'utf8');
                 vscode.window.showInformationMessage(`Wizly: Created default config at ${configPath}`);

@@ -100,15 +100,20 @@ export function resolveControlName(magicParam: string, settings: WizlySettings):
     }
     const s = magicParam.trim();
     const controlPrefixes = Array.isArray(m.controlPrefix) ? m.controlPrefix : [m.controlPrefix];
+    const labelPrefixes = Array.isArray(m.labelPrefix) ? m.labelPrefix : [m.labelPrefix];
     const hasMgc = s.includes('mgc.');
     if (hasMgc) {
         const after = s.split('mgc.')[1] ?? '';
         let id = '';
-        if (after.startsWith(m.labelPrefix)) {
-            id = after.slice(m.labelPrefix.length);
-        } else {
+        for (const lp of labelPrefixes) {
+            if (lp && after.startsWith(lp)) {
+                id = after.slice(lp.length);
+                break;
+            }
+        }
+        if (!id) {
             for (const prefix of controlPrefixes) {
-                if (after.startsWith(prefix)) {
+                if (prefix && after.startsWith(prefix)) {
                     id = after.slice(prefix.length);
                     break;
                 }
@@ -117,11 +122,13 @@ export function resolveControlName(magicParam: string, settings: WizlySettings):
         // Clean up any trailing quotes if present (e.g. from magic="...")
         return id ? id.replace(/["'].*$/, '') : null;
     } else {
-        if (s.startsWith(m.labelPrefix)) {
-            return s.replace(m.labelPrefix, '');
+        for (const lp of labelPrefixes) {
+            if (lp && s.startsWith(lp)) {
+                return s.slice(lp.length);
+            }
         }
         for (const prefix of controlPrefixes) {
-            if (s.startsWith(prefix)) {
+            if (prefix && s.startsWith(prefix)) {
                 return s.slice(prefix.length);
             }
         }

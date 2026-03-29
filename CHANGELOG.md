@@ -57,6 +57,14 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 ### Breaking Changes
 - **Configuration Location**: `.vswizly.js` in the root is deprecated. Please use the new `.vswizly/` folder structure. A warning will be shown if the old file is detected.
 
+## [0.3.0] - 2026-03-27
+
+### Added
+- **`customSmartMatchers`**: New optional setting for user-defined matchers that extract blocks using regex named capture groups (requires a `magic` group). Supports prefix/suffix mapping via `matchOn` and optional removal via `remove`.
+
+### Changed
+- **`smartLabelMatcher.labelPrefix`**: Now supports a string or an array of strings.
+
 ## [0.1.1] - 2026-02-17
 
 ### Fixed
