@@ -1,0 +1,21 @@
+<div novalidate [formGroup]="screenFormGroup">
+    <div style="display: flex; flex-direction: column" [magic]="mgc.customzoomoncombobox">
+        <div style="display: flex; flex-direction: row">
+            <div>
+                <mat-form-field>
+                    <mat-select [magic]="mgc.V_ComboBox" [formControlName]="mgc.V_ComboBox">
+                        <mat-option
+                            *ngFor="let o of mg.getItemListValues(mgc.V_ComboBox);"
+                            [value]="o.index"
+                        >
+                            {{ o.displayValue }}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <button mat-raised-button color="primary" [magic]="mgc.Btn_ComboZoom">
+                {{ mg.getValue(mgc.Btn_ComboZoom) }}
+            </button>
+        </div>
+    </div>
+</div>

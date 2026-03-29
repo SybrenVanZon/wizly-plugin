@@ -1,0 +1,28 @@
+ 
+<div
+    novalidate
+    [formGroup]="screenFormGroup"
+>
+    <div
+        style="display: flex; flex-direction: column"
+        [magic]="mgc.Card"
+    >
+        <div style="display: flex; flex-direction: row">
+            <label
+                [magic]="mgc.L_Card"
+                class="lable_overflow"
+            >
+                Titel?
+            </label>
+        </div>
+        <div style="display: flex; flex-direction: row">
+            <mat-card
+                [magic]="mgc.V_Card"
+                class="container_border"
+            >
+            </mat-card>
+        </div>
+    </div>
+</div>
+
+

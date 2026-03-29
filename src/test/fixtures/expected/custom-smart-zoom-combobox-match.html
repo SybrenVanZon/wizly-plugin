@@ -1,0 +1,20 @@
+<form
+  novalidate
+  [formGroup]="screenFormGroup"
+  [magic]="mgc.customzoomoncombobox"
+>
+  <div class="d-flex flex-row">
+    <mat-form-field>
+      <mat-select [magic]="mgc.V_ComboBox" [formControlName]="mgc.V_ComboBox">
+        @for (o of mg.getItemListValues(mgc.V_ComboBox); track o) {
+          <mat-option [value]="o.index">
+            {{ o.displayValue }}
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-error>
+      <mgError [magic]="mgc.V_ComboBox"></mgError>
+    </mat-error>
+  </div>
+</form>

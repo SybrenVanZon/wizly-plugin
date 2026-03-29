@@ -1,8 +1,14 @@
-<mat-card 
+<% const cardLabel = getLabel(magic); %>
+<mat-card
     [magic]="<%= magic %>"
     <% if (attrVisible) { %>[class.d-none]="<%= attrVisible %> === 'hidden'"<% } %>
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
 >
+    <% if (cardLabel) { %>
+    <mat-card-header>
+        <mat-card-title><%= cardLabel %></mat-card-title>
+    </mat-card-header>
+    <% } %>
     <mat-card-content>
         <%- content %>
     </mat-card-content>

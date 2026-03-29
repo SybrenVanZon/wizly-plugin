@@ -1,0 +1,21 @@
+<div>
+    <mat-form-field
+        [style.visibility]="mg.getVisible(mgc.V_ZoomTest)"
+        [matTooltip]="mg.getTitle(mgc.V_ZoomTest)"
+    >
+        <div>
+            <input
+                matInput
+                [magic]="mgc.V_ZoomTest"
+                [required]="mg.getMustInput(mgc.V_ZoomTest)"
+                [type]="mg.getType(mgc.V_ZoomTest)"
+                [placeholder]="mg.getPlaceholder(mgc.V_ZoomTest)"
+                [formControlName]="mgc.V_ZoomTest"
+                mgFormat
+            >
+            <mgError [magic]=mgc.V_ZoomTest> </mgError>
+        </div>
+    </mat-form-field>
+</div>
+
+<button [magic]="mgc.Z_ZoomTest">ZOOM</button>

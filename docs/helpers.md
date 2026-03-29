@@ -53,7 +53,7 @@ Checks if the string contains the specified substring.
 
 Retrieves the label text associated with the given magic control name, if available.
 
-**Note:** The original `<label>` tag is automatically removed from the output, regardless of whether this helper function is used.
+**Note:** A standalone `<label>` is only removed when a matching control is found (based on `labelPrefix` / `controlPrefix`). If no match is found, the label is kept.
 
 **Usage:**
 ```ejs
@@ -61,14 +61,14 @@ Retrieves the label text associated with the given magic control name, if availa
 ```
 
 ### Configuration
-You can customize the prefixes in your `.vswizly.js` file, the prefixes should be either string or an array of strings:
+You can customize the prefixes in your `.vswizly/wizly.config.js` file. `labelPrefix` can be a string or an array of strings. `controlPrefix` can be a string or an array of strings.
 
 ```javascript
 module.exports = {
   smartLabelMatcher: {
     enabled: true,
-    labelPrefix: "L_",    // The prefix used for label elements
-    controlPrefix: ["V_", "P_"]    // The prefix used for controls
+    labelPrefix: ["L_", "LBL_"],
+    controlPrefix: ["V_", "P_"]
   }
 };
 ```
@@ -81,6 +81,46 @@ The matcher strips the prefixes to find the common "base name".
 | `mgc.V_FirstName` | `mgc.L_FirstName` | ✅ Yes | `FirstName` |
 | `mgc.V_Email` | `mgc.L_EmailAddress` | ❌ No | - |
 | `mgc.P_Phone` | `mgc.L_Phone` | ✅ Yes | `Phone` |
+
+## Custom Smart Matchers
+
+Custom smart matchers let you extract additional blocks (like zoom buttons) into a key-value store based on a regex with named capture groups.
+
+### `getCustomMatch(name, magic)`
+
+Returns the stored match record for a given matcher name and `magic` (or `null` if none exists).
+
+**Stored data**
+- All named capture groups are stored as strings.
+- The regex must include a named group `magic`.
+
+### Configuration (`customSmartMatchers`)
+
+```javascript
+module.exports = {
+  customSmartMatchers: [
+    {
+      name: "smartZoomMatcher",
+      enabled: false,
+      filePattern: "*.html",
+      regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
+      remove: true,
+      matchOn: {
+        matchPrefix: "Z_",
+        controlPrefix: ["V_", "P_"],
+        controlSuffix: ""
+      }
+    }
+  ]
+};
+```
+
+**Notes**
+- `matchPrefix` and `matchSuffix` can be combined. If you provide both, both must match.
+- By default, the control check is exact. Example: `mgc.V_Combo` does not match `mgc.V_ComboBox`.
+- If you want `mgc.V_Combo` to match any control that starts with it (like `mgc.V_ComboBox`), set `controlSuffix: "*"`.
+
+> **See also:** [Using Smart Matcher Capture Groups in Templates](smart-matcher-capture-groups.md) — a full worked example with configuration and template code.
 
 ### `getAttribute(regexGroup, attributeName)`
 

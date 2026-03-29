@@ -201,7 +201,7 @@ async function transformCurrentFile() {
         editor.selection = new vscode.Selection(newPosition, newPosition);
         editor.revealRange(new vscode.Range(newPosition, newPosition));
 
-        if (path.extname(filePath)) {
+        if (!doc.isUntitled && path.extname(filePath)) {
             await doc.save();
         }
         vscode.window.showInformationMessage('HTML transformation completed!');
@@ -246,7 +246,8 @@ export function activate(context: vscode.ExtensionContext) {
         labelPrefix: 'L_',
         controlPrefix: ['V_', 'P_']
     },
-    smartTabMatcher: false
+    smartTabMatcher: false,
+    customSmartMatchers: []
 };`;
                 fs.writeFileSync(configPath, defaultConfigContent, 'utf8');
                 vscode.window.showInformationMessage(`Wizly: Created default config at ${configPath}`);

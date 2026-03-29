@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as ejs from 'ejs';
 import * as prettier from 'prettier';
-import { WizlySettings, getModes, getCachedSettings } from './config';
+import { CustomSmartMatcher, SmartMatchOn, WizlySettings, getModes, getCachedSettings } from './config';
 import { 
     LabelMap, 
     escapeForRegex, 
@@ -18,6 +18,258 @@ import {
 } from './utils';
 
 export type TabPageContent = Record<string, (string | null)[]>;
+
+type CustomSmartMatchRecord = Record<string, string>;
+type CustomSmartMatchesByKey = Record<string, CustomSmartMatchRecord | CustomSmartMatchRecord[]>;
+type CustomSmartMatches = Record<string, CustomSmartMatchesByKey>;
+
+function normalizeStringArray(v: string | string[] | undefined, fallback: string[] = []): string[] {
+    if (typeof v === 'string') { return [v]; }
+    if (Array.isArray(v)) { return v.map(String); }
+    return fallback;
+}
+
+function parseRegexInput(v: RegExp | string): RegExp | null {
+    if (v instanceof RegExp) { return v; }
+    if (typeof v !== 'string') { return null; }
+    const s = v.trim();
+    if (!s) { return null; }
+    if (s.startsWith('/') && s.lastIndexOf('/') > 0) {
+        const lastSlash = s.lastIndexOf('/');
+        const body = s.slice(1, lastSlash);
+        const flags = s.slice(lastSlash + 1);
+        try {
+            return new RegExp(body, flags || 'gm');
+        } catch {
+            return null;
+        }
+    }
+    try {
+        return new RegExp(s, 'gm');
+    } catch {
+        return null;
+    }
+}
+
+function normalizeMagicExpression(value: string): string {
+    return String(value ?? '').replace(/\s+/g, '');
+}
+
+function findMagicBindingsInCompactText(compactText: string, magicPattern: string): string[] {
+    const pattern = normalizeMagicExpression(magicPattern);
+    const isWildcardSuffix = pattern.endsWith('*');
+    const prefix = isWildcardSuffix ? pattern.slice(0, -1) : pattern;
+
+    const out = new Set<string>();
+    const re = /(?:\bmagic|\[magic\])=(["'])(?<val>[^"']*)\1/gm;
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(compactText)) !== null) {
+        const groups: any = (m as any).groups ?? {};
+        const val = groups && groups.val ? normalizeMagicExpression(String(groups.val)) : '';
+        if (!val) {
+            if (m[0].length === 0) { re.lastIndex++; }
+            continue;
+        }
+        if (isWildcardSuffix) {
+            if (prefix && val.startsWith(prefix)) {
+                out.add(val);
+            }
+        } else if (val === prefix) {
+            out.add(val);
+        }
+        if (m[0].length === 0) { re.lastIndex++; }
+    }
+    return Array.from(out);
+}
+
+function resolveSmartMatchOn(
+    originalMagicRaw: string,
+    matchOn: SmartMatchOn | undefined,
+    settings: WizlySettings
+): { originalMagic: string; targetMatched: boolean; hasTargetRules: boolean; controlCandidates: string[] } {
+    const originalMagic = normalizeMagicExpression(originalMagicRaw);
+
+    if (!matchOn) {
+        return { originalMagic, targetMatched: true, hasTargetRules: false, controlCandidates: [] };
+    }
+
+    const hasMgc = originalMagic.includes('mgc.');
+    const after = hasMgc ? (originalMagic.split('mgc.')[1] ?? '') : originalMagic;
+    const prefix = hasMgc ? 'mgc.' : '';
+
+    const controlPrefixFallback = settings?.smartLabelMatcher?.controlPrefix ?? ['V_', 'P_'];
+    const controlPrefixes = normalizeStringArray(matchOn.controlPrefix ?? (controlPrefixFallback as any), []);
+    const controlSuffixes = normalizeStringArray(matchOn.controlSuffix, ['']);
+
+    const buildKeys = (base: string): string[] => {
+        const cp = controlPrefixes.length > 0 ? controlPrefixes : [''];
+        const cs = controlSuffixes.length > 0 ? controlSuffixes : [''];
+        const out: string[] = [];
+        for (const p of cp) {
+            for (const s of cs) {
+                out.push(`${prefix}${p}${base}${s}`);
+            }
+        }
+        return out;
+    };
+
+    const targetPrefixes = normalizeStringArray(matchOn.matchPrefix, []);
+    const targetSuffixes = normalizeStringArray(matchOn.matchSuffix, []);
+    const hasTargetRules = targetPrefixes.length > 0 || targetSuffixes.length > 0;
+
+    if (!hasTargetRules) {
+        return { originalMagic, targetMatched: true, hasTargetRules: false, controlCandidates: [] };
+    }
+
+    const bases = new Set<string>();
+
+    const prefixesToTry = targetPrefixes.length > 0 ? targetPrefixes : [''];
+    const suffixesToTry = targetSuffixes.length > 0 ? targetSuffixes : [''];
+    for (const tp of prefixesToTry) {
+        for (const ts of suffixesToTry) {
+            const p = tp ?? '';
+            const s = ts ?? '';
+            if (p && !after.startsWith(p)) { continue; }
+            if (s && !after.endsWith(s)) { continue; }
+            if (after.length < p.length + s.length) { continue; }
+            bases.add(after.slice(p.length, after.length - s.length));
+        }
+    }
+
+    const outCandidates = new Set<string>();
+    for (const base of bases) {
+        buildKeys(base).forEach(k => outCandidates.add(k));
+    }
+
+    return {
+        originalMagic,
+        targetMatched: bases.size > 0,
+        hasTargetRules: true,
+        controlCandidates: Array.from(outCandidates)
+    };
+}
+
+function cleanMagicForCompare(str: string, settings: WizlySettings): string {
+    let cleanStr = String(str ?? '');
+    const m = settings?.smartLabelMatcher;
+    if (m && m.enabled) {
+        const labelPrefixes = normalizeStringArray(m.labelPrefix ?? 'L_', ['L_']);
+        for (const lp of labelPrefixes) {
+            if (!lp) { continue; }
+            cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(lp)}`), '');
+        }
+    }
+    cleanStr = cleanStr.replace(/^mgc\./, '');
+    return cleanStr;
+}
+
+export function extractCustomSmartMatchesAndRemove(
+    textOriginal: string,
+    settings: WizlySettings,
+    filePath?: string
+): { matches: CustomSmartMatches, text: string } {
+    const matchers = (settings.customSmartMatchers ?? []) as CustomSmartMatcher[];
+    if (!Array.isArray(matchers) || matchers.length === 0) {
+        return { matches: {}, text: textOriginal };
+    }
+
+    let text = textOriginal;
+    const matches: CustomSmartMatches = {};
+
+    for (const matcher of matchers) {
+        if (!matcher || !matcher.enabled) { continue; }
+        if (filePath && matcher.filePattern && !matchesFilePattern(filePath, matcher.filePattern)) {
+            continue;
+        }
+
+        const parsed = parseRegexInput(matcher.regex);
+        if (!parsed) { continue; }
+
+        const mergedFlags = Array.from(new Set((parsed.flags + 'gm').split(''))).join('');
+        const re = new RegExp(parsed.source, mergedFlags);
+
+        const removals: { start: number; end: number }[] = [];
+        const compactText = text.replace(/\s+/g, '');
+        re.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(text)) !== null) {
+            const groups: any = (m as any).groups ?? {};
+            const magic = groups && groups.magic ? normalizeMagicExpression(String(groups.magic)) : '';
+            if (!magic) {
+                if (m[0].length === 0) { re.lastIndex++; }
+                continue;
+            }
+
+            const record: CustomSmartMatchRecord = {};
+            for (const [k, v] of Object.entries(groups)) {
+                if (typeof v === 'string') {
+                    record[k] = v;
+                } else if (v !== null && typeof v !== 'undefined') {
+                    record[k] = String(v);
+                }
+            }
+            record.magic = magic;
+
+            const {
+                originalMagic,
+                targetMatched,
+                hasTargetRules,
+                controlCandidates
+            } = resolveSmartMatchOn(magic, matcher.matchOn, settings);
+
+            let storageKeys: string[] = [originalMagic];
+            let removeAllowed = !matcher.matchOn;
+
+            if (matcher.matchOn) {
+                if (!hasTargetRules || !targetMatched || controlCandidates.length === 0) {
+                    removeAllowed = false;
+                } else {
+                    const resolvedControls = new Set<string>();
+                    for (const c of controlCandidates) {
+                        findMagicBindingsInCompactText(compactText, c).forEach(v => resolvedControls.add(v));
+                    }
+                    const existingControls = Array.from(resolvedControls);
+                    if (existingControls.length > 0) {
+                        storageKeys = existingControls;
+                        removeAllowed = true;
+                    } else {
+                        removeAllowed = false;
+                    }
+                }
+            }
+
+            if (!matches[matcher.name]) {
+                matches[matcher.name] = {};
+            }
+            for (const key of storageKeys) {
+                const existing = matches[matcher.name][key];
+                if (!existing) {
+                    matches[matcher.name][key] = record;
+                } else if (Array.isArray(existing)) {
+                    existing.push(record);
+                } else {
+                    matches[matcher.name][key] = [existing, record];
+                }
+            }
+
+            if (matcher.remove && removeAllowed) {
+                removals.push({ start: m.index, end: m.index + m[0].length });
+            }
+
+            if (m[0].length === 0) { re.lastIndex++; }
+        }
+
+        if (matcher.remove && removals.length > 0) {
+            for (let i = removals.length - 1; i >= 0; i--) {
+                const { start, end } = removals[i];
+                text = text.slice(0, start) + text.slice(end);
+            }
+        }
+    }
+
+    return { matches, text };
+}
 
 export function extractTabContentAndRemove(textOriginal: string): { tabPageContent: TabPageContent, text: string } {
     const tabPageContent: TabPageContent = {};
@@ -105,14 +357,16 @@ export function extractLabelAndRemove(textOriginal: string, settings: WizlySetti
     // We only want to extract the label content and remove the <label> tag itself.
     // We leave the surrounding divs intact (they will be cleaned up later if empty).
 
+    const labelPrefixes = normalizeStringArray(m.labelPrefix ?? 'L_', ['L_']);
+    const controlPrefixes = normalizeStringArray((m.controlPrefix ?? ['V_', 'P_']) as any, ['V_', 'P_']);
+    const labelPrefixAlt = labelPrefixes.map(escapeForRegex).join('|');
+
     const reLabel = new RegExp(
-        `<label\\s+(?:[^>]*?\\s+)?(?:magic|\\[magic\\])="(?<magic>mgc\\.${escapeForRegex(m.labelPrefix)}([^"]*?))"[\\s\\S]*?>\\s*` +
+        `<label\\s+(?:[^>]*?\\s+)?(?:magic|\\[magic\\])="(?<magic>mgc\\.(?:${labelPrefixAlt})([^"]*?))"[\\s\\S]*?>\\s*` +
         `(?<content>[\\s\\S]*?)\\s*` +
         `<\\/label>`,
         'gm'
     );
-    
-    const controlPrefixes = m.controlPrefix ?? ['V_', 'P_'];
 
     let text = textOriginal.replace(reLabel, (fullMatch, ...args) => {
         const groups = args.length > 0 && typeof args[args.length - 1] === 'object' ? args[args.length - 1] : {};
@@ -229,6 +483,7 @@ export async function transformText(text: string, filePath?: string, options?: {
         smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? vscode.workspace.getConfiguration('wizly').get('smartLabelMatcher'),
         removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
         smartTabMatcher: cachedSettings?.smartTabMatcher ?? vscode.workspace.getConfiguration('wizly').get<boolean>('smartTabMatcher', false),
+        customSmartMatchers: cachedSettings?.customSmartMatchers ?? vscode.workspace.getConfiguration('wizly').get('customSmartMatchers'),
     };
 
     // Use provided settings or fallback to VS Code config
@@ -243,7 +498,8 @@ export async function transformText(text: string, filePath?: string, options?: {
     const { tabPageContent, text: textWithoutTabContent } = settings.smartTabMatcher
         ? extractTabContentAndRemove(textWithoutLabels)
         : { tabPageContent: {}, text: textWithoutLabels };
-    let newText = textWithoutTabContent;
+    const { matches: customSmartMatches, text: textWithoutCustom } = extractCustomSmartMatchesAndRemove(textWithoutTabContent, settings, filePath);
+    let newText = textWithoutCustom;
     
     const eofMarker = '~~WIZLY_EOF~~';
     if (!newText.endsWith(eofMarker)) {
@@ -282,6 +538,13 @@ export async function transformText(text: string, filePath?: string, options?: {
 
                                 data.zoomIcon = settings.zoomIcon || 'search';
                                 data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
+                                data.customSmartMatches = Object.keys(customSmartMatches).length > 0 ? customSmartMatches : null;
+                                data.getCustomMatch = (name: string, magic: string) => {
+                                    if (!name || !magic) { return null; }
+                                    const bucket = (customSmartMatches as any)[name];
+                                    if (!bucket) { return null; }
+                                    return bucket[magic] ?? null;
+                                };
                                 data.getLabel = (magic: string) => {
                                     if (!settings) { return null; }
                                     const cn = resolveControlName(magic, settings);
@@ -311,9 +574,18 @@ export async function transformText(text: string, filePath?: string, options?: {
                                 data.ngIf = findAttr(['*ngIf'], allGroupAttrs);
                                 data.attrTooltip = findAttr(['[matTooltip]', 'matTooltip'], allGroupAttrs);
 
-                                data.startsWith = (str: string, prefix: string) => str.replace(/^mgc\./, '').startsWith(prefix);
-                                data.endsWith = (str: string, suffix: string) => str.replace(/^mgc\./, '').endsWith(suffix);
-                                data.includes = (str: string, substr: string) => str.replace(/^mgc\./, '').includes(substr);
+                                if (!data.zoom && data.magic && (customSmartMatches as any).smartZoomMatcher) {
+                                    const zm = (customSmartMatches as any).smartZoomMatcher[data.magic];
+                                    if (zm) {
+                                        data.zoom = true;
+                                        const rec = Array.isArray(zm) ? zm[0] : zm;
+                                        data.zoomContent = rec && typeof rec === 'object' ? (rec.content ?? null) : null;
+                                    }
+                                }
+
+                                data.startsWith = (str: string, prefix: string) => cleanMagicForCompare(str, settings).startsWith(prefix);
+                                data.endsWith = (str: string, suffix: string) => cleanMagicForCompare(str, settings).endsWith(suffix);
+                                data.includes = (str: string, substr: string) => cleanMagicForCompare(str, settings).includes(substr);
                                 data.include = (templateName: string, includeData?: any) => {
                                     const resolvedName = templateName.endsWith('.ejs') ? templateName : `${templateName}.ejs`;
                                     const includeTplPath = resolveTemplatePath(resolvedName);
@@ -371,6 +643,13 @@ export async function transformText(text: string, filePath?: string, options?: {
 
                                 data.zoomIcon = settings.zoomIcon || 'search';
                                 data.tabPageContent = Object.keys(tabPageContent).length > 0 ? tabPageContent : null;
+                                data.customSmartMatches = Object.keys(customSmartMatches).length > 0 ? customSmartMatches : null;
+                                data.getCustomMatch = (name: string, magic: string) => {
+                                    if (!name || !magic) { return null; }
+                                    const bucket = (customSmartMatches as any)[name];
+                                    if (!bucket) { return null; }
+                                    return bucket[magic] ?? null;
+                                };
 
                                 data.getLabel = (magic: string) => {
                                     if (!settings){ return null; };
@@ -429,36 +708,18 @@ export async function transformText(text: string, filePath?: string, options?: {
 
                                 data.options = findAttr(['[options]'], allGroupAttrs);
 
-
-                                data.startsWith = (str: string, prefix: string) => {
-                                    let cleanStr = str;
-                                    const m = settings?.smartLabelMatcher;
-                                    if (m && m.enabled && m.labelPrefix) {
-                                        cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
+                                if (!data.zoom && data.magic && (customSmartMatches as any).smartZoomMatcher) {
+                                    const zm = (customSmartMatches as any).smartZoomMatcher[data.magic];
+                                    if (zm) {
+                                        data.zoom = true;
+                                        const rec = Array.isArray(zm) ? zm[0] : zm;
+                                        data.zoomContent = rec && typeof rec === 'object' ? (rec.content ?? null) : null;
                                     }
-                                    cleanStr = cleanStr.replace(/^mgc\./, '');
-                                    return cleanStr.startsWith(prefix);
-                                };
+                                }
 
-                                data.endsWith = (str: string, suffix: string) => {
-                                    let cleanStr = str;
-                                    const m = settings?.smartLabelMatcher;
-                                    if (m && m.enabled && m.labelPrefix) {
-                                        cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
-                                    }
-                                    cleanStr = cleanStr.replace(/^mgc\./, '');
-                                    return cleanStr.endsWith(suffix);
-                                };
-
-                                data.includes = (str: string, substr: string) => {
-                                    let cleanStr = str;
-                                    const m = settings?.smartLabelMatcher;
-                                    if (m && m.enabled && m.labelPrefix) {
-                                        cleanStr = cleanStr.replace(new RegExp(`^mgc\\.${escapeForRegex(m.labelPrefix)}`), '');
-                                    }
-                                    cleanStr = cleanStr.replace(/^mgc\./, '');
-                                    return cleanStr.includes(substr);
-                                };
+                                data.startsWith = (str: string, prefix: string) => cleanMagicForCompare(str, settings).startsWith(prefix);
+                                data.endsWith = (str: string, suffix: string) => cleanMagicForCompare(str, settings).endsWith(suffix);
+                                data.includes = (str: string, substr: string) => cleanMagicForCompare(str, settings).includes(substr);
 
                                 data.include = (templateName: string, includeData?: any) => {
                                     const resolvedName = templateName.endsWith('.ejs') ? templateName : `${templateName}.ejs`;

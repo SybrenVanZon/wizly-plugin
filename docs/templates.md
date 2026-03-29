@@ -44,6 +44,7 @@ See [Template Helper Functions](helpers.md) for detailed documentation on `getLa
 ## Component Templates
 Templates that transform full Magic components/structures:
 *   [Page](templates/page.md)
+*   [Card](templates/card.md)
 *   [Subform](templates/subform.md)
 *   [Tab](templates/tab.md)
 *   [Label](templates/label.md)

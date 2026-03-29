@@ -25,7 +25,11 @@
     <% if (typeof rowId !== 'undefined' && rowId) { %>[rowId]="<%= rowId %>"<% } %>
     <% if (attrDisabled) { %>[disabled]="<%= attrDisabled %>"<% } %>
 >
+    <% if (typeof zoomContent !== 'undefined' && zoomContent) { %>
+    <%- zoomContent %>
+    <% } else { %>
     <mat-icon><%= zoomIcon %></mat-icon>
+    <% } %>
 </button>
 <% } %>
 

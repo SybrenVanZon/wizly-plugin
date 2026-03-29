@@ -34,11 +34,28 @@ export type WizlySettings = {
     autoTransformToast?: boolean;
     smartLabelMatcher?: {
         enabled: boolean;
-        labelPrefix: string;
-        controlPrefix: string[];
+        labelPrefix: string | string[];
+        controlPrefix: string | string[];
     };
     removeEmptyLinesAfterPrettier?: boolean;
     smartTabMatcher?: boolean;
+    customSmartMatchers?: CustomSmartMatcher[];
+};
+
+export type SmartMatchOn = {
+    matchPrefix?: string | string[];
+    matchSuffix?: string | string[];
+    controlPrefix?: string | string[];
+    controlSuffix?: string | string[];
+};
+
+export type CustomSmartMatcher = {
+    name: string;
+    enabled: boolean;
+    filePattern?: string;
+    regex: RegExp | string;
+    remove?: boolean;
+    matchOn?: SmartMatchOn;
 };
 
 let cachedModes: Mode[] | null = null;
@@ -174,10 +191,11 @@ function loadSettingsFromConfigSync(filePath: string) {
 
         if (data && data.smartLabelMatcher) {
             const rawControlPrefix = data.smartLabelMatcher.controlPrefix ?? ['V_', 'P_'];
+            const rawLabelPrefix = data.smartLabelMatcher.labelPrefix ?? 'L_';
             newSettings.smartLabelMatcher = {
                 enabled: !!data.smartLabelMatcher.enabled,
-                labelPrefix: String(data.smartLabelMatcher.labelPrefix ?? 'L_'),
-                controlPrefix: Array.isArray(rawControlPrefix) ? rawControlPrefix.map(String) : [String(rawControlPrefix)]
+                labelPrefix: Array.isArray(rawLabelPrefix) ? rawLabelPrefix.map(String) : String(rawLabelPrefix),
+                controlPrefix: Array.isArray(rawControlPrefix) ? rawControlPrefix.map(String) : String(rawControlPrefix)
             };
         }
 
@@ -187,6 +205,38 @@ function loadSettingsFromConfigSync(filePath: string) {
 
         if (data && typeof data.smartTabMatcher !== 'undefined') {
             newSettings.smartTabMatcher = !!data.smartTabMatcher;
+        }
+
+        if (data && Array.isArray(data.customSmartMatchers)) {
+            const sanitizeStringOrStringArray = (v: any): string | string[] | undefined => {
+                if (typeof v === 'string') { return v; }
+                if (Array.isArray(v)) { return v.map(String); }
+                return undefined;
+            };
+
+            newSettings.customSmartMatchers = data.customSmartMatchers
+                .filter((m: any) => m && typeof m === 'object')
+                .map((m: any) => {
+                    const matchOn = m.matchOn && typeof m.matchOn === 'object' ? m.matchOn : undefined;
+                    const matchPrefix = sanitizeStringOrStringArray(matchOn?.matchPrefix);
+                    const matchSuffix = sanitizeStringOrStringArray(matchOn?.matchSuffix);
+                    const controlPrefix = sanitizeStringOrStringArray(matchOn?.controlPrefix);
+                    const controlSuffix = sanitizeStringOrStringArray(matchOn?.controlSuffix);
+
+                    const normalizedMatchOn = (matchPrefix || matchSuffix || controlPrefix || controlSuffix)
+                        ? { matchPrefix, matchSuffix, controlPrefix, controlSuffix }
+                        : undefined;
+
+                    return {
+                        name: String(m.name ?? 'matcher'),
+                        enabled: !!m.enabled,
+                        filePattern: typeof m.filePattern === 'string' ? m.filePattern : undefined,
+                        regex: (m.regex instanceof RegExp || typeof m.regex === 'string') ? m.regex : String(m.regex ?? ''),
+                        remove: typeof m.remove === 'boolean' ? m.remove : undefined,
+                        matchOn: normalizedMatchOn,
+                    } satisfies CustomSmartMatcher;
+                })
+                .filter((m: CustomSmartMatcher) => !!m.name && (m.regex instanceof RegExp || (typeof m.regex === 'string' && m.regex.trim().length > 0)));
         }
 
         cachedSettings = newSettings;

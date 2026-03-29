@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -162,9 +162,19 @@
               "description": "Enable smart label matching logic."
             },
             "labelPrefix": {
-              "type": "string",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
               "default": "L_",
-              "description": "Prefix for label control IDs (e.g. 'L_')."
+              "description": "Prefix(es) for label control IDs. Can be a single string or an array."
             },
             "controlPrefix": {
               "oneOf": [
@@ -193,6 +203,106 @@
               "P_"
             ]
           }
+        },
+        "wizly.customSmartMatchers": {
+          "type": "array",
+          "default": [],
+          "description": "Optional user-defined smart matchers. Each matcher extracts data via regex named capture groups (must include a 'magic' group) and can optionally remove the matched block.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Unique matcher name."
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable this matcher."
+              },
+              "filePattern": {
+                "type": "string",
+                "default": "*.html",
+                "description": "File name pattern filter (e.g. '*.html')."
+              },
+              "regex": {
+                "type": "string",
+                "description": "Regex pattern to apply. Supports '/pattern/flags' or 'pattern' (defaults to 'gm'). Must contain a named group 'magic'."
+              },
+              "remove": {
+                "type": "boolean",
+                "default": false,
+                "description": "Remove the matched block from the HTML after extraction."
+              },
+              "matchOn": {
+                "type": "object",
+                "description": "Optional mapping between extracted magic and target control magic using prefix/suffix rules.",
+                "properties": {
+                  "matchPrefix": {
+                    "description": "Matched element's magic must start with this prefix (string or array).",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "matchSuffix": {
+                    "description": "Matched element's magic must end with this suffix (string or array).",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "controlPrefix": {
+                    "description": "Control prefix(es) used to build candidate control magics from the target magic base name (string or array).",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "controlSuffix": {
+                    "description": "Control suffix(es) used to build candidate control magics. Use \"*\" to allow any extra suffix text in the actual control magic (prefix match).",
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "regex"
+            ]
+          }
         }
       }
     }
@@ -206,6 +316,7 @@
     "pretest": "tsc -p .",
     "test": "npm run pretest && vscode-test",
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "vsix": "npm run package && node scripts/vsix.js",
     "check-types": "tsc --noEmit",
     "lint": "eslint src"
   },
