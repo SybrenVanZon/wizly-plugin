@@ -3,6 +3,20 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.3.0] - 2026-03-29
+
+### Added
+- **`customSmartMatchers`**: New optional setting for user-defined matchers that extract blocks using regex named capture groups (requires a `magic` group). Supports prefix/suffix mapping via `matchOn` and optional removal via `remove`.
+
+### Changed
+- **`mat-card-title` via `getLabel()`**: The card template now renders the `mat-card-title` using the `getLabel()` helper function, enabling smart-matched labels for card titles.
+- **`smartLabelMatcher.labelPrefix`**: Now supports a string or an array of strings.
+- **`smartLabelMatcher.controlPrefix`**: Now also supports a single string in addition to an array (consistent with `labelPrefix`).
+
+### Fixed
+- **Auto-save skipped for untitled buffers**: The save after transformation is now also skipped for untitled (unsaved) documents, not just for files without an extension.
+- **`resolveControlName` with multiple label prefixes**: Control name resolution now correctly iterates over all configured label prefixes when `labelPrefix` is an array.
+
 ## [0.2.3] - 2026-03-25
 
 ### Added
@@ -56,14 +70,6 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 
 ### Breaking Changes
 - **Configuration Location**: `.vswizly.js` in the root is deprecated. Please use the new `.vswizly/` folder structure. A warning will be shown if the old file is detected.
-
-## [0.3.0] - 2026-03-27
-
-### Added
-- **`customSmartMatchers`**: New optional setting for user-defined matchers that extract blocks using regex named capture groups (requires a `magic` group). Supports prefix/suffix mapping via `matchOn` and optional removal via `remove`.
-
-### Changed
-- **`smartLabelMatcher.labelPrefix`**: Now supports a string or an array of strings.
 
 ## [0.1.1] - 2026-02-17
 

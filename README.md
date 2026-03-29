@@ -12,13 +12,13 @@ when `autoTransformOnCreate` is enabled; you don’t need to manually edit the
 generated HTML, which saves time and yields consistent, maintainable output.
 
 Wizly is a VS Code extension that uses a project configuration file.
-You can export `.vswizly/` and keep it in version control so the
+You can export `.vswizly.js` and keep it in version control so the
 whole team applies the same rules.
 
 ## ✨ Features
 
 - Regex‑based HTML post‑processing
-- Shared project config via `.vswizly/` (version‑controlled)
+- Shared project config via `.vswizly.js` (version‑controlled)
 - Auto‑transform on file creation (`autoTransformOnCreate`)
 - Optional info toast (`autoTransformToast`)
 - Transform tag to avoid re‑processing
@@ -46,17 +46,31 @@ Tables:
 
 ## 🚀 Usage
 
-New to Wizly? See the [Getting Started guide](docs/getting-started.md).
+### Shortcuts
+
+Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command palette and type "Wizly".
 
 ### Commands
 
-Open the command palette with `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) and type "Wizly":
-
 - `Wizly: Transform Current File` — transform the active file
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
-- `Wizly: Export Settings` — creates a `.vswizly/` folder at the workspace root with a starter config (fails if it already exists)
-- `Wizly: Export Templates` — exports the built-in EJS templates to `.vswizly/templates/` so you can customise them per project
+- `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
+- `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
+
+
+### Creating Custom Rules
+
+Edit the project config file directly to tailor transformations for your codebase.
+
+Use a versioned `.vswizly.js` at the workspace root to share rules across your team. Changes are automatically reloaded. If the file is missing, Wizly uses built‑in defaults.
+
+1. Run `Wizly: Export Default Rules to .vswizly.js`
+2. Open the file in the project root
+3. Add, modify, or disable rules as needed
+4. Save — changes are picked up automatically
+
+See `docs/rules.md` for advanced rule fields, rationale, and tips. For full before/after samples, see `examples/`.
 
 ## ⚙️ Configuration
 
@@ -129,7 +143,7 @@ Example (zoom button capture, default disabled):
   regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
   remove: true,
   matchOn: {
-    targetPrefix: "Z_",
+    matchPrefix: "Z_",
     controlPrefix: ["V_", "P_"],
     controlSuffix: ""
   }
@@ -137,7 +151,7 @@ Example (zoom button capture, default disabled):
 ```
 
 **Notes**
-- `targetPrefix` and `targetSuffix` can be used together. If you provide both, both must match.
+- `matchPrefix` and `matchSuffix` can be used together. If you provide both, both must match.
 - By default, the control check is exact. For example, `V_Combo` does not match `V_ComboBox`.
 - If you want to allow extra suffix text in the control magic (e.g. `V_ComboBox` should match `V_Combo`), set `controlSuffix: "*"`.
 
@@ -158,11 +172,11 @@ Example (zoom button capture, default disabled):
 
 ## 🎯 Example
 
-See [examples/](examples/) for full before/after sample.
+See `examples/` for full before/after sample. 
 
 ## ℹ️ How Replace Works
 
-See [docs/rules.md](docs/rules.md) for details on the EOF marker, named groups, and regex flags.
+See `docs/rules.md` for details on the EOF marker, named groups, and regex flags.
 
 ## 🛠️ Development
 
@@ -177,7 +191,6 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 
 | Document | Description |
 |---|---|
-| [docs/getting-started.md](docs/getting-started.md) | Getting started: install, transform, configure, and customize |
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |

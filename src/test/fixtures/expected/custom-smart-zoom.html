@@ -1,0 +1,23 @@
+<mat-form-field
+  [class.d-none]="mg.getVisible(mgc.V_ZoomTest) === 'hidden'"
+  [matTooltip]="mg.getTitle(mgc.V_ZoomTest)"
+>
+  <input
+    matInput
+    type="text"
+    [magic]="mgc.V_ZoomTest"
+    [formControlName]="mgc.V_ZoomTest"
+    mgFormat
+    [required]="mg.getMustInput(mgc.V_ZoomTest)"
+  />
+
+  <button mat-icon-button matSuffix color="primary" [magic]="mgc.V_ZoomTest">
+    ZOOM
+  </button>
+
+  <mat-hint>{{ mg.getPlaceholder(mgc.V_ZoomTest) }}</mat-hint>
+
+  <mat-error>
+    <mgError [magic]="mgc.V_ZoomTest"></mgError>
+  </mat-error>
+</mat-form-field>

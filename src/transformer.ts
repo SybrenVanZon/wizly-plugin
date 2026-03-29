@@ -114,8 +114,8 @@ function resolveSmartMatchOn(
         return out;
     };
 
-    const targetPrefixes = normalizeStringArray(matchOn.targetPrefix, []);
-    const targetSuffixes = normalizeStringArray(matchOn.targetSuffix, []);
+    const targetPrefixes = normalizeStringArray(matchOn.matchPrefix, []);
+    const targetSuffixes = normalizeStringArray(matchOn.matchSuffix, []);
     const hasTargetRules = targetPrefixes.length > 0 || targetSuffixes.length > 0;
 
     if (!hasTargetRules) {

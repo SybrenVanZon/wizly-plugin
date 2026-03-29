@@ -163,8 +163,15 @@
             },
             "labelPrefix": {
               "oneOf": [
-                { "type": "string" },
-                { "type": "array", "items": { "type": "string" } }
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               ],
               "default": "L_",
               "description": "Prefix(es) for label control IDs. Can be a single string or an array."
@@ -231,38 +238,70 @@
                 "type": "object",
                 "description": "Optional mapping between extracted magic and target control magic using prefix/suffix rules.",
                 "properties": {
-                  "targetPrefix": {
-                    "description": "Target magic must start with this prefix (string or array).",
+                  "matchPrefix": {
+                    "description": "Matched element's magic must start with this prefix (string or array).",
                     "oneOf": [
-                      { "type": "string" },
-                      { "type": "array", "items": { "type": "string" } }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
                     ]
                   },
-                  "targetSuffix": {
-                    "description": "Target magic must end with this suffix (string or array).",
+                  "matchSuffix": {
+                    "description": "Matched element's magic must end with this suffix (string or array).",
                     "oneOf": [
-                      { "type": "string" },
-                      { "type": "array", "items": { "type": "string" } }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
                     ]
                   },
                   "controlPrefix": {
                     "description": "Control prefix(es) used to build candidate control magics from the target magic base name (string or array).",
                     "oneOf": [
-                      { "type": "string" },
-                      { "type": "array", "items": { "type": "string" } }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
                     ]
                   },
                   "controlSuffix": {
                     "description": "Control suffix(es) used to build candidate control magics. Use \"*\" to allow any extra suffix text in the actual control magic (prefix match).",
                     "oneOf": [
-                      { "type": "string" },
-                      { "type": "array", "items": { "type": "string" } }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
                     ]
                   }
                 }
               }
             },
-            "required": ["name", "enabled", "regex"]
+            "required": [
+              "name",
+              "enabled",
+              "regex"
+            ]
           }
         }
       }
@@ -277,7 +316,7 @@
     "pretest": "tsc -p .",
     "test": "npm run pretest && vscode-test",
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
-    "vsix": "npm run package && vsce package",
+    "vsix": "npm run package && node scripts/vsix.js",
     "check-types": "tsc --noEmit",
     "lint": "eslint src"
   },

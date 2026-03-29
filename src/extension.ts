@@ -201,7 +201,7 @@ async function transformCurrentFile() {
         editor.selection = new vscode.Selection(newPosition, newPosition);
         editor.revealRange(new vscode.Range(newPosition, newPosition));
 
-        if (path.extname(filePath)) {
+        if (!doc.isUntitled && path.extname(filePath)) {
             await doc.save();
         }
         vscode.window.showInformationMessage('HTML transformation completed!');

@@ -106,7 +106,7 @@ module.exports = {
       regex: /(?<button><button\b[^>]*?(?:magic|\[magic\])="(?<magic>mgc\.[^"]+)"[^>]*>)(?<content>[\s\S]*?)<\/button>/gm,
       remove: true,
       matchOn: {
-        targetPrefix: "Z_",
+        matchPrefix: "Z_",
         controlPrefix: ["V_", "P_"],
         controlSuffix: ""
       }
@@ -116,9 +116,11 @@ module.exports = {
 ```
 
 **Notes**
-- `targetPrefix` and `targetSuffix` can be combined. If you provide both, both must match.
+- `matchPrefix` and `matchSuffix` can be combined. If you provide both, both must match.
 - By default, the control check is exact. Example: `mgc.V_Combo` does not match `mgc.V_ComboBox`.
 - If you want `mgc.V_Combo` to match any control that starts with it (like `mgc.V_ComboBox`), set `controlSuffix: "*"`.
+
+> **See also:** [Using Smart Matcher Capture Groups in Templates](smart-matcher-capture-groups.md) — a full worked example with configuration and template code.
 
 ### `getAttribute(regexGroup, attributeName)`
 

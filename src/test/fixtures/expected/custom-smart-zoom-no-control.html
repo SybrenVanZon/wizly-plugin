@@ -1,0 +1,17 @@
+<mat-form-field [class.d-none]="mg.getVisible(mgc.V_Other) === 'hidden'">
+  <input
+    matInput
+    type="text"
+    [magic]="mgc.V_Other"
+    [formControlName]="mgc.V_Other"
+    mgFormat
+  />
+
+  <mat-error>
+    <mgError [magic]="mgc.V_Other"></mgError>
+  </mat-error>
+</mat-form-field>
+
+<button mat-raised-button color="primary" [magic]="mgc.Z_Missing">
+  {{ mg.getValue(mgc.Z_Missing) }}
+</button>

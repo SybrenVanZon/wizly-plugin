@@ -43,8 +43,8 @@ export type WizlySettings = {
 };
 
 export type SmartMatchOn = {
-    targetPrefix?: string | string[];
-    targetSuffix?: string | string[];
+    matchPrefix?: string | string[];
+    matchSuffix?: string | string[];
     controlPrefix?: string | string[];
     controlSuffix?: string | string[];
 };
@@ -218,13 +218,13 @@ function loadSettingsFromConfigSync(filePath: string) {
                 .filter((m: any) => m && typeof m === 'object')
                 .map((m: any) => {
                     const matchOn = m.matchOn && typeof m.matchOn === 'object' ? m.matchOn : undefined;
-                    const targetPrefix = sanitizeStringOrStringArray(matchOn?.targetPrefix);
-                    const targetSuffix = sanitizeStringOrStringArray(matchOn?.targetSuffix);
+                    const matchPrefix = sanitizeStringOrStringArray(matchOn?.matchPrefix);
+                    const matchSuffix = sanitizeStringOrStringArray(matchOn?.matchSuffix);
                     const controlPrefix = sanitizeStringOrStringArray(matchOn?.controlPrefix);
                     const controlSuffix = sanitizeStringOrStringArray(matchOn?.controlSuffix);
 
-                    const normalizedMatchOn = (targetPrefix || targetSuffix || controlPrefix || controlSuffix)
-                        ? { targetPrefix, targetSuffix, controlPrefix, controlSuffix }
+                    const normalizedMatchOn = (matchPrefix || matchSuffix || controlPrefix || controlSuffix)
+                        ? { matchPrefix, matchSuffix, controlPrefix, controlSuffix }
                         : undefined;
 
                     return {
