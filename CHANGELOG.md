@@ -3,6 +3,11 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.3.1] - 2026-04-12
+
+### Fixed
+- **Tab index/content shifting with hidden tabs**: Updated the default `tab.ejs` (smartTabMatcher path) to support `WizlyActiveTabIndexes`, keeping tab headers and injected tab content aligned even when some tabs are omitted by Magic’s Display List filtering.
+
 ## [0.3.0] - 2026-03-29
 
 ### Added

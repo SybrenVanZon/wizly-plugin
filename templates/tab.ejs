@@ -1,3 +1,11 @@
+<%
+    const tabName = magic.replace(/^mgc\./, '');
+    const tabPages = tabPageContent && tabPageContent[tabName];
+%>
+<% if (tabPages) { %>
+@let <%= tabName %>Raw = (mg.getCustomProperty(<%= magic %>, 'WizlyActiveTabIndexes') || '');
+@let <%= tabName %>Wrapped = ',' + <%= tabName %>Raw + ',';
+<% } %>
 <mat-tab-group
     [magic]="<%= magic %>"
     (selectedTabChange)="task.mgOnTabSelectionChanged(<%= magic %>, $event.index)"
@@ -6,15 +14,15 @@
     <% if (attrTooltip) { %>[matTooltip]="<%= attrTooltip %>"<% } %>
 >
 <%
-    const tabName = magic.replace(/^mgc\./, '');
-    const tabPages = tabPageContent && tabPageContent[tabName];
     if (tabPages) {
         for (let i = 0; i < tabPages.length; i++) {
 %>
-    <mat-tab [label]="(mg.getItemListValues(<%= magic %>) || []).length ? mg.getTabpageText(<%= magic %>, <%= i %>): ''">
-        <%- tabPages[i] %>
-    </mat-tab>
-<%  }
+    @if(!<%= tabName %>Raw || <%= tabName %>Wrapped.includes(',' + <%= i %> + ',')) {
+        <mat-tab [label]="(mg.getItemListValues(<%= magic %>) || []).length ? mg.getTabpageText(<%= magic %>, <%= i %>): ''">
+            <%- tabPages[i] %>
+        </mat-tab>
+    }
+<%      }
     } else {
 %>
     @for(o of mg.getItemListValues(<%= magic %>); track o) {
