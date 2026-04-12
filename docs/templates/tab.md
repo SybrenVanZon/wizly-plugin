@@ -2,6 +2,18 @@
 
 Magic's base template for tab group.
 
+## Why this template is structured this way
+
+Magic Tab Controls work with an **Items List** (all possible tab pages) and a **Display List** (which tab indexes should be shown at runtime).
+
+The Magic Web Client typically generates a single HTML “source” that already reflects the Display List filtering: tabs that should not be shown are omitted from the rendered `<mat-tab>` headers. However, the tab page content (layers) is still associated with the original tab indexes.
+
+This mismatch can occur even without Wizly. It is a known Magic Web Client issue: when the generated tab headers are already filtered, the remaining tabs get renumbered by the UI, while the tab page content is still tied to the original tab indexes.
+
+When `smartTabMatcher` is enabled, Wizly extracts each `div.tab_content` layer and injects it into the corresponding `<mat-tab>` by index. If some tabs were omitted in the generated tab headers, Angular Material renumbers the remaining tabs, and the header index no longer matches the content index. The result is that tab headers and tab content can become misaligned (content “shifts”).
+
+The fix in the default template is: always generate the full set of possible tabs (based on extracted tab content), and then conditionally render each tab based on a Wizly-controlled “display list”. This preserves a stable tab index ↔ content mapping.
+
 ## Available Variables
 
 | Variable | Description | Source Attributes Searched |
@@ -45,29 +57,35 @@ Magic's base template for tab group.
 
 **Output with `smartTabMatcher: true`**
 ```html
+@let Tab14Raw = mg.getCustomProperty(mgc.Tab14, "WizlyActiveTabIndexes") || "";
+@let Tab14Wrapped = "," + Tab14Raw + ",";
 <mat-tab-group
     [magic]="mgc.Tab14"
     (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab14, $event.index)"
     [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab14)"
 >
-    <mat-tab
-        [label]="
-            (mg.getItemListValues(mgc.Tab14) || []).length
-                ? mg.getTabpageText(mgc.Tab14, 1)
-                : ''
-        "
-    >
-        <!-- content of tab 1 -->
-    </mat-tab>
-    <mat-tab
-        [label]="
-            (mg.getItemListValues(mgc.Tab14) || []).length
-                ? mg.getTabpageText(mgc.Tab14, 2)
-                : ''
-        "
-    >
-        <!-- content of tab 2 -->
-    </mat-tab>
+    @if(!Tab14Raw || Tab14Wrapped.includes("," + 0 + ",")) {
+        <mat-tab
+            [label]="
+                (mg.getItemListValues(mgc.Tab14) || []).length
+                    ? mg.getTabpageText(mgc.Tab14, 0)
+                    : ''
+            "
+        >
+            <!-- content of tab 0 -->
+        </mat-tab>
+    }
+    @if(!Tab14Raw || Tab14Wrapped.includes("," + 1 + ",")) {
+        <mat-tab
+            [label]="
+                (mg.getItemListValues(mgc.Tab14) || []).length
+                    ? mg.getTabpageText(mgc.Tab14, 1)
+                    : ''
+            "
+        >
+            <!-- content of tab 1 -->
+        </mat-tab>
+    }
 </mat-tab-group>
 ```
 
@@ -86,12 +104,46 @@ module.exports = {
 ```
 
 The tab index is determined by the `isTabPageLayerSelected(mgc.TabX, N)` binding on the `div.tab_content`.
-Content is matched 1-based (Magic convention): tab index 1 maps to the first `mat-tab`, etc.
+Content is matched 0-based in Wizly's output: the first extracted tab page maps to index `0`, then `1`, etc.
 
 The `div.tab_content` blocks are removed from the HTML before any rules are applied, so the
 inner content passes through all transformation rules (label extraction, etc.) as normal.
 
-> **Note:** When `smartTabMatcher` is active, each `mat-tab` is generated statically (one per tab page).
-> The dynamic `@for` loop is only used when no tab content is available.
-> If `getItemListValues` conditionally excludes tabs at runtime, those tabs will still appear in the
-> generated output — this is a known limitation to address in a future version.
+## `WizlyActiveTabIndexes` (optional)
+
+You can set a custom property on the tab-group: `WizlyActiveTabIndexes`.
+
+- Value: a comma-separated string of indexes starting from `0` (e.g. `1,2`). Treat this as the Wizly equivalent of Magic’s Tab Control “Display List”.
+- Behavior:
+  - Empty/undefined: all tabs are rendered.
+  - Provided: only indexes present in the string are rendered (and only that content is present in the DOM).
+
+The template wraps the string as `"," + raw + ","` so checks like `includes(",1,")` avoid false positives (e.g. `1` should not match inside `10`).
+
+This intentionally does not use Magic’s “Visible Layers List”. The goal is to re-apply the Display List concept at template time, after all possible tabs have been generated, so Angular Material indexes and injected content cannot drift apart.
+
+## Angular version compatibility
+
+The default templates use Angular control flow (`@for`, `@if`, `@let`) and are intended for Angular 17+.
+
+### Fallback template for Angular 16 and below
+
+If you cannot use `@let` yet, you can achieve the same behavior with `*ngIf` (not pretty, but workable). Conceptually it’s identical; you just repeat the `mg.getCustomProperty(...)` call.
+
+```html
+<mat-tab-group
+    [magic]="mgc.Tab14"
+    (selectedTabChange)="task.mgOnTabSelectionChanged(mgc.Tab14, $event.index)"
+    [selectedIndex]="mg.getTabSelectedIndex(mgc.Tab14)"
+>
+    <mat-tab
+        *ngIf="
+            !mg.getCustomProperty(mgc.Tab14, 'WizlyActiveTabIndexes') ||
+            (',' + (mg.getCustomProperty(mgc.Tab14, 'WizlyActiveTabIndexes') || '') + ',').includes(',0,')
+        "
+        [label]="(mg.getItemListValues(mgc.Tab14) || []).length ? mg.getTabpageText(mgc.Tab14, 0) : ''"
+    >
+        <!-- content of tab 0 -->
+    </mat-tab>
+</mat-tab-group>
+```
