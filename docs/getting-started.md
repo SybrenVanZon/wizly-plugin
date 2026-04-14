@@ -82,3 +82,19 @@ If you do want to customize the rules:
 You can then add, modify, or disable rules as needed. Rules are executed top to bottom — order matters.
 
 See [docs/rules.md](rules.md) for a detailed explanation of all rule fields, regex flags, named groups, and tips.
+
+---
+
+## 6. Keeping Your Exports Up to Date (Patch)
+
+After a Wizly update, the built-in templates, rules, or settings may have changed. If you have previously exported any of these, use the patch commands to compare your local files against the new system versions and selectively adopt the changes you want.
+
+| Command | What it does |
+|---|---|
+| `Wizly: Patch Templates` | Lists changed or new templates, lets you view a diff and update per file |
+| `Wizly: Patch Rules` | Shows new and modified rules, opens a side-by-side diff of both rule files |
+| `Wizly: Patch Settings` | Detects missing settings keys (including nested ones) and opens a diff |
+
+All three commands open VS Code's built-in diff editor so you can copy individual changes rather than overwriting everything. Your own customizations are never touched automatically.
+
+See [docs/patching.md](patching.md) for full details.
