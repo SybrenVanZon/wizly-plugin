@@ -3,6 +3,44 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Single source of truth for the default settings.
+// Used by both exportSettings and patchSettings so they stay in sync.
+export const DEFAULT_SETTINGS_CONTENT = `module.exports = {
+    transformTag: {
+        enable: true,
+        dateFormat: 'YYYY-MM-DD',
+        timeFormat: 'HH:mm',
+        template: 'Changed by Wizly on {date} at {time}'
+    },
+    autoTransformOnCreate: false,
+    autoTransformToast: true,
+    smartLabelMatcher: {
+        enabled: false,
+        labelPrefix: 'L_',
+        controlPrefix: ['V_', 'P_']
+    },
+    smartTabMatcher: false,
+    customSmartMatchers: []
+};`;
+
+export const DEFAULT_SETTINGS_OBJECT: Record<string, unknown> = {
+    transformTag: {
+        enable: true,
+        dateFormat: 'YYYY-MM-DD',
+        timeFormat: 'HH:mm',
+        template: 'Changed by Wizly on {date} at {time}',
+    },
+    autoTransformOnCreate: false,
+    autoTransformToast: true,
+    smartLabelMatcher: {
+        enabled: false,
+        labelPrefix: 'L_',
+        controlPrefix: ['V_', 'P_'],
+    },
+    smartTabMatcher: false,
+    customSmartMatchers: [],
+};
+
 export interface RegexRule {
     name: string;
     description: string;

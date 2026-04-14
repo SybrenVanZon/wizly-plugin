@@ -3,8 +3,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
 import * as fs from 'fs';
-import { refreshModes, getModes, getCachedSettings } from './config';
+import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
+import { patchTemplates, patchRules, patchSettings } from './patcher';
 
 let outputChannel: vscode.OutputChannel | null = null;
 function getOutputChannel(): vscode.OutputChannel {
@@ -232,24 +233,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             const configPath = path.join(configDir, 'wizly.config.js');
             if (!fs.existsSync(configPath)) {
-                const defaultConfigContent = `module.exports = {
-    transformTag: {
-        enable: true,
-        dateFormat: 'YYYY-MM-DD',
-        timeFormat: 'HH:mm',
-        template: 'Changed by Wizly on {date} at {time}'
-    },
-    autoTransformOnCreate: false,
-    autoTransformToast: true,
-    smartLabelMatcher: {
-        enabled: false,
-        labelPrefix: 'L_',
-        controlPrefix: ['V_', 'P_']
-    },
-    smartTabMatcher: false,
-    customSmartMatchers: []
-};`;
-                fs.writeFileSync(configPath, defaultConfigContent, 'utf8');
+                fs.writeFileSync(configPath, DEFAULT_SETTINGS_CONTENT, 'utf8');
                 vscode.window.showInformationMessage(`Wizly: Created default config at ${configPath}`);
             } else {
                 vscode.window.showWarningMessage(`Wizly: Config file already exists at ${configPath}`);
@@ -350,11 +334,49 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const patchTemplatesDisposable = vscode.commands.registerCommand('wizly.patchTemplates', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+            return;
+        }
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const configDir = path.join(rootPath, '.vswizly');
+        const extDir = path.join(__dirname, '..');
+        await patchTemplates(extDir, configDir);
+    });
+
+    const patchRulesDisposable = vscode.commands.registerCommand('wizly.patchRules', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+            return;
+        }
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const configDir = path.join(rootPath, '.vswizly');
+        const extDir = path.join(__dirname, '..');
+        await patchRules(extDir, configDir);
+    });
+
+    const patchSettingsDisposable = vscode.commands.registerCommand('wizly.patchSettings', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+            return;
+        }
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const configDir = path.join(rootPath, '.vswizly');
+        await patchSettings(configDir);
+    });
+
     context.subscriptions.push(transformDisposable);
     context.subscriptions.push(transformUncommittedDisposable);
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);
+    context.subscriptions.push(patchTemplatesDisposable);
+    context.subscriptions.push(patchRulesDisposable);
+    context.subscriptions.push(patchSettingsDisposable);
 
     // Status bar
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
