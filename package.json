@@ -70,6 +70,18 @@
       {
         "command": "wizly.exportRules",
         "title": "Wizly: Export Advanced Rules"
+      },
+      {
+        "command": "wizly.patchTemplates",
+        "title": "Wizly: Patch Templates"
+      },
+      {
+        "command": "wizly.patchRules",
+        "title": "Wizly: Patch Rules"
+      },
+      {
+        "command": "wizly.patchSettings",
+        "title": "Wizly: Patch Settings"
       }
     ],
     "menus": {
@@ -89,6 +101,15 @@
         },
         {
           "command": "wizly.exportRules"
+        },
+        {
+          "command": "wizly.patchTemplates"
+        },
+        {
+          "command": "wizly.patchRules"
+        },
+        {
+          "command": "wizly.patchSettings"
         }
       ]
     },
