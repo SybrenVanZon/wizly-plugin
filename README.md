@@ -88,6 +88,11 @@ The following settings can be configured in VS Code (`settings.json` or the Sett
 | `wizly.transformTag.template` | `"Changed by Wizly on {date} at {time}"` | Template for the transform tag comment |
 | `wizly.zoomIcon` | `"search"` | Material icon name used for zoom buttons (e.g. `"search"`, `"more_horiz"`, `"open_in_new"`) |
 | `wizly.removeEmptyLinesAfterPrettier` | `false` | Strip empty lines introduced by Prettier between block elements |
+| `wizly.typescript.enableAstTransforms` | `false` | Enable AST-based transforms for Magic-like generated TypeScript (import sorting and `@NgModule({ imports: [...] })` sorting) |
+| `wizly.typescript.autoTransformOnCreate` | `false` | Automatically transform newly created Magic-generated TypeScript helper/module files (`magic.gen.lib.module.ts`, `*.g.ts`) |
+| `wizly.typescript.autoTransformComponentsOnCreate` | `false` | Automatically transform newly created Magic-generated component TypeScript files (`*.component.ts`, extends `*MagicComponent`) |
+| `wizly.typescript.sortImports` | `true` | Sort TypeScript `import ... from "..."` declarations (and named imports) alphabetically |
+| `wizly.typescript.sortNgModuleImports` | `true` | Sort entries in `@NgModule({ imports: [...] })` alphabetically per comment section |
 | `wizly.smartTabMatcher` | `false` | Extract `tab_content` divs and place their content inside `mat-tab` elements (required for Angular Material tab animations) |
 | `wizly.smartLabelMatcher.enabled` | `false` | Enable smart label matching |
 | `wizly.smartLabelMatcher.labelPrefix` | `"L_"` | Prefix(es) for label magic attributes — string or array of strings |
@@ -96,7 +101,7 @@ The following settings can be configured in VS Code (`settings.json` or the Sett
 
 ### Prettier Integration
 
-Wizly uses Prettier to format HTML after applying regex rules.
+Wizly uses Prettier to format output after applying regex rules.
 
 - Bundled Prettier: the extension ships its own Prettier package, so users don’t need to install anything.
 - Prefer workspace Prettier: if your project has `prettier` installed, Wizly will prefer that workspace version.

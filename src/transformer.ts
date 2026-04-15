@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as ejs from 'ejs';
 import * as prettier from 'prettier';
+import * as ts from 'typescript';
 import { CustomSmartMatcher, SmartMatchOn, WizlySettings, getModes, getCachedSettings } from './config';
 import { 
     LabelMap, 
@@ -162,6 +163,230 @@ function cleanMagicForCompare(str: string, settings: WizlySettings): string {
     }
     cleanStr = cleanStr.replace(/^mgc\./, '');
     return cleanStr;
+}
+
+function isTypeScriptFile(filePath: string | undefined): boolean {
+    if (!filePath) { return false; }
+    const ext = path.extname(filePath).toLowerCase();
+    return ext === '.ts' || ext === '.tsx';
+}
+
+function shouldApplyTypeScriptAstTransforms(text: string, filePath: string | undefined, tsSettings: WizlySettings['typescript'] | undefined): boolean {
+    if (!isTypeScriptFile(filePath)) { return false; }
+    if (!tsSettings?.enableAstTransforms) { return false; }
+    const fileName = filePath ? path.basename(filePath).toLowerCase() : '';
+    if (fileName === 'magic.gen.lib.module.ts' || fileName.endsWith('.g.ts')) {
+        return true;
+    }
+    return /\b@NgModule\s*\(/.test(text)
+        || /\b@Component\s*\(/.test(text)
+        || /\bextends\s+TaskBaseMagicComponent\b/.test(text)
+        || /\bextends\s+[A-Za-z0-9_]*MagicComponent\b/.test(text)
+        || /\bmagicProviders\b/.test(text)
+        || /(\.mg\.controls\.g\b)/.test(text)
+        || /\bmagicGenComponents\b/.test(text)
+        || /\bmagicGenCmpsHash\b/.test(text);
+}
+
+function sortImportSpecifiers(node: ts.ImportDeclaration): ts.ImportDeclaration {
+    const clause = node.importClause;
+    if (!clause) { return node; }
+    const named = clause.namedBindings;
+    if (!named || !ts.isNamedImports(named)) { return node; }
+
+    const elements = [...named.elements];
+    elements.sort((a, b) => {
+        const aImported = (a.propertyName ?? a.name).text.toLowerCase();
+        const bImported = (b.propertyName ?? b.name).text.toLowerCase();
+        if (aImported !== bImported) { return aImported.localeCompare(bImported); }
+        const aLocal = a.name.text.toLowerCase();
+        const bLocal = b.name.text.toLowerCase();
+        return aLocal.localeCompare(bLocal);
+    });
+
+    const newNamed = ts.factory.updateNamedImports(named, elements);
+    const newClause = ts.factory.updateImportClause(clause, clause.isTypeOnly, clause.name, newNamed);
+    return ts.factory.updateImportDeclaration(
+        node,
+        node.modifiers,
+        newClause,
+        node.moduleSpecifier,
+        node.attributes
+    );
+}
+
+function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined, tsSettings: WizlySettings['typescript'] | undefined): string {
+    const sortImports = tsSettings?.sortImports ?? true;
+    const fileName = filePath ? path.basename(filePath).toLowerCase() : '';
+    const sortNgModuleImports = (tsSettings?.sortNgModuleImports ?? true) && fileName === 'magic.gen.lib.module.ts';
+
+    if (!sortImports && !sortNgModuleImports) { return text; }
+
+    const sourceFile = ts.createSourceFile(filePath ?? 'virtual.ts', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const statements = [...sourceFile.statements];
+
+    const importDecls: ts.ImportDeclaration[] = [];
+    const otherStatements: ts.Statement[] = [];
+    for (const st of statements) {
+        if (ts.isImportDeclaration(st)) {
+            importDecls.push(st);
+        } else {
+            otherStatements.push(st);
+        }
+    }
+
+    const normalizedImports = sortImports
+        ? importDecls.map(sortImportSpecifiers)
+        : [...importDecls];
+
+    if (sortImports) {
+        const importClauseSortKey = (node: ts.ImportDeclaration): string => {
+            const clause = node.importClause;
+            if (!clause) { return ''; }
+            const parts: string[] = [];
+            if (clause.isTypeOnly) { parts.push('type'); }
+            if (clause.name) { parts.push(`default:${clause.name.text.toLowerCase()}`); }
+            const nb = clause.namedBindings;
+            if (nb) {
+                if (ts.isNamespaceImport(nb)) {
+                    parts.push(`ns:${nb.name.text.toLowerCase()}`);
+                } else if (ts.isNamedImports(nb)) {
+                    const names = nb.elements
+                        .map(el => (el.propertyName ?? el.name).text.toLowerCase())
+                        .join(',');
+                    parts.push(`named:${names}`);
+                }
+            }
+            return parts.join('|');
+        };
+
+        normalizedImports.sort((a, b) => {
+            const aSpec = ts.isStringLiteral(a.moduleSpecifier) ? a.moduleSpecifier.text.toLowerCase() : '';
+            const bSpec = ts.isStringLiteral(b.moduleSpecifier) ? b.moduleSpecifier.text.toLowerCase() : '';
+            if (aSpec !== bSpec) { return aSpec.localeCompare(bSpec); }
+
+            const aHasClause = a.importClause ? 1 : 0;
+            const bHasClause = b.importClause ? 1 : 0;
+            if (aHasClause !== bHasClause) { return bHasClause - aHasClause; }
+
+            const aKey = importClauseSortKey(a);
+            const bKey = importClauseSortKey(b);
+            if (aKey !== bKey) { return aKey.localeCompare(bKey); }
+
+            return 0;
+        });
+    }
+
+    let newSourceFile = ts.factory.updateSourceFile(sourceFile, [...normalizedImports, ...otherStatements]);
+
+    if (sortNgModuleImports) {
+        const fullText = sourceFile.getFullText();
+        const isImportsPropName = (name: ts.PropertyName): boolean => {
+            if (ts.isIdentifier(name)) { return name.text === 'imports'; }
+            if (ts.isStringLiteral(name) || ts.isNumericLiteral(name)) { return name.text === 'imports'; }
+            return false;
+        };
+
+        const cloneExpr = <T extends ts.Expression>(expr: T): T => {
+            const cloner = (ts.factory as any).cloneNode as ((n: ts.Node) => ts.Node) | undefined;
+            if (cloner) {
+                return cloner(expr) as T;
+            }
+            return ts.setTextRange(expr, { pos: -1, end: -1 }) as T;
+        };
+
+        const parseLeadingComments = (node: ts.Node): ts.SynthesizedComment[] => {
+            const ranges = ts.getLeadingCommentRanges(fullText, node.getFullStart()) ?? [];
+            if (ranges.length === 0) { return []; }
+            return ranges.map(r => {
+                const raw = fullText.slice(r.pos, r.end);
+                const text = r.kind === ts.SyntaxKind.SingleLineCommentTrivia
+                    ? raw.replace(/^\/\//, '')
+                    : raw.replace(/^\/\*/, '').replace(/\*\/$/, '');
+                return {
+                    kind: r.kind,
+                    text,
+                    hasTrailingNewLine: true
+                } as ts.SynthesizedComment;
+            });
+        };
+
+        const keyPrinter = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: true });
+        const normalizeKey = (expr: ts.Expression): string => {
+            const raw = keyPrinter.printNode(ts.EmitHint.Unspecified, expr, sourceFile);
+            return raw.replace(/\s+/g, '').toLowerCase();
+        };
+
+        const sortArrayWithCommentSections = (arr: ts.ArrayLiteralExpression): ts.ArrayLiteralExpression => {
+            type Segment = { headerComments: ts.SynthesizedComment[]; elements: ts.Expression[] };
+            const segments: Segment[] = [];
+            let current: Segment = { headerComments: [], elements: [] };
+
+            for (const el of arr.elements) {
+                const header = parseLeadingComments(el);
+                if (header.length > 0) {
+                    if (current.elements.length > 0) {
+                        segments.push(current);
+                        current = { headerComments: header, elements: [] };
+                    } else if (current.headerComments.length === 0) {
+                        current.headerComments = header;
+                    } else {
+                        current.headerComments = [...current.headerComments, ...header];
+                    }
+                }
+                current.elements.push(cloneExpr(el));
+            }
+            segments.push(current);
+
+            const outElements: ts.Expression[] = [];
+            for (const seg of segments) {
+                const sorted = [...seg.elements].sort((a, b) => normalizeKey(a).localeCompare(normalizeKey(b)));
+                if (sorted.length > 0 && seg.headerComments.length > 0) {
+                    ts.setSyntheticLeadingComments(sorted[0], seg.headerComments);
+                }
+                outElements.push(...sorted);
+            }
+
+            return ts.factory.updateArrayLiteralExpression(arr, outElements);
+        };
+
+        const transformerFactory = (ctx: ts.TransformationContext) => {
+            const visit: ts.Visitor = (node) => {
+                if (ts.isDecorator(node) && ts.isCallExpression(node.expression)) {
+                    const call = node.expression;
+                    const callee = call.expression;
+                    const isNgModule = ts.isIdentifier(callee) && callee.text === 'NgModule';
+                    if (isNgModule && call.arguments.length > 0) {
+                        const arg0 = call.arguments[0];
+                        if (ts.isObjectLiteralExpression(arg0)) {
+                            const newProps = arg0.properties.map(p => {
+                                if (!ts.isPropertyAssignment(p) || !isImportsPropName(p.name)) {
+                                    return p;
+                                }
+                                if (!ts.isArrayLiteralExpression(p.initializer)) {
+                                    return p;
+                                }
+                                const newArr = sortArrayWithCommentSections(p.initializer);
+                                return ts.factory.updatePropertyAssignment(p, p.name, newArr);
+                            });
+                            const newObj = ts.factory.updateObjectLiteralExpression(arg0, newProps);
+                            const newCall = ts.factory.updateCallExpression(call, call.expression, call.typeArguments, [newObj, ...call.arguments.slice(1)]);
+                            return ts.factory.updateDecorator(node, newCall);
+                        }
+                    }
+                }
+                return ts.visitEachChild(node, visit, ctx);
+            };
+            return (rootNode: ts.SourceFile) => ts.visitNode(rootNode, visit) as ts.SourceFile;
+        };
+
+        const transformed = ts.transform(newSourceFile, [transformerFactory]).transformed[0];
+        newSourceFile = transformed as ts.SourceFile;
+    }
+
+    const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });
+    const printed = printer.printFile(newSourceFile);
+    return printed.endsWith('\n') ? printed : printed + '\n';
 }
 
 export function extractCustomSmartMatchesAndRemove(
@@ -480,6 +705,7 @@ export async function transformText(text: string, filePath?: string, options?: {
             template: (cachedSettings?.transformTag?.template ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.template')) as string | undefined,
         },
         zoomIcon: (cachedSettings?.zoomIcon ?? vscode.workspace.getConfiguration('wizly').get<string>('zoomIcon', 'search')) as string,
+        typescript: cachedSettings?.typescript ?? vscode.workspace.getConfiguration('wizly').get('typescript'),
         smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? vscode.workspace.getConfiguration('wizly').get('smartLabelMatcher'),
         removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
         smartTabMatcher: cachedSettings?.smartTabMatcher ?? vscode.workspace.getConfiguration('wizly').get<boolean>('smartTabMatcher', false),
@@ -490,12 +716,15 @@ export async function transformText(text: string, filePath?: string, options?: {
     const tagEnabled = settings.transformTag.enable;
     const template = settings.transformTag.template;
 
-    if (tagEnabled && filePath && isHtmlFile(filePath) && hasTransformTag(text, filePath, template)) {
+    if (tagEnabled && filePath && hasTransformTag(text, filePath, template)) {
         return text;
     }
 
-    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
-    const { tabPageContent, text: textWithoutTabContent } = settings.smartTabMatcher
+    const isHtml = isHtmlFile(filePath);
+    const { map: labelMap, text: textWithoutLabels } = isHtml
+        ? extractLabelAndRemove(text, settings)
+        : { map: {} as LabelMap, text };
+    const { tabPageContent, text: textWithoutTabContent } = (isHtml && settings.smartTabMatcher)
         ? extractTabContentAndRemove(textWithoutLabels)
         : { tabPageContent: {}, text: textWithoutLabels };
     const { matches: customSmartMatches, text: textWithoutCustom } = extractCustomSmartMatchesAndRemove(textWithoutTabContent, settings, filePath);
@@ -761,8 +990,17 @@ export async function transformText(text: string, filePath?: string, options?: {
         });
     });
     
-    newText = applySmartLabelPlaceholders(newText, labelMap, settings);
+    if (isHtml) {
+        newText = applySmartLabelPlaceholders(newText, labelMap, settings);
+    }
     newText = newText.replace(eofMarker, '');
+
+    if (shouldApplyTypeScriptAstTransforms(newText, filePath, settings.typescript)) {
+        try {
+            newText = sortImportsWithTypeScriptAst(newText, filePath, settings.typescript);
+        } catch {
+        }
+    }
 
     newText = await formatWithPrettier(newText, filePath, settings);
 
@@ -799,16 +1037,43 @@ async function formatWithPrettier(text: string, filePath?: string, settings?: Wi
             }
         }
 
-        let htmlPlugin: any;
-        try {
-            const mod = await import('prettier/plugins/html');
-            htmlPlugin = (mod as any).default ?? mod;
-        } catch {
-            // plugin not available; prettier may auto-discover it
+        const ext = filePath ? path.extname(filePath).toLowerCase() : '';
+        const parser =
+            ext === '.html' || ext === '.htm' || ext === '.xhtml'
+                ? 'angular'
+                : ext === '.ts' || ext === '.tsx'
+                    ? 'typescript'
+                    : ext === '.js' || ext === '.jsx'
+                        ? 'babel'
+                        : ext === '.json'
+                            ? 'json'
+                            : ext === '.css'
+                                ? 'css'
+                                : ext === '.scss'
+                                    ? 'scss'
+                                    : ext === '.less'
+                                        ? 'less'
+                                        : 'angular';
+
+        const plugins: any[] = [];
+        if (parser === 'angular') {
+            try {
+                const mod = await import('prettier/plugins/html');
+                const htmlPlugin = (mod as any).default ?? mod;
+                plugins.push(htmlPlugin);
+            } catch {
+            }
+        } else if (parser === 'typescript' || parser === 'babel') {
+            try {
+                const mod = await import('prettier/plugins/typescript');
+                const tsPlugin = (mod as any).default ?? mod;
+                plugins.push(tsPlugin);
+            } catch {
+            }
         }
 
         const defaultOptions = {
-            parser: 'angular',
+            parser,
             printWidth: 80,
             tabWidth: 2,
             singleQuote: false,
@@ -820,7 +1085,7 @@ async function formatWithPrettier(text: string, filePath?: string, settings?: Wi
             ...defaultOptions,
             ...resolvedConfig,
             filepath: filePath ?? 'virtual.html',
-            ...(htmlPlugin ? { plugins: [...(resolvedConfig.plugins ?? []), htmlPlugin] } : {}),
+            ...(plugins.length > 0 ? { plugins: [...(resolvedConfig.plugins ?? []), ...plugins] } : {}),
         };
 
         let newText = await p.format(text, finalOptions);

@@ -138,13 +138,14 @@ suite('Wizly Integration Tests', function() {
     function makeDefaultSettings(): any {
         return {
             transformTag: { enable: false, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', template: '' },
+            typescript: { enableAstTransforms: true, sortImports: true, sortNgModuleImports: true },
             smartLabelMatcher: { enabled: true, labelPrefix: 'L_', controlPrefix: ['V_', 'P_'] }
         };
     }
 
     // Flat-file tests (no custom settings)
     if (fs.existsSync(inputDir)) {
-        const flatFiles = fs.readdirSync(inputDir).filter(f => f.endsWith('.html'));
+        const flatFiles = fs.readdirSync(inputDir).filter(f => f.endsWith('.html') || f.endsWith('.ts'));
         flatFiles.forEach(file => {
             test(`Transform: ${file}`, async () => {
                 const inputPath = path.join(inputDir, file);

@@ -88,7 +88,7 @@
       "commandPalette": [
         {
           "command": "wizly.transformCurrentFile",
-          "when": "editorLangId == html"
+          "when": "editorLangId == html || editorLangId == typescript"
         },
         {
           "command": "wizly.transformUncommittedFiles"
@@ -167,6 +167,44 @@
           "type": "boolean",
           "default": false,
           "description": "Remove empty lines from the output after Prettier formatting. Prettier tends to introduce empty lines between block elements; enable this to strip them."
+        },
+        "wizly.typescript": {
+          "type": "object",
+          "description": "Configure TypeScript post-processing behavior.",
+          "properties": {
+            "enableAstTransforms": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable AST-based transforms for Magic-like generated TypeScript files (e.g. sorting imports and NgModule imports arrays)."
+            },
+            "autoTransformOnCreate": {
+              "type": "boolean",
+              "default": false,
+              "description": "Automatically run Wizly when creating a new Magic-generated TypeScript helper/module file (magic.gen.lib.module.ts, *.g.ts)."
+            },
+            "autoTransformComponentsOnCreate": {
+              "type": "boolean",
+              "default": false,
+              "description": "Automatically run Wizly when creating a new Magic-generated Angular component TypeScript file (e.g. *.component.ts, extends *MagicComponent)."
+            },
+            "sortImports": {
+              "type": "boolean",
+              "default": true,
+              "description": "Sort top-level import declarations (and named imports) alphabetically for TypeScript files."
+            },
+            "sortNgModuleImports": {
+              "type": "boolean",
+              "default": true,
+              "description": "Sort entries inside @NgModule({ imports: [...] }) alphabetically per comment section."
+            }
+          },
+          "default": {
+            "enableAstTransforms": false,
+            "autoTransformOnCreate": false,
+            "autoTransformComponentsOnCreate": false,
+            "sortImports": true,
+            "sortNgModuleImports": true
+          }
         },
         "wizly.smartTabMatcher": {
           "type": "boolean",

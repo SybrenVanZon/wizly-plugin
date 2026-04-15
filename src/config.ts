@@ -14,6 +14,13 @@ export const DEFAULT_SETTINGS_CONTENT = `module.exports = {
     },
     autoTransformOnCreate: false,
     autoTransformToast: true,
+    typescript: {
+        enableAstTransforms: false,
+        autoTransformOnCreate: false,
+        autoTransformComponentsOnCreate: false,
+        sortImports: true,
+        sortNgModuleImports: true
+    },
     smartLabelMatcher: {
         enabled: false,
         labelPrefix: 'L_',
@@ -32,6 +39,13 @@ export const DEFAULT_SETTINGS_OBJECT: Record<string, unknown> = {
     },
     autoTransformOnCreate: false,
     autoTransformToast: true,
+    typescript: {
+        enableAstTransforms: false,
+        autoTransformOnCreate: false,
+        autoTransformComponentsOnCreate: false,
+        sortImports: true,
+        sortNgModuleImports: true,
+    },
     smartLabelMatcher: {
         enabled: false,
         labelPrefix: 'L_',
@@ -70,6 +84,13 @@ export type WizlySettings = {
     zoomIcon: string;
     autoTransformOnCreate?: boolean;
     autoTransformToast?: boolean;
+    typescript?: {
+        enableAstTransforms?: boolean;
+        autoTransformOnCreate?: boolean;
+        autoTransformComponentsOnCreate?: boolean;
+        sortImports?: boolean;
+        sortNgModuleImports?: boolean;
+    };
     smartLabelMatcher?: {
         enabled: boolean;
         labelPrefix: string | string[];
@@ -243,6 +264,26 @@ function loadSettingsFromConfigSync(filePath: string) {
 
         if (data && typeof data.smartTabMatcher !== 'undefined') {
             newSettings.smartTabMatcher = !!data.smartTabMatcher;
+        }
+
+        if (data && data.typescript && typeof data.typescript === 'object') {
+            newSettings.typescript = {
+                enableAstTransforms: typeof data.typescript.enableAstTransforms === 'boolean'
+                    ? data.typescript.enableAstTransforms
+                    : undefined,
+                autoTransformOnCreate: typeof data.typescript.autoTransformOnCreate === 'boolean'
+                    ? data.typescript.autoTransformOnCreate
+                    : undefined,
+                autoTransformComponentsOnCreate: typeof data.typescript.autoTransformComponentsOnCreate === 'boolean'
+                    ? data.typescript.autoTransformComponentsOnCreate
+                    : undefined,
+                sortImports: typeof data.typescript.sortImports === 'boolean'
+                    ? data.typescript.sortImports
+                    : undefined,
+                sortNgModuleImports: typeof data.typescript.sortNgModuleImports === 'boolean'
+                    ? data.typescript.sortNgModuleImports
+                    : undefined,
+            };
         }
 
         if (data && Array.isArray(data.customSmartMatchers)) {

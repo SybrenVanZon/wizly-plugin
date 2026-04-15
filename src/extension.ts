@@ -479,6 +479,73 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(htmlWatcher);
+
+    // Auto-transform newly created TypeScript files (Magic-generated helpers/modules/components)
+    const tsWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
+
+    const autoTransformTypeScriptFile = async (uri: vscode.Uri) => {
+        const settings = getCachedSettings();
+        const tsConfig = (settings as any)?.typescript
+            ?? vscode.workspace.getConfiguration('wizly').get<any>('typescript');
+        const autoTransformTs = !!tsConfig?.autoTransformOnCreate;
+        const autoTransformComponents = !!tsConfig?.autoTransformComponentsOnCreate;
+        if (!autoTransformTs && !autoTransformComponents) { return; }
+
+        const filePath = uri.fsPath;
+        const fileName = path.basename(filePath).toLowerCase();
+        const isMagicHelperTs = fileName === 'magic.gen.lib.module.ts' || fileName.endsWith('.g.ts');
+        const isComponentFile = fileName.endsWith('.component.ts');
+        if (!isMagicHelperTs && !isComponentFile) { return; }
+
+        try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            const originalText = document.getText();
+            if (!isMagicHelperTs && isComponentFile) {
+                if (!autoTransformComponents) { return; }
+                const looksLikeMagicComponent = /\bextends\s+TaskBaseMagicComponent\b/.test(originalText)
+                    || /\bextends\s+[A-Za-z0-9_]*MagicComponent\b/.test(originalText)
+                    || /\bmagicProviders\b/.test(originalText)
+                    || /(\.mg\.controls\.g\b)/.test(originalText);
+                if (!looksLikeMagicComponent) { return; }
+            } else {
+                if (!autoTransformTs) { return; }
+            }
+            const transformedText = await transformText(originalText, filePath);
+
+            if (transformedText !== originalText) {
+                const edit = new vscode.WorkspaceEdit();
+                const fullRange = new vscode.Range(
+                    document.positionAt(0),
+                    document.positionAt(originalText.length)
+                );
+                edit.replace(uri, fullRange, transformedText);
+                await vscode.workspace.applyEdit(edit);
+                if (path.extname(filePath)) {
+                    await document.save();
+                }
+
+                const showToast = getCachedSettings()?.autoTransformToast
+                    ?? vscode.workspace.getConfiguration('wizly').get<boolean>('autoTransformToast', true);
+                if (showToast) {
+                    vscode.window.showInformationMessage(`Wizly: Auto-transformed ${path.basename(filePath)}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Wizly: Failed to auto-transform ${filePath}:`, error);
+        }
+    };
+
+    tsWatcher.onDidCreate(autoTransformTypeScriptFile);
+
+    tsWatcher.onDidChange(async (uri) => {
+        const settings = getCachedSettings();
+        const tagEnabled = settings?.transformTag?.enable
+            ?? vscode.workspace.getConfiguration('wizly').get<boolean>('transformTag.enable', false);
+        if (!tagEnabled) { return; }
+        await autoTransformTypeScriptFile(uri);
+    });
+
+    context.subscriptions.push(tsWatcher);
 }
 
 export function deactivate() {}
