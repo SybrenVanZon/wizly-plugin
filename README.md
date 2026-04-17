@@ -91,6 +91,8 @@ The following settings can be configured in VS Code (`settings.json` or the Sett
 | `wizly.typescript.enableAstTransforms` | `false` | Enable AST-based transforms for Magic-like generated TypeScript (import sorting and `@NgModule({ imports: [...] })` sorting) |
 | `wizly.typescript.autoTransformOnCreate` | `false` | Automatically transform newly created Magic-generated TypeScript helper/module files (`magic.gen.lib.module.ts`, `*.g.ts`) |
 | `wizly.typescript.autoTransformComponentsOnCreate` | `false` | Automatically transform newly created Magic-generated component TypeScript files (`*.component.ts`, extends `*MagicComponent`) |
+| `wizly.typescript.convertConstructorToInject` | `false` | Convert empty constructor DI to `inject()` field initializers (Angular 14+) |
+| `wizly.typescript.magicModalDefaults` | `{}` | Override Magic modal default flags (only if still at generator default; per-field opt-out with `WIZLY:KEEP`) |
 | `wizly.typescript.sortImports` | `true` | Sort TypeScript `import ... from "..."` declarations (and named imports) alphabetically |
 | `wizly.typescript.sortNgModuleImports` | `true` | Sort entries in `@NgModule({ imports: [...] })` alphabetically per comment section |
 | `wizly.smartTabMatcher` | `false` | Extract `tab_content` divs and place their content inside `mat-tab` elements (required for Angular Material tab animations) |
@@ -98,6 +100,8 @@ The following settings can be configured in VS Code (`settings.json` or the Sett
 | `wizly.smartLabelMatcher.labelPrefix` | `"L_"` | Prefix(es) for label magic attributes — string or array of strings |
 | `wizly.smartLabelMatcher.controlPrefix` | `["V_", "P_"]` | Prefix(es) for control magic attributes — string or array of strings |
 | `wizly.customSmartMatchers` | `[]` | Optional user-defined extractors using regex named capture groups (must include `magic`), with optional `matchOn` mapping and `remove` |
+
+See [docs/typescript.md](docs/typescript.md) for TypeScript-specific behavior, file scope, and examples.
 
 ### Prettier Integration
 
@@ -197,6 +201,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 | Document | Description |
 |---|---|
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
+| [docs/typescript.md](docs/typescript.md) | TypeScript support for Magic-generated files (imports, NgModule arrays, overlays, constructor→inject) |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
 | [docs/helpers.md](docs/helpers.md) | Helper functions available inside templates |

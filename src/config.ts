@@ -18,6 +18,8 @@ export const DEFAULT_SETTINGS_CONTENT = `module.exports = {
         enableAstTransforms: false,
         autoTransformOnCreate: false,
         autoTransformComponentsOnCreate: false,
+        convertConstructorToInject: false,
+        magicModalDefaults: {},
         sortImports: true,
         sortNgModuleImports: true
     },
@@ -43,6 +45,8 @@ export const DEFAULT_SETTINGS_OBJECT: Record<string, unknown> = {
         enableAstTransforms: false,
         autoTransformOnCreate: false,
         autoTransformComponentsOnCreate: false,
+        convertConstructorToInject: false,
+        magicModalDefaults: {},
         sortImports: true,
         sortNgModuleImports: true,
     },
@@ -88,6 +92,19 @@ export type WizlySettings = {
         enableAstTransforms?: boolean;
         autoTransformOnCreate?: boolean;
         autoTransformComponentsOnCreate?: boolean;
+        convertConstructorToInject?: boolean;
+        magicModalDefaults?: {
+            formName?: string;
+            showTitleBar?: boolean;
+            x?: number;
+            y?: number;
+            width?: string;
+            height?: string;
+            isCenteredToWindow?: boolean;
+            shouldCloseOnBackgroundClick?: boolean;
+            isResizable?: boolean;
+            isMovable?: boolean;
+        };
         sortImports?: boolean;
         sortNgModuleImports?: boolean;
     };
@@ -267,6 +284,7 @@ function loadSettingsFromConfigSync(filePath: string) {
         }
 
         if (data && data.typescript && typeof data.typescript === 'object') {
+            const mm = (data.typescript as any).magicModalDefaults;
             newSettings.typescript = {
                 enableAstTransforms: typeof data.typescript.enableAstTransforms === 'boolean'
                     ? data.typescript.enableAstTransforms
@@ -277,6 +295,21 @@ function loadSettingsFromConfigSync(filePath: string) {
                 autoTransformComponentsOnCreate: typeof data.typescript.autoTransformComponentsOnCreate === 'boolean'
                     ? data.typescript.autoTransformComponentsOnCreate
                     : undefined,
+                convertConstructorToInject: typeof data.typescript.convertConstructorToInject === 'boolean'
+                    ? data.typescript.convertConstructorToInject
+                    : undefined,
+                magicModalDefaults: mm && typeof mm === 'object' ? {
+                    formName: typeof mm.formName === 'string' ? mm.formName : undefined,
+                    showTitleBar: typeof mm.showTitleBar === 'boolean' ? mm.showTitleBar : undefined,
+                    x: typeof mm.x === 'number' ? mm.x : undefined,
+                    y: typeof mm.y === 'number' ? mm.y : undefined,
+                    width: typeof mm.width === 'string' ? mm.width : undefined,
+                    height: typeof mm.height === 'string' ? mm.height : undefined,
+                    isCenteredToWindow: typeof mm.isCenteredToWindow === 'boolean' ? mm.isCenteredToWindow : undefined,
+                    shouldCloseOnBackgroundClick: typeof mm.shouldCloseOnBackgroundClick === 'boolean' ? mm.shouldCloseOnBackgroundClick : undefined,
+                    isResizable: typeof mm.isResizable === 'boolean' ? mm.isResizable : undefined,
+                    isMovable: typeof mm.isMovable === 'boolean' ? mm.isMovable : undefined,
+                } : undefined,
                 sortImports: typeof data.typescript.sortImports === 'boolean'
                     ? data.typescript.sortImports
                     : undefined,

@@ -187,6 +187,22 @@
               "default": false,
               "description": "Automatically run Wizly when creating a new Magic-generated Angular component TypeScript file (e.g. *.component.ts, extends *MagicComponent)."
             },
+            "convertConstructorToInject": {
+              "type": "boolean",
+              "default": false,
+              "description": "Convert empty constructor DI (constructor(private foo: FooService) {}) to inject() field initializers (Angular 14+)."
+            },
+            "magicModalDefaults": {
+              "type": "object",
+              "description": "Default values to apply to MagicModal static configuration fields in Magic-generated overlay components. Fields are only overwritten when they still match Magic defaults, and can be skipped per-field by adding a WIZLY:KEEP comment.",
+              "properties": {
+                "showTitleBar": { "type": "boolean" },
+                "shouldCloseOnBackgroundClick": { "type": "boolean" },
+                "isResizable": { "type": "boolean" },
+                "isMovable": { "type": "boolean" }
+              },
+              "default": {}
+            },
             "sortImports": {
               "type": "boolean",
               "default": true,
@@ -202,6 +218,7 @@
             "enableAstTransforms": false,
             "autoTransformOnCreate": false,
             "autoTransformComponentsOnCreate": false,
+            "convertConstructorToInject": false,
             "sortImports": true,
             "sortNgModuleImports": true
           }

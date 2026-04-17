@@ -178,8 +178,8 @@ function shouldApplyTypeScriptAstTransforms(text: string, filePath: string | und
     if (fileName === 'magic.gen.lib.module.ts' || fileName.endsWith('.g.ts')) {
         return true;
     }
-    return /\b@NgModule\s*\(/.test(text)
-        || /\b@Component\s*\(/.test(text)
+    return /@NgModule\s*\(/.test(text)
+        || /@Component\s*\(/.test(text)
         || /\bextends\s+TaskBaseMagicComponent\b/.test(text)
         || /\bextends\s+[A-Za-z0-9_]*MagicComponent\b/.test(text)
         || /\bmagicProviders\b/.test(text)
@@ -219,8 +219,11 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
     const sortImports = tsSettings?.sortImports ?? true;
     const fileName = filePath ? path.basename(filePath).toLowerCase() : '';
     const sortNgModuleImports = (tsSettings?.sortNgModuleImports ?? true) && fileName === 'magic.gen.lib.module.ts';
+    const convertCtorToInject = tsSettings?.convertConstructorToInject ?? false;
+    const magicModalDefaults = tsSettings?.magicModalDefaults;
+    const hasMagicModalDefaults = !!magicModalDefaults && typeof magicModalDefaults === 'object' && Object.keys(magicModalDefaults).length > 0;
 
-    if (!sortImports && !sortNgModuleImports) { return text; }
+    if (!sortImports && !sortNgModuleImports && !convertCtorToInject && !hasMagicModalDefaults) { return text; }
 
     const sourceFile = ts.createSourceFile(filePath ?? 'virtual.ts', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const statements = [...sourceFile.statements];
@@ -382,6 +385,243 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
 
         const transformed = ts.transform(newSourceFile, [transformerFactory]).transformed[0];
         newSourceFile = transformed as ts.SourceFile;
+    }
+
+    if (convertCtorToInject) {
+        const fullText = sourceFile.getFullText();
+        let didConvertCtor = false;
+
+        const ensureInjectImport = (sf: ts.SourceFile): ts.SourceFile => {
+            const updatedStatements = [...sf.statements];
+            const existing = updatedStatements.find(st => ts.isImportDeclaration(st) && ts.isStringLiteral(st.moduleSpecifier) && st.moduleSpecifier.text === '@angular/core') as ts.ImportDeclaration | undefined;
+            if (existing) {
+                const clause = existing.importClause;
+                if (!clause || !clause.namedBindings || !ts.isNamedImports(clause.namedBindings)) {
+                    return sf;
+                }
+                const names = clause.namedBindings.elements.map(e => e.name.text);
+                if (names.includes('inject')) {
+                    return sf;
+                }
+                const newElements = [...clause.namedBindings.elements, ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('inject'))];
+                const newNamed = ts.factory.updateNamedImports(clause.namedBindings, newElements);
+                const newClause = ts.factory.updateImportClause(clause, clause.isTypeOnly, clause.name, newNamed);
+                const newDecl = ts.factory.updateImportDeclaration(existing, existing.modifiers, newClause, existing.moduleSpecifier, existing.attributes);
+                const idx = updatedStatements.indexOf(existing);
+                updatedStatements[idx] = newDecl;
+                return ts.factory.updateSourceFile(sf, updatedStatements);
+            }
+
+            const injectImport = ts.factory.createImportDeclaration(
+                undefined,
+                ts.factory.createImportClause(false, undefined, ts.factory.createNamedImports([
+                    ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('inject'))
+                ])),
+                ts.factory.createStringLiteral('@angular/core'),
+                undefined
+            );
+            return ts.factory.updateSourceFile(sf, [injectImport, ...updatedStatements]);
+        };
+
+        const isEmptyCtorBody = (ctor: ts.ConstructorDeclaration): boolean => {
+            if (!ctor.body) { return true; }
+            return ctor.body.statements.length === 0;
+        };
+
+        const tokenFromTypeNode = (tn: ts.TypeNode | undefined): ts.Expression | null => {
+            if (!tn) { return null; }
+            if (ts.isTypeReferenceNode(tn)) {
+                const tname = tn.typeName;
+                if (ts.isIdentifier(tname)) { return ts.factory.createIdentifier(tname.text); }
+                if (ts.isQualifiedName(tname)) {
+                    const left = tname.left;
+                    const right = tname.right;
+                    if (ts.isIdentifier(left) && ts.isIdentifier(right)) {
+                        return ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier(left.text), right.text);
+                    }
+                }
+            }
+            return null;
+        };
+
+        const getParamAccessModifiers = (mods: readonly ts.ModifierLike[] | undefined): ts.Modifier[] => {
+            if (!mods) { return []; }
+            return mods
+                .filter(m =>
+                    m.kind === ts.SyntaxKind.PrivateKeyword
+                    || m.kind === ts.SyntaxKind.ProtectedKeyword
+                    || m.kind === ts.SyntaxKind.PublicKeyword
+                    || m.kind === ts.SyntaxKind.ReadonlyKeyword
+                )
+                .map(m => m as ts.Modifier);
+        };
+
+        const ctorTransformerFactory = (ctx: ts.TransformationContext) => {
+            const visit: ts.Visitor = (node) => {
+                if (!ts.isClassDeclaration(node) || !node.members) {
+                    return ts.visitEachChild(node, visit, ctx);
+                }
+
+                const ctor = node.members.find(m => ts.isConstructorDeclaration(m)) as ts.ConstructorDeclaration | undefined;
+                if (!ctor) { return node; }
+                if (!isEmptyCtorBody(ctor)) { return node; }
+
+                const injectableParams = ctor.parameters
+                    .filter(p => (p.modifiers?.some(m =>
+                        m.kind === ts.SyntaxKind.PrivateKeyword
+                        || m.kind === ts.SyntaxKind.ProtectedKeyword
+                        || m.kind === ts.SyntaxKind.PublicKeyword
+                    ) ?? false))
+                    .filter(p => !p.questionToken && !p.initializer)
+                    .filter(p => ts.isIdentifier(p.name))
+                    .map(p => {
+                        const name = (p.name as ts.Identifier).text;
+                        const token = tokenFromTypeNode(p.type);
+                        if (!token) { return null; }
+                        const modifiers = getParamAccessModifiers(p.modifiers);
+                        const initializer = ts.factory.createCallExpression(
+                            ts.factory.createIdentifier('inject'),
+                            undefined,
+                            [token]
+                        );
+                        const prop = ts.factory.createPropertyDeclaration(
+                            modifiers.length > 0 ? modifiers : undefined,
+                            name,
+                            undefined,
+                            p.type,
+                            initializer
+                        );
+                        const leading = ts.getLeadingCommentRanges(fullText, p.getFullStart()) ?? [];
+                        if (leading.length > 0) {
+                            const first = leading[0];
+                            const raw = fullText.slice(first.pos, first.end);
+                            const text = raw.replace(/^\/\//, '').replace(/^\/\*/, '').replace(/\*\/$/, '');
+                            ts.setSyntheticLeadingComments(prop, [{
+                                kind: first.kind,
+                                text,
+                                hasTrailingNewLine: true
+                            } as ts.SynthesizedComment]);
+                        }
+                        return prop;
+                    })
+                    .filter((p): p is ts.PropertyDeclaration => !!p);
+
+                if (injectableParams.length === 0) { return node; }
+                didConvertCtor = true;
+
+                const newMembers: ts.ClassElement[] = [];
+                for (const m of node.members) {
+                    if (ts.isConstructorDeclaration(m)) {
+                        continue;
+                    }
+                    newMembers.push(m);
+                }
+
+                const insertIndex = newMembers.findIndex(m => ts.isPropertyDeclaration(m) || ts.isMethodDeclaration(m) || ts.isGetAccessor(m) || ts.isSetAccessor(m));
+                if (insertIndex === -1) {
+                    newMembers.push(...injectableParams);
+                } else {
+                    newMembers.splice(insertIndex, 0, ...injectableParams);
+                }
+
+                return ts.factory.updateClassDeclaration(
+                    node,
+                    node.modifiers,
+                    node.name,
+                    node.typeParameters,
+                    node.heritageClauses,
+                    newMembers
+                );
+            };
+            return (rootNode: ts.SourceFile) => ts.visitNode(rootNode, visit) as ts.SourceFile;
+        };
+
+        const transformed = ts.transform(newSourceFile, [ctorTransformerFactory]).transformed[0] as ts.SourceFile;
+        newSourceFile = didConvertCtor ? ensureInjectImport(transformed) : transformed;
+    }
+
+    if (hasMagicModalDefaults) {
+        const fullText = sourceFile.getFullText();
+        const keepMarker = 'WIZLY:KEEP';
+
+        const hasKeepComment = (node: ts.Node): boolean => {
+            const ranges = [
+                ...(ts.getLeadingCommentRanges(fullText, node.getFullStart()) ?? []),
+                ...(ts.getTrailingCommentRanges(fullText, node.getEnd()) ?? []),
+            ];
+            for (const r of ranges) {
+                const raw = fullText.slice(r.pos, r.end);
+                if (raw.includes(keepMarker)) { return true; }
+            }
+            return false;
+        };
+
+        const isTargetModalProp = (nameText: string): boolean => {
+            return nameText === 'showTitleBar'
+                || nameText === 'shouldCloseOnBackgroundClick'
+                || nameText === 'isResizable'
+                || nameText === 'isMovable';
+        };
+
+        const desiredBool = (nameText: string): boolean | undefined => {
+            if (!magicModalDefaults) { return undefined; }
+            const v = (magicModalDefaults as any)[nameText];
+            return typeof v === 'boolean' ? v : undefined;
+        };
+
+        const modalTransformerFactory = (ctx: ts.TransformationContext) => {
+            const visit: ts.Visitor = (node) => {
+                if (!ts.isClassDeclaration(node)) {
+                    return ts.visitEachChild(node, visit, ctx);
+                }
+
+                const implementsMagicModal = (node.heritageClauses ?? [])
+                    .some(h => h.token === ts.SyntaxKind.ImplementsKeyword
+                        && h.types.some(t => t.expression && t.expression.getText(sourceFile) === 'MagicModalInterface'));
+
+                if (!implementsMagicModal) {
+                    return ts.visitEachChild(node, visit, ctx);
+                }
+
+                const newMembers = node.members.map(m => {
+                    if (!ts.isPropertyDeclaration(m)) { return m; }
+                    if (!m.name || !ts.isIdentifier(m.name)) { return m; }
+                    const nameText = m.name.text;
+                    if (!isTargetModalProp(nameText)) { return m; }
+                    if (hasKeepComment(m)) { return m; }
+
+                    const desired = desiredBool(nameText);
+                    if (typeof desired === 'undefined') { return m; }
+
+                    const init = m.initializer;
+                    if (!init || init.kind !== ts.SyntaxKind.TrueKeyword) {
+                        return m;
+                    }
+                    if (desired === true) { return m; }
+
+                    return ts.factory.updatePropertyDeclaration(
+                        m,
+                        m.modifiers,
+                        m.name,
+                        m.questionToken,
+                        m.type,
+                        desired ? ts.factory.createTrue() : ts.factory.createFalse()
+                    );
+                });
+
+                return ts.factory.updateClassDeclaration(
+                    node,
+                    node.modifiers,
+                    node.name,
+                    node.typeParameters,
+                    node.heritageClauses,
+                    newMembers
+                );
+            };
+            return (rootNode: ts.SourceFile) => ts.visitNode(rootNode, visit) as ts.SourceFile;
+        };
+
+        newSourceFile = ts.transform(newSourceFile, [modalTransformerFactory]).transformed[0] as ts.SourceFile;
     }
 
     const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });

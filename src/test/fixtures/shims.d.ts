@@ -5,6 +5,7 @@ declare module "@angular/common" {
 declare module "@angular/core" {
   export const Component: any;
   export const NgModule: any;
+  export function inject(token: any, options?: any): any;
   export type NgModuleRef<T = any> = any;
 }
 
@@ -31,6 +32,12 @@ declare module "@magic-xpa/angular" {
     title: any;
     lazyLoadModulesMap: any;
   }
+  export interface MagicModalInterface {
+    X(): number;
+    Y(): number;
+    Width(): string;
+    Height(): string;
+  }
   export class TaskBaseMagicComponent {
     magicServices: any;
     createFormControlsAccessor(..._args: any[]): void;
@@ -42,6 +49,12 @@ declare module "@magic-xpa/angular" {
 
 declare module "@magic-xpa/angular-material-core" {
   export const MagicAngularMaterialModule: any;
+  export class BaseMatTableMagicComponent {
+    magicServices: any;
+    createFormControlsAccessor(..._args: any[]): void;
+    displayedColumns: any;
+  }
+  export const matMagicProviders: any[];
 }
 
 declare module "@angular/material/form-field" {

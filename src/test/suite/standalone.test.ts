@@ -138,7 +138,18 @@ suite('Wizly Integration Tests', function() {
     function makeDefaultSettings(): any {
         return {
             transformTag: { enable: false, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', template: '' },
-            typescript: { enableAstTransforms: true, sortImports: true, sortNgModuleImports: true },
+            typescript: {
+                enableAstTransforms: true,
+                sortImports: true,
+                sortNgModuleImports: true,
+                convertConstructorToInject: true,
+                magicModalDefaults: {
+                    showTitleBar: false,
+                    shouldCloseOnBackgroundClick: false,
+                    isResizable: false,
+                    isMovable: false,
+                }
+            },
             smartLabelMatcher: { enabled: true, labelPrefix: 'L_', controlPrefix: ['V_', 'P_'] }
         };
     }
