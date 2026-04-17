@@ -1,9 +1,9 @@
 import {
   MgControlName,
   MgCustomProperties,
+  MgDisplayedColumns,
   MgFormControlsAccessor
 } from "./OverlayTable.mg.controls.g";
-import { MgDisplayedColumns } from "./OverlayTable.mg.controls.g";
 import { Component } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import { MagicModalInterface } from "@magic-xpa/angular";

@@ -1,9 +1,9 @@
 import {
   MgControlName,
   MgCustomProperties,
+  MgDisplayedColumns,
   MgFormControlsAccessor
 } from "./Table.mg.controls.g";
-import { MgDisplayedColumns } from "./Table.mg.controls.g";
 import { Component } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import {

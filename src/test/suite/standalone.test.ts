@@ -148,7 +148,10 @@ suite('Wizly Integration Tests', function() {
                     shouldCloseOnBackgroundClick: false,
                     isResizable: false,
                     isMovable: false,
-                }
+                },
+                mergeImports: true,
+                sortMagicGenCmpsHash: true,
+                sortMagicGenComponents: false,
             },
             smartLabelMatcher: { enabled: true, labelPrefix: 'L_', controlPrefix: ['V_', 'P_'] }
         };

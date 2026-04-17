@@ -93,6 +93,9 @@ The following settings can be configured in VS Code (`settings.json` or the Sett
 | `wizly.typescript.autoTransformComponentsOnCreate` | `false` | Automatically transform newly created Magic-generated component TypeScript files (`*.component.ts`, extends `*MagicComponent`) |
 | `wizly.typescript.convertConstructorToInject` | `false` | Convert empty constructor DI to `inject()` field initializers (Angular 14+) |
 | `wizly.typescript.magicModalDefaults` | `{}` | Override Magic modal default flags (only if still at generator default; per-field opt-out with `WIZLY:KEEP`) |
+| `wizly.typescript.mergeImports` | `true` | Merge and deduplicate import declarations that reference the same module specifier |
+| `wizly.typescript.sortMagicGenCmpsHash` | `true` | Sort keys inside `magicGenCmpsHash` in `component-list.g.ts` |
+| `wizly.typescript.sortMagicGenComponents` | `false` | Sort the `magicGenComponents` array in `component-list.g.ts` (off by default; lists can be large) |
 | `wizly.typescript.sortImports` | `true` | Sort TypeScript `import ... from "..."` declarations (and named imports) alphabetically |
 | `wizly.typescript.sortNgModuleImports` | `true` | Sort entries in `@NgModule({ imports: [...] })` alphabetically per comment section |
 | `wizly.smartTabMatcher` | `false` | Extract `tab_content` divs and place their content inside `mat-tab` elements (required for Angular Material tab animations) |

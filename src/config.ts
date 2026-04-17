@@ -20,6 +20,9 @@ export const DEFAULT_SETTINGS_CONTENT = `module.exports = {
         autoTransformComponentsOnCreate: false,
         convertConstructorToInject: false,
         magicModalDefaults: {},
+        mergeImports: true,
+        sortMagicGenCmpsHash: true,
+        sortMagicGenComponents: false,
         sortImports: true,
         sortNgModuleImports: true
     },
@@ -47,6 +50,9 @@ export const DEFAULT_SETTINGS_OBJECT: Record<string, unknown> = {
         autoTransformComponentsOnCreate: false,
         convertConstructorToInject: false,
         magicModalDefaults: {},
+        mergeImports: true,
+        sortMagicGenCmpsHash: true,
+        sortMagicGenComponents: false,
         sortImports: true,
         sortNgModuleImports: true,
     },
@@ -105,6 +111,9 @@ export type WizlySettings = {
             isResizable?: boolean;
             isMovable?: boolean;
         };
+        mergeImports?: boolean;
+        sortMagicGenCmpsHash?: boolean;
+        sortMagicGenComponents?: boolean;
         sortImports?: boolean;
         sortNgModuleImports?: boolean;
     };
@@ -310,6 +319,15 @@ function loadSettingsFromConfigSync(filePath: string) {
                     isResizable: typeof mm.isResizable === 'boolean' ? mm.isResizable : undefined,
                     isMovable: typeof mm.isMovable === 'boolean' ? mm.isMovable : undefined,
                 } : undefined,
+                mergeImports: typeof (data.typescript as any).mergeImports === 'boolean'
+                    ? (data.typescript as any).mergeImports
+                    : undefined,
+                sortMagicGenCmpsHash: typeof (data.typescript as any).sortMagicGenCmpsHash === 'boolean'
+                    ? (data.typescript as any).sortMagicGenCmpsHash
+                    : undefined,
+                sortMagicGenComponents: typeof (data.typescript as any).sortMagicGenComponents === 'boolean'
+                    ? (data.typescript as any).sortMagicGenComponents
+                    : undefined,
                 sortImports: typeof data.typescript.sortImports === 'boolean'
                     ? data.typescript.sortImports
                     : undefined,

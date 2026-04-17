@@ -216,6 +216,7 @@ function sortImportSpecifiers(node: ts.ImportDeclaration): ts.ImportDeclaration 
 }
 
 function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined, tsSettings: WizlySettings['typescript'] | undefined): string {
+    const mergeImports = tsSettings?.mergeImports ?? true;
     const sortImports = tsSettings?.sortImports ?? true;
     const fileName = filePath ? path.basename(filePath).toLowerCase() : '';
     const sortNgModuleImports = (tsSettings?.sortNgModuleImports ?? true) && fileName === 'magic.gen.lib.module.ts';
@@ -223,7 +224,11 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
     const magicModalDefaults = tsSettings?.magicModalDefaults;
     const hasMagicModalDefaults = !!magicModalDefaults && typeof magicModalDefaults === 'object' && Object.keys(magicModalDefaults).length > 0;
 
-    if (!sortImports && !sortNgModuleImports && !convertCtorToInject && !hasMagicModalDefaults) { return text; }
+    const sortMagicGenCmpsHash = tsSettings?.sortMagicGenCmpsHash ?? true;
+    const sortMagicGenComponents = tsSettings?.sortMagicGenComponents ?? false;
+    const shouldSortComponentList = (sortMagicGenCmpsHash || sortMagicGenComponents) && fileName === 'component-list.g.ts';
+
+    if (!mergeImports && !sortImports && !sortNgModuleImports && !convertCtorToInject && !hasMagicModalDefaults && !shouldSortComponentList) { return text; }
 
     const sourceFile = ts.createSourceFile(filePath ?? 'virtual.ts', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const statements = [...sourceFile.statements];
@@ -238,9 +243,80 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
         }
     }
 
+    const mergeableKey = (decl: ts.ImportDeclaration): string | null => {
+        if (!ts.isStringLiteral(decl.moduleSpecifier)) { return null; }
+        const spec = decl.moduleSpecifier.text;
+        const clause = decl.importClause;
+        if (!clause) { return null; }
+        if (clause.name) { return null; }
+        const nb = clause.namedBindings;
+        if (!nb || !ts.isNamedImports(nb)) { return null; }
+        return `${spec}::${clause.isTypeOnly ? 'type' : 'value'}`;
+    };
+
+    const mergeImportGroup = (decls: ts.ImportDeclaration[]): ts.ImportDeclaration[] => {
+        if (!mergeImports || decls.length <= 1) { return decls; }
+
+        const byKey = new Map<string, ts.ImportDeclaration[]>();
+        const passthrough: ts.ImportDeclaration[] = [];
+        for (const d of decls) {
+            const key = mergeableKey(d);
+            if (!key) {
+                passthrough.push(d);
+                continue;
+            }
+            const arr = byKey.get(key);
+            if (arr) { arr.push(d); } else { byKey.set(key, [d]); }
+        }
+
+        const merged: ts.ImportDeclaration[] = [];
+        for (const [key, group] of byKey.entries()) {
+            if (group.length === 1) {
+                merged.push(group[0]);
+                continue;
+            }
+
+            const first = group[0];
+            const moduleSpecifier = first.moduleSpecifier;
+            const isTypeOnly = !!first.importClause?.isTypeOnly;
+
+            const specifierMap = new Map<string, ts.ImportSpecifier>();
+            for (const g of group) {
+                const nb = g.importClause?.namedBindings;
+                if (!nb || !ts.isNamedImports(nb)) { continue; }
+                for (const el of nb.elements) {
+                    const imported = (el.propertyName ?? el.name).text;
+                    const local = el.name.text;
+                    const mapKey = `${imported}::${local}`;
+                    if (!specifierMap.has(mapKey)) {
+                        specifierMap.set(mapKey, el);
+                    }
+                }
+            }
+
+            const elements = Array.from(specifierMap.values()).map(el => ts.factory.createImportSpecifier(
+                false,
+                el.propertyName ? ts.factory.createIdentifier(el.propertyName.text) : undefined,
+                ts.factory.createIdentifier(el.name.text)
+            ));
+
+            const mergedDecl = ts.factory.createImportDeclaration(
+                first.modifiers,
+                ts.factory.createImportClause(isTypeOnly, undefined, ts.factory.createNamedImports(elements)),
+                moduleSpecifier,
+                first.attributes
+            );
+            merged.push(mergedDecl);
+        }
+
+        return [...passthrough, ...merged];
+    };
+
+    const mergedImports = mergeImportGroup(importDecls);
+
     const normalizedImports = sortImports
-        ? importDecls.map(sortImportSpecifiers)
-        : [...importDecls];
+        ? mergedImports.map(sortImportSpecifiers)
+        : [...mergedImports];
 
     if (sortImports) {
         const importClauseSortKey = (node: ts.ImportDeclaration): string => {
@@ -284,8 +360,13 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
 
     if (sortNgModuleImports) {
         const fullText = sourceFile.getFullText();
-        const isImportsPropName = (name: ts.PropertyName): boolean => {
-            if (ts.isIdentifier(name)) { return name.text === 'imports'; }
+        const isNgModuleArrayPropName = (name: ts.PropertyName): boolean => {
+            if (ts.isIdentifier(name)) {
+                return name.text === 'imports'
+                    || name.text === 'declarations'
+                    || name.text === 'exports'
+                    || name.text === 'providers';
+            }
             if (ts.isStringLiteral(name) || ts.isNumericLiteral(name)) { return name.text === 'imports'; }
             return false;
         };
@@ -320,7 +401,14 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
             return raw.replace(/\s+/g, '').toLowerCase();
         };
 
-        const sortArrayWithCommentSections = (arr: ts.ArrayLiteralExpression): ts.ArrayLiteralExpression => {
+        const isSortableExpr = (expr: ts.Expression): boolean => {
+            if (ts.isSpreadElement(expr)) { return false; }
+            if (ts.isIdentifier(expr)) { return true; }
+            if (ts.isPropertyAccessExpression(expr)) { return true; }
+            return false;
+        };
+
+        const sortArrayWithCommentSections = (arr: ts.ArrayLiteralExpression, allowNonSortable: boolean): ts.ArrayLiteralExpression => {
             type Segment = { headerComments: ts.SynthesizedComment[]; elements: ts.Expression[] };
             const segments: Segment[] = [];
             let current: Segment = { headerComments: [], elements: [] };
@@ -343,7 +431,29 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
 
             const outElements: ts.Expression[] = [];
             for (const seg of segments) {
-                const sorted = [...seg.elements].sort((a, b) => normalizeKey(a).localeCompare(normalizeKey(b)));
+                const sorted = allowNonSortable
+                    ? (() => {
+                        const result: ts.Expression[] = [];
+                        let run: ts.Expression[] = [];
+                        const flush = () => {
+                            if (run.length > 0) {
+                                run.sort((a, b) => normalizeKey(a).localeCompare(normalizeKey(b)));
+                                result.push(...run);
+                                run = [];
+                            }
+                        };
+                        for (const el of seg.elements) {
+                            if (isSortableExpr(el)) {
+                                run.push(el);
+                            } else {
+                                flush();
+                                result.push(el);
+                            }
+                        }
+                        flush();
+                        return result;
+                    })()
+                    : [...seg.elements].sort((a, b) => normalizeKey(a).localeCompare(normalizeKey(b)));
                 if (sorted.length > 0 && seg.headerComments.length > 0) {
                     ts.setSyntheticLeadingComments(sorted[0], seg.headerComments);
                 }
@@ -363,13 +473,15 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
                         const arg0 = call.arguments[0];
                         if (ts.isObjectLiteralExpression(arg0)) {
                             const newProps = arg0.properties.map(p => {
-                                if (!ts.isPropertyAssignment(p) || !isImportsPropName(p.name)) {
+                                if (!ts.isPropertyAssignment(p) || !isNgModuleArrayPropName(p.name)) {
                                     return p;
                                 }
                                 if (!ts.isArrayLiteralExpression(p.initializer)) {
                                     return p;
                                 }
-                                const newArr = sortArrayWithCommentSections(p.initializer);
+                                const nameText = ts.isIdentifier(p.name) ? p.name.text : (ts.isStringLiteral(p.name) || ts.isNumericLiteral(p.name) ? p.name.text : '');
+                                const allowNonSortable = nameText === 'providers' || nameText === 'declarations' || nameText === 'exports';
+                                const newArr = sortArrayWithCommentSections(p.initializer, allowNonSortable);
                                 return ts.factory.updatePropertyAssignment(p, p.name, newArr);
                             });
                             const newObj = ts.factory.updateObjectLiteralExpression(arg0, newProps);
@@ -622,6 +734,51 @@ function sortImportsWithTypeScriptAst(text: string, filePath: string | undefined
         };
 
         newSourceFile = ts.transform(newSourceFile, [modalTransformerFactory]).transformed[0] as ts.SourceFile;
+    }
+
+    if (shouldSortComponentList) {
+        const sortObjectLiteralProperties = (obj: ts.ObjectLiteralExpression): ts.ObjectLiteralExpression => {
+            const props = [...obj.properties];
+            const keyText = (p: ts.ObjectLiteralElementLike): string | null => {
+                if (!ts.isPropertyAssignment(p)) { return null; }
+                const n = p.name;
+                if (ts.isIdentifier(n)) { return n.text.toLowerCase(); }
+                if (ts.isStringLiteral(n) || ts.isNumericLiteral(n)) { return n.text.toLowerCase(); }
+                return null;
+            };
+            const sortable = props.filter(p => keyText(p) !== null);
+            const unsortable = props.filter(p => keyText(p) === null);
+            sortable.sort((a, b) => (keyText(a) ?? '').localeCompare(keyText(b) ?? ''));
+            return ts.factory.updateObjectLiteralExpression(obj, [...sortable, ...unsortable]);
+        };
+
+        const sortArrayLiteralIdentifiers = (arr: ts.ArrayLiteralExpression): ts.ArrayLiteralExpression => {
+            const els = [...arr.elements];
+            const sortable = els.every(e => ts.isIdentifier(e) || ts.isSpreadElement(e));
+            if (!sortable) { return arr; }
+            const spreads = els.filter(e => ts.isSpreadElement(e));
+            if (spreads.length > 0) { return arr; }
+            const ids = els.filter((e): e is ts.Identifier => ts.isIdentifier(e));
+            ids.sort((a, b) => a.text.toLowerCase().localeCompare(b.text.toLowerCase()));
+            return ts.factory.updateArrayLiteralExpression(arr, ids);
+        };
+
+        const componentListTransformerFactory = (ctx: ts.TransformationContext) => {
+            const visit: ts.Visitor = (node) => {
+                if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+                    if (sortMagicGenCmpsHash && node.name.text === 'magicGenCmpsHash' && ts.isObjectLiteralExpression(node.initializer)) {
+                        return ts.factory.updateVariableDeclaration(node, node.name, node.exclamationToken, node.type, sortObjectLiteralProperties(node.initializer));
+                    }
+                    if (sortMagicGenComponents && node.name.text === 'magicGenComponents' && ts.isArrayLiteralExpression(node.initializer)) {
+                        return ts.factory.updateVariableDeclaration(node, node.name, node.exclamationToken, node.type, sortArrayLiteralIdentifiers(node.initializer));
+                    }
+                }
+                return ts.visitEachChild(node, visit, ctx);
+            };
+            return (rootNode: ts.SourceFile) => ts.visitNode(rootNode, visit) as ts.SourceFile;
+        };
+
+        newSourceFile = ts.transform(newSourceFile, [componentListTransformerFactory]).transformed[0] as ts.SourceFile;
     }
 
     const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });

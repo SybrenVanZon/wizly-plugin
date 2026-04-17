@@ -203,6 +203,21 @@
               },
               "default": {}
             },
+            "mergeImports": {
+              "type": "boolean",
+              "default": true,
+              "description": "Merge and deduplicate import declarations that reference the same module specifier."
+            },
+            "sortMagicGenCmpsHash": {
+              "type": "boolean",
+              "default": true,
+              "description": "Sort keys inside magicGenCmpsHash in component-list.g.ts."
+            },
+            "sortMagicGenComponents": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sort the magicGenComponents array in component-list.g.ts. Off by default because lists can be large and frequently regenerated."
+            },
             "sortImports": {
               "type": "boolean",
               "default": true,
@@ -219,6 +234,9 @@
             "autoTransformOnCreate": false,
             "autoTransformComponentsOnCreate": false,
             "convertConstructorToInject": false,
+            "mergeImports": true,
+            "sortMagicGenCmpsHash": true,
+            "sortMagicGenComponents": false,
             "sortImports": true,
             "sortNgModuleImports": true
           }

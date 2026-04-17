@@ -21,10 +21,12 @@ AST means Abstract Syntax Tree: instead of doing plain text find/replace, Wizly 
 
 - `enableAstTransforms` (default: `false`)
   - Master switch. When disabled, Wizly still formats TS with Prettier, but does not apply AST-based changes.
+- `mergeImports` (default: `true`)
+  - Merge and deduplicate imports that reference the same module specifier (e.g. combine multiple `./Task.mg.controls.g` imports into one).
 - `sortImports` (default: `true`)
   - Sort top-level `import ... from "..."` statements and named imports.
 - `sortNgModuleImports` (default: `true`)
-  - Sort entries inside `@NgModule({ imports: [...] })` alphabetically per comment section (only for `magic.gen.lib.module.ts`).
+  - Sort entries inside `@NgModule({ imports: [...] })` alphabetically per comment section (only for `magic.gen.lib.module.ts`). Wizly also keeps other arrays tidy where possible (`declarations`, `exports`, `providers`) without reordering spreads/calls.
 
 ### Auto Transform (on file creation)
 
@@ -86,6 +88,13 @@ Opt-out example:
 ```ts
 private static readonly shouldCloseOnBackgroundClick: boolean = true; // WIZLY:KEEP
 ```
+
+### Magic Component List Sorting
+
+- `sortMagicGenCmpsHash` (default: `true`)
+  - Sort keys inside `magicGenCmpsHash` in `component-list.g.ts`.
+- `sortMagicGenComponents` (default: `false`)
+  - Sort the `magicGenComponents` array in `component-list.g.ts`. Off by default because lists can be large and frequently regenerated.
 
 ## Notes
 

@@ -5,8 +5,11 @@ import {
 } from "./Overlay.mg.controls.g";
 import { Component } from "@angular/core";
 import { FormGroup } from "@angular/forms";
-import { MagicModalInterface } from "@magic-xpa/angular";
-import { magicProviders, TaskBaseMagicComponent } from "@magic-xpa/angular";
+import {
+  MagicModalInterface,
+  magicProviders,
+  TaskBaseMagicComponent
+} from "@magic-xpa/angular";
 @Component({
   selector: "mga-Overlay_Overlay",
   providers: [...magicProviders],
