@@ -3,6 +3,14 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- **`Wizly: Convert Angular Project to SCSS`**: New command to convert an Angular workspace from CSS to SCSS (adds `sass`, updates `angular.json`, updates component `styleUrl(s)` references, scaffolds `src/scss/`, and migrates `src/styles.css`    to `src/styles.scss`). Includes Magic `magic-styles.css` prompt/handling: asks “Should magic-styles.css be kept?” and either deletes it or converts it into `src/scss/_magic-styles.scss` and wires it into `src/scss/style.scss`.
+- **`Wizly: Sync Shared Modules (Angular)`**: New command to keep Angular module imports in sync for Magic-generated projects. Ensures SharedModule / SharedMaterialModule exist, updates `magic.gen.lib.module.ts` files to include them, and removes moved sharedMaterial imports to avoid duplicates.
+- **`Wizly: Convert Angular Project to PWA`**: New command to enable PWA support for an Angular project by running `ng add @angular/pwa` (adds service worker + manifest scaffolding and updates Angular configuration).
+- **Patch commands**: Added `Wizly: Patch Templates`, `Wizly: Patch Rules`, and `Wizly: Patch Settings` to compare your exported project files against the current built-in defaults and selectively adopt updates via VS Code’s diff view.
+
 ## [0.3.1] - 2026-04-12
 
 ### Fixed

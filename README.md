@@ -54,9 +54,21 @@ Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command 
 
 - `Wizly: Transform Current File` — transform the active file
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
+- `Wizly: Convert Angular Project to SCSS` — convert an Angular workspace from CSS to SCSS
+- `Wizly: Convert Angular Project to PWA` — enable PWA support for an Angular project (runs `ng add @angular/pwa`)
 - `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
 - `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
+- `Wizly: Patch Templates` — compare your exported templates against the built-in templates via a diff view
+- `Wizly: Patch Rules` — compare your exported advanced rules against the built-in rules via a diff view
+- `Wizly: Patch Settings` — detect missing settings keys and compare your exported settings against the built-in defaults via a diff view
+- `Wizly: Sync Shared Modules (Angular)` — sync shared Angular modules for Magic-generated projects (see docs)
+
+### Keeping Exports Up to Date (Patch)
+
+After a Wizly update, the built-in templates, rules, or settings may have changed. If you previously exported any of these into your workspace, use the patch commands to review diffs and copy over only what you want.
+
+See [docs/patching.md](docs/patching.md) for details.
 
 
 ### Creating Custom Rules
@@ -204,6 +216,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 | Document | Description |
 |---|---|
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
+| [docs/angular.md](docs/angular.md) | Angular module syncing and shared module configuration |
 | [docs/typescript.md](docs/typescript.md) | TypeScript support for Magic-generated files (imports, NgModule arrays, overlays, constructor→inject) |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
