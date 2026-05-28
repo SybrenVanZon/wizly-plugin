@@ -26,6 +26,13 @@ export const DEFAULT_SETTINGS_CONTENT = `module.exports = {
         sortImports: true,
         sortNgModuleImports: true
     },
+    angular: {
+        modules: {
+            shared: { filePath: 'src/app/shared/shared.module.ts', className: 'SharedModule' },
+            sharedMaterial: { filePath: 'src/app/shared/material/material.module.ts', className: 'SharedMaterialModule' }
+        },
+        magicGenLibModule: { include: ['src/app/**/magic.gen.lib.module.ts'] }
+    },
     smartLabelMatcher: {
         enabled: false,
         labelPrefix: 'L_',
@@ -56,6 +63,13 @@ export const DEFAULT_SETTINGS_OBJECT: Record<string, unknown> = {
         sortImports: true,
         sortNgModuleImports: true,
     },
+    angular: {
+        modules: {
+            shared: { filePath: 'src/app/shared/shared.module.ts', className: 'SharedModule' },
+            sharedMaterial: { filePath: 'src/app/shared/material/material.module.ts', className: 'SharedMaterialModule' },
+        },
+        magicGenLibModule: { include: ['src/app/**/magic.gen.lib.module.ts'] },
+    },
     smartLabelMatcher: {
         enabled: false,
         labelPrefix: 'L_',
@@ -76,6 +90,12 @@ export interface RegexRule {
     activeWhen?: string;
     filePattern: string;
     useBalancedTag?: boolean;
+    requires?: {
+        ngModuleImports?: Array<
+            | string
+            | { name: string; from?: string; placement?: 'shared' | 'sharedMaterial' | 'local' }
+        >;
+    };
 }
 
 export interface Mode {
@@ -116,6 +136,16 @@ export type WizlySettings = {
         sortMagicGenComponents?: boolean;
         sortImports?: boolean;
         sortNgModuleImports?: boolean;
+    };
+    angular?: {
+        modules?: {
+            shared?: { filePath: string; className: string };
+            sharedMaterial?: { filePath: string; className: string };
+        };
+        magicGenLibModule?: {
+            include?: string[];
+            exclude?: string[];
+        };
     };
     smartLabelMatcher?: {
         enabled: boolean;
@@ -337,6 +367,35 @@ function loadSettingsFromConfigSync(filePath: string) {
             };
         }
 
+        if (data && (data as any).angular && typeof (data as any).angular === 'object') {
+            const a = (data as any).angular;
+            const shared = a.modules?.shared;
+            const sharedMaterial = a.modules?.sharedMaterial;
+            const magicGenLibModule = a.magicGenLibModule;
+            newSettings.angular = {
+                modules: {
+                    shared: shared && typeof shared === 'object'
+                        ? {
+                            filePath: typeof shared.filePath === 'string' ? shared.filePath : 'src/app/shared/shared.module.ts',
+                            className: typeof shared.className === 'string' ? shared.className : 'SharedModule',
+                        }
+                        : undefined,
+                    sharedMaterial: sharedMaterial && typeof sharedMaterial === 'object'
+                        ? {
+                            filePath: typeof sharedMaterial.filePath === 'string' ? sharedMaterial.filePath : 'src/app/shared/material/material.module.ts',
+                            className: typeof sharedMaterial.className === 'string' ? sharedMaterial.className : 'SharedMaterialModule',
+                        }
+                        : undefined,
+                },
+                magicGenLibModule: magicGenLibModule && typeof magicGenLibModule === 'object'
+                    ? {
+                        include: Array.isArray(magicGenLibModule.include) ? magicGenLibModule.include.map(String) : undefined,
+                        exclude: Array.isArray(magicGenLibModule.exclude) ? magicGenLibModule.exclude.map(String) : undefined,
+                    }
+                    : undefined,
+            };
+        }
+
         if (data && Array.isArray(data.customSmartMatchers)) {
             const sanitizeStringOrStringArray = (v: any): string | string[] | undefined => {
                 if (typeof v === 'string') { return v; }
@@ -426,7 +485,24 @@ export function sanitizeRules(rawRules: any[]): RegexRule[] {
                 active: r.active !== false,
                 activeWhen: typeof r.activeWhen === 'string' ? r.activeWhen : undefined,
                 filePattern: String(r.filePattern ?? '*.html'),
-                useBalancedTag: r.useBalancedTag === true ? true : undefined
+                useBalancedTag: r.useBalancedTag === true ? true : undefined,
+                requires: (r.requires && typeof r.requires === 'object')
+                    ? {
+                        ngModuleImports: Array.isArray((r.requires as any).ngModuleImports)
+                            ? (r.requires as any).ngModuleImports
+                                .filter((x: any) => typeof x === 'string' || (x && typeof x === 'object'))
+                                .map((x: any) => {
+                                    if (typeof x === 'string') { return x; }
+                                    return {
+                                        name: String(x.name ?? ''),
+                                        from: typeof x.from === 'string' ? x.from : undefined,
+                                        placement: (x.placement === 'shared' || x.placement === 'sharedMaterial' || x.placement === 'local') ? x.placement : undefined,
+                                    };
+                                })
+                                .filter((x: any) => typeof x === 'string' || (x && typeof x.name === 'string' && x.name.length > 0))
+                            : undefined,
+                    }
+                    : undefined,
             };
         });
 }

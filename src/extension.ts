@@ -1,11 +1,13 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import * as fs from 'fs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
+import { AngularImportRequirement, AngularSyncSettings, ensureNamedImport, ensureNgModuleExports, ensureNgModuleImports, getSharedMaterialModuleTemplate, getSharedModuleTemplate, mergeAndDedupeRequirements, partitionRequirements, removeNamedImport, removeNgModuleImports, toRelativeModuleImport } from './angular-sync';
+import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
 function getOutputChannel(): vscode.OutputChannel {
@@ -211,10 +213,515 @@ async function transformCurrentFile() {
     }
 }
 
+async function convertAngularProjectToScss() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+
+    const packageJson = readJson<any>(packageJsonPath);
+    const angularJson = readJson<any>(angularJsonPath);
+
+    const hasSass = !!(packageJson?.dependencies?.sass || packageJson?.devDependencies?.sass);
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const getOptions = (proj: any, targetName: string) => {
+        const targets = getTargets(proj);
+        const target = targets?.[targetName];
+        const options = target?.options;
+        return options && typeof options === 'object' ? options : undefined;
+    };
+
+    const collectStyleEntries = (styles: any): string[] => {
+        if (!Array.isArray(styles)) { return []; }
+        const out: string[] = [];
+        for (const s of styles) {
+            if (typeof s === 'string') {
+                out.push(s);
+            } else if (s && typeof s === 'object' && typeof (s as any).input === 'string') {
+                out.push((s as any).input);
+            }
+        }
+        return out;
+    };
+
+    let hasAnyStylesCssRef = false;
+    let hasAnyStylesScssRef = false;
+    for (const name of Object.keys(projects)) {
+        const proj = projects[name];
+        const buildOptions = getOptions(proj, 'build');
+        const testOptions = getOptions(proj, 'test');
+        for (const p of collectStyleEntries(buildOptions?.styles)) {
+            const normalized = p.replace(/\\/g, '/');
+            if (normalized.includes('styles.css')) { hasAnyStylesCssRef = true; }
+            if (normalized.includes('styles.scss')) { hasAnyStylesScssRef = true; }
+        }
+        for (const p of collectStyleEntries(testOptions?.styles)) {
+            const normalized = p.replace(/\\/g, '/');
+            if (normalized.includes('styles.css')) { hasAnyStylesCssRef = true; }
+            if (normalized.includes('styles.scss')) { hasAnyStylesScssRef = true; }
+        }
+    }
+
+    const rootSchematicsStyle = angularJson?.schematics?.['@schematics/angular:component']?.style;
+    const isSchematicsScss = rootSchematicsStyle === 'scss';
+
+    const srcDir = path.join(workspaceRoot, 'src');
+    const stylesScssPath = path.join(srcDir, 'styles.scss');
+    const alreadyConfigured = isSchematicsScss || hasAnyStylesScssRef || fs.existsSync(stylesScssPath);
+    if (alreadyConfigured) {
+        vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to be configured for SCSS.');
+        return;
+    }
+
+    packageJson.devDependencies = packageJson.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+    if (!packageJson.dependencies?.sass && !packageJson.devDependencies?.sass) {
+        packageJson.devDependencies.sass = '^1.78.0';
+    }
+    writeJson(packageJsonPath, packageJson);
+
+    const ensureSchematicsScss = (obj: any) => {
+        obj.schematics = obj.schematics && typeof obj.schematics === 'object' ? obj.schematics : {};
+        const current = obj.schematics['@schematics/angular:component'];
+        if (current && typeof current === 'object') {
+            obj.schematics['@schematics/angular:component'] = { ...current, style: 'scss' };
+        } else {
+            obj.schematics['@schematics/angular:component'] = { style: 'scss' };
+        }
+    };
+
+    const normalizeStyleRef = (p: string) => p.replace(/\\/g, '/');
+
+    const updateStylesArray = (styles: any): boolean => {
+        if (!Array.isArray(styles)) { return false; }
+        let changed = false;
+        for (let i = 0; i < styles.length; i++) {
+            const s = styles[i];
+            if (typeof s === 'string') {
+                const normalized = normalizeStyleRef(s);
+                if (normalized.endsWith('styles.css')) {
+                    styles[i] = s.slice(0, s.length - 'styles.css'.length) + 'styles.scss';
+                    changed = true;
+                }
+            } else if (s && typeof s === 'object' && typeof (s as any).input === 'string') {
+                const input = (s as any).input as string;
+                const normalized = normalizeStyleRef(input);
+                if (normalized.endsWith('styles.css')) {
+                    (s as any).input = input.slice(0, input.length - 'styles.css'.length) + 'styles.scss';
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    };
+
+    const ensureScssOptions = (options: any) => {
+        if (!options || typeof options !== 'object') { return; }
+        updateStylesArray((options as any).styles);
+        (options as any).inlineStyleLanguage = 'scss';
+        (options as any).stylePreprocessorOptions = (options as any).stylePreprocessorOptions && typeof (options as any).stylePreprocessorOptions === 'object'
+            ? (options as any).stylePreprocessorOptions
+            : {};
+        const spo = (options as any).stylePreprocessorOptions;
+        spo.includePaths = Array.isArray(spo.includePaths) ? spo.includePaths : [];
+        if (!spo.includePaths.includes('src/scss')) {
+            spo.includePaths.push('src/scss');
+        }
+    };
+
+    ensureSchematicsScss(angularJson);
+    for (const name of Object.keys(projects)) {
+        const proj = projects[name];
+        ensureSchematicsScss(proj);
+        const targets = getTargets(proj);
+        if (targets?.build?.options) { ensureScssOptions(targets.build.options); }
+        if (targets?.test?.options) { ensureScssOptions(targets.test.options); }
+    }
+    writeJson(angularJsonPath, angularJson);
+
+    const scssDir = path.join(srcDir, 'scss');
+    if (!fs.existsSync(scssDir)) {
+        fs.mkdirSync(scssDir, { recursive: true });
+    }
+
+    const ensureFile = (filePath: string, content: string) => {
+        if (fs.existsSync(filePath)) { return; }
+        fs.writeFileSync(filePath, content, 'utf8');
+    };
+
+    ensureFile(path.join(scssDir, '_tokens.scss'), `$font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;\n$color-text: #0f172a;\n$color-bg: #ffffff;\n`);
+    ensureFile(path.join(scssDir, '_mixins.scss'), ``);
+    ensureFile(path.join(scssDir, '_base.scss'), `@use './tokens' as *;\n\nhtml,\nbody {\n  height: 100%;\n}\n\nbody {\n  margin: 0;\n  font-family: $font-family-base;\n  color: $color-text;\n  background: $color-bg;\n}\n`);
+    ensureFile(path.join(scssDir, 'style.scss'), `@use './tokens' as *;\n@use './base';\n`);
+
+    const stylesCssPath = path.join(srcDir, 'styles.css');
+    if (fs.existsSync(stylesCssPath) && !fs.existsSync(stylesScssPath)) {
+        fs.renameSync(stylesCssPath, stylesScssPath);
+    }
+    if (!fs.existsSync(stylesScssPath)) {
+        fs.writeFileSync(stylesScssPath, `@use './scss/style';\n`, 'utf8');
+    } else {
+        const current = fs.readFileSync(stylesScssPath, 'utf8');
+        if (!current.includes(`./scss/style`) && !current.includes(`scss/style`)) {
+            fs.writeFileSync(stylesScssPath, `@use './scss/style';\n${current}`, 'utf8');
+        }
+    }
+
+    const componentTsFiles = await vscode.workspace.findFiles('**/*.component.ts', excludeGlob);
+    const renamePairs: Array<{ cssAbs: string; scssAbs: string }> = [];
+    for (const uri of componentTsFiles) {
+        const filePath = uri.fsPath;
+        if (!filePath.startsWith(workspaceRoot + path.sep)) { continue; }
+        const before = fs.readFileSync(filePath, 'utf8');
+        let after = before;
+
+        const replaceStyleUrl = (text: string) => {
+            return text.replace(/\bstyleUrl\s*:\s*(["'])(?<p>[^"']+?)\1/gm, (full, quote, _p, _offset, _str, groups: any) => {
+                const p = String(groups?.p ?? '');
+                if (!p.endsWith('.css')) { return full; }
+                const scssRel = p.slice(0, -'.css'.length) + '.scss';
+                const cssAbs = path.resolve(path.dirname(filePath), p);
+                const scssAbs = path.resolve(path.dirname(filePath), scssRel);
+                renamePairs.push({ cssAbs, scssAbs });
+                return `styleUrl: ${quote}${scssRel}${quote}`;
+            });
+        };
+
+        const replaceStyleUrls = (text: string) => {
+            return text.replace(/\bstyleUrls\s*:\s*\[(?<inner>[\s\S]*?)\]/gm, (full, _inner, _offset, _str, groups: any) => {
+                const inner = String(groups?.inner ?? '');
+                const replacedInner = inner.replace(/(["'])(?<p>[^"']+?)\1/gm, (m, quote, _p2, _o2, _s2, g2: any) => {
+                    const p = String(g2?.p ?? '');
+                    if (!p.endsWith('.css')) { return m; }
+                    const scssRel = p.slice(0, -'.css'.length) + '.scss';
+                    const cssAbs = path.resolve(path.dirname(filePath), p);
+                    const scssAbs = path.resolve(path.dirname(filePath), scssRel);
+                    renamePairs.push({ cssAbs, scssAbs });
+                    return `${quote}${scssRel}${quote}`;
+                });
+                if (replacedInner === inner) { return full; }
+                return full.replace(inner, replacedInner);
+            });
+        };
+
+        after = replaceStyleUrl(after);
+        after = replaceStyleUrls(after);
+
+        if (after !== before) {
+            fs.writeFileSync(filePath, after, 'utf8');
+        }
+    }
+
+    for (const pair of renamePairs) {
+        if (!fs.existsSync(pair.cssAbs)) { continue; }
+        if (fs.existsSync(pair.scssAbs)) { continue; }
+        try {
+            fs.renameSync(pair.cssAbs, pair.scssAbs);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Wizly: Failed to rename component stylesheet: ${err instanceof Error ? err.message : String(err)}`);
+            return;
+        }
+    }
+
+    const indexFiles = await vscode.workspace.findFiles('**/index.html', excludeGlob);
+    const magicCandidates: Array<{ indexUri: vscode.Uri; cssPath: string }> = [];
+    for (const indexUri of indexFiles) {
+        if (!indexUri.fsPath.startsWith(workspaceRoot + path.sep)) { continue; }
+        const cssPath = path.join(path.dirname(indexUri.fsPath), 'magic-styles.css');
+        if (fs.existsSync(cssPath)) {
+            magicCandidates.push({ indexUri, cssPath });
+        }
+    }
+
+    const removeMagicLinkTag = (indexPath: string) => {
+        const before = fs.readFileSync(indexPath, 'utf8');
+        const after = before.replace(/^[^\S\r\n]*<link\b[^>]*magic-styles\.css[^>]*>\s*(\r?\n)?/gmi, '');
+        if (after !== before) {
+            fs.writeFileSync(indexPath, after, 'utf8');
+        }
+    };
+
+    if (magicCandidates.length > 0) {
+        const toRel = (p: string) => path.relative(workspaceRoot, p);
+        let magicChosen = magicCandidates[0];
+        if (magicCandidates.length > 1) {
+            const picked = await vscode.window.showQuickPick(
+                magicCandidates.map((c, i) => ({
+                    label: toRel(c.indexUri.fsPath),
+                    description: path.dirname(c.indexUri.fsPath),
+                    index: i
+                })),
+                { title: 'Wizly: Choose Magic project (index.html)' }
+            );
+            if (picked) {
+                magicChosen = magicCandidates[picked.index];
+            }
+        }
+
+        const action = await vscode.window.showQuickPick(
+            [
+                {
+                    label: 'No (delete)',
+                    description: 'Deletes magic-styles.css and removes the <link> from index.html (if present).',
+                    id: 'delete'
+                },
+                {
+                    label: 'Yes (convert to SCSS)',
+                    description: 'Moves the contents into src/scss/_magic-styles.scss and deletes magic-styles.css.',
+                    id: 'convert'
+                }
+            ],
+            { title: 'Wizly: Should magic-styles.css be kept?' }
+        );
+
+        if (action?.id === 'delete') {
+            try {
+                fs.unlinkSync(magicChosen.cssPath);
+            } catch (err) {
+                vscode.window.showErrorMessage(`Wizly: Failed to remove magic-styles.css: ${err instanceof Error ? err.message : String(err)}`);
+                return;
+            }
+            removeMagicLinkTag(magicChosen.indexUri.fsPath);
+        } else if (action?.id === 'convert') {
+            const magicScssPath = path.join(scssDir, '_magic-styles.scss');
+            if (fs.existsSync(magicScssPath)) {
+                const overwrite = await vscode.window.showWarningMessage(
+                    'Wizly: src/scss/_magic-styles.scss already exists. Overwrite?',
+                    'Overwrite',
+                    'Keep'
+                );
+                if (overwrite === 'Overwrite') {
+                    const css = fs.readFileSync(magicChosen.cssPath, 'utf8');
+                    fs.writeFileSync(magicScssPath, css, 'utf8');
+                }
+            } else {
+                const css = fs.readFileSync(magicChosen.cssPath, 'utf8');
+                fs.writeFileSync(magicScssPath, css, 'utf8');
+            }
+
+            const styleEntryPath = path.join(scssDir, 'style.scss');
+            if (fs.existsSync(styleEntryPath)) {
+                const current = fs.readFileSync(styleEntryPath, 'utf8');
+                if (!current.includes(`./magic-styles`) && !current.includes(`magic-styles`)) {
+                    fs.writeFileSync(styleEntryPath, `${current.trimEnd()}\n@use './magic-styles';\n`, 'utf8');
+                }
+            }
+
+            removeMagicLinkTag(magicChosen.indexUri.fsPath);
+            try {
+                fs.unlinkSync(magicChosen.cssPath);
+            } catch (err) {
+                vscode.window.showErrorMessage(`Wizly: Failed to remove magic-styles.css: ${err instanceof Error ? err.message : String(err)}`);
+                return;
+            }
+        }
+    }
+
+    const doc = await vscode.workspace.openTextDocument(stylesScssPath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage('Wizly: Converted Angular workspace to SCSS (updated angular.json + package.json + src styles).');
+}
+
+async function convertAngularProjectToPwa() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && builder.includes('application');
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to enable PWA for' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const hasServiceWorkerDep = !!(packageJson?.dependencies?.['@angular/service-worker'] || packageJson?.devDependencies?.['@angular/service-worker']);
+    const ngswConfigPath = path.join(workspaceRoot, 'ngsw-config.json');
+    const manifestPath = path.join(workspaceRoot, 'src', 'manifest.webmanifest');
+    if (hasServiceWorkerDep || fs.existsSync(ngswConfigPath) || fs.existsSync(manifestPath)) {
+        vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to have PWA support configured.');
+        return;
+    }
+
+    const hasFile = (name: string) => fs.existsSync(path.join(workspaceRoot, name));
+    const pkgManager = hasFile('pnpm-lock.yaml') ? 'pnpm'
+        : hasFile('yarn.lock') ? 'yarn'
+            : 'npm';
+
+    const cmd = pkgManager === 'pnpm'
+        ? `pnpm exec ng add @angular/pwa --project "${projectName}" --skip-confirmation`
+        : pkgManager === 'yarn'
+            ? `yarn ng add @angular/pwa --project "${projectName}" --skip-confirmation`
+            : `npx ng add @angular/pwa --project "${projectName}" --skip-confirmation`;
+
+    const channel = getOutputChannel();
+    channel.show(true);
+    channel.appendLine(`Wizly: Enabling PWA for Angular project "${projectName}"...`);
+    channel.appendLine(`Wizly: Running: ${cmd}`);
+
+    try {
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Wizly: Convert Angular Project to PWA (${projectName})`,
+                cancellable: false
+            },
+            async () => {
+                await new Promise<void>((resolve, reject) => {
+                    const child = spawn(cmd, [], { cwd: workspaceRoot, shell: true, env: process.env });
+                    child.stdout.on('data', (d) => channel.append(String(d)));
+                    child.stderr.on('data', (d) => channel.append(String(d)));
+                    child.on('error', reject);
+                    child.on('close', (code) => {
+                        if (code === 0) { resolve(); }
+                        else { reject(new Error(`Command failed with exit code ${code}`)); }
+                    });
+                });
+            }
+        );
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to enable PWA. ${err instanceof Error ? err.message : String(err)}. Check the Wizly output for details.`);
+        return;
+    }
+
+    const docToOpen = fs.existsSync(manifestPath)
+        ? manifestPath
+        : fs.existsSync(ngswConfigPath)
+            ? ngswConfigPath
+            : undefined;
+
+    if (docToOpen) {
+        const doc = await vscode.workspace.openTextDocument(docToOpen);
+        await vscode.window.showTextDocument(doc, { preview: false });
+    }
+
+    vscode.window.showInformationMessage(`Wizly: Enabled PWA support for "${projectName}".`);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     // Register commands
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
     const transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);
+    const convertAngularProjectToScssDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToScss', convertAngularProjectToScss);
+    const convertAngularProjectToPwaDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToPwa', convertAngularProjectToPwa);
     
     const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -369,14 +876,195 @@ export function activate(context: vscode.ExtensionContext) {
         await patchSettings(configDir);
     });
 
+    const syncSharedModulesDisposable = vscode.commands.registerCommand('wizly.syncSharedModules', async () => {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+            vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+            return;
+        }
+
+        const cached = getCachedSettings() ?? {};
+        const angularConfig = (cached as any).angular ?? vscode.workspace.getConfiguration('wizly').get<any>('angular');
+        const angular: AngularSyncSettings = angularConfig && typeof angularConfig === 'object'
+            ? angularConfig
+            : {};
+
+        const sharedTarget = angular.modules?.shared ?? { filePath: 'src/app/shared/shared.module.ts', className: 'SharedModule' };
+        const sharedMaterialTarget = angular.modules?.sharedMaterial ?? { filePath: 'src/app/shared/material/material.module.ts', className: 'SharedMaterialModule' };
+        const includePatterns = angular.magicGenLibModule?.include ?? ['**/magic.gen.lib.module.ts'];
+        const excludePatterns = angular.magicGenLibModule?.exclude ?? ['**/node_modules/**', '**/dist/**', '**/out/**'];
+        const excludeGlob = excludePatterns.length > 1 ? `{${excludePatterns.join(',')}}` : excludePatterns[0];
+
+        const sharedAbs = path.isAbsolute(sharedTarget.filePath) ? sharedTarget.filePath : path.join(workspaceRoot, sharedTarget.filePath);
+        const sharedMaterialAbs = path.isAbsolute(sharedMaterialTarget.filePath) ? sharedMaterialTarget.filePath : path.join(workspaceRoot, sharedMaterialTarget.filePath);
+
+        const modes = getModes();
+        const ruleReqs: AngularImportRequirement[] = [];
+        for (const mode of modes) {
+            if (!mode.active) { continue; }
+            for (const rule of mode.rules) {
+                if (!rule.active) { continue; }
+                const ngImports = (rule as any).requires?.ngModuleImports;
+                if (!Array.isArray(ngImports)) { continue; }
+                for (const item of ngImports) {
+                    if (typeof item === 'string') {
+                        ruleReqs.push({ name: item, placement: 'local' });
+                    } else if (item && typeof item === 'object') {
+                        ruleReqs.push({
+                            name: String((item as any).name ?? ''),
+                            from: typeof (item as any).from === 'string' ? (item as any).from : undefined,
+                            placement: (item as any).placement === 'shared' || (item as any).placement === 'sharedMaterial' || (item as any).placement === 'local'
+                                ? (item as any).placement
+                                : undefined,
+                        });
+                    }
+                }
+            }
+        }
+
+        const allReqs = mergeAndDedupeRequirements(ruleReqs);
+        const partitions = partitionRequirements(allReqs);
+        const materialSpecs = partitions.sharedMaterial
+            .filter(r => !!r.from)
+            .map(r => ({ name: r.name, from: r.from as string }));
+
+        const loadPrettier = async (): Promise<any> => {
+            try {
+                const resolvedPath = require.resolve('prettier', { paths: [workspaceRoot] });
+                const mod = await import(resolvedPath);
+                return (mod as any).default ?? mod;
+            } catch {
+                const mod = await import('prettier');
+                return (mod as any).default ?? mod;
+            }
+        };
+
+        const formatTs = async (code: string, filePath: string) => {
+            const p = await loadPrettier();
+            const resolvedConfig = await p.resolveConfig(filePath).catch(() => null);
+            const plugins: any[] = [];
+            try {
+                const mod = await import('prettier/plugins/typescript');
+                plugins.push((mod as any).default ?? mod);
+            } catch {
+            }
+            return p.format(code, {
+                parser: 'typescript',
+                filepath: filePath,
+                printWidth: 80,
+                tabWidth: 2,
+                singleQuote: false,
+                trailingComma: 'none',
+                ...(resolvedConfig ?? {}),
+                ...(plugins.length > 0 ? { plugins: [...((resolvedConfig as any)?.plugins ?? []), ...plugins] } : {}),
+            });
+        };
+
+        const ensureDir = (filePath: string) => {
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+        };
+
+        const updateModuleFile = async (filePath: string, className: string, neededModules: { name: string; from: string }[], extraImports?: { name: string; from: string }[]) => {
+            ensureDir(filePath);
+            const exists = fs.existsSync(filePath);
+            let text = exists ? fs.readFileSync(filePath, 'utf8') : '';
+            if (!text.trim()) {
+                const tpl = extraImports
+                    ? getSharedModuleTemplate({
+                        sharedClassName: className,
+                        sharedMaterialClassName: extraImports[0].name,
+                        sharedMaterialImportPath: extraImports[0].from,
+                    })
+                    : getSharedMaterialModuleTemplate({ className, materialImports: neededModules });
+                fs.writeFileSync(filePath, await formatTs(tpl, filePath), 'utf8');
+                return;
+            }
+
+            const sf = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+            let next = sf;
+
+            if (extraImports && extraImports.length > 0) {
+                for (const imp of extraImports) {
+                    next = ensureNamedImport(next, imp.from, imp.name, imp.from);
+                }
+                next = ensureNamedImport(next, '@angular/common', 'CommonModule', '@angular/common');
+                next = ensureNamedImport(next, '@angular/core', 'NgModule', '@angular/core');
+                next = ensureNgModuleImports(next, ['CommonModule', ...extraImports.map(i => i.name)]);
+                next = ensureNgModuleExports(next, ['CommonModule', ...extraImports.map(i => i.name)]);
+            } else {
+                next = ensureNamedImport(next, '@angular/core', 'NgModule', '@angular/core');
+                for (const imp of neededModules) {
+                    next = ensureNamedImport(next, imp.from, imp.name, imp.from);
+                }
+                const names = neededModules.map(m => m.name);
+                next = ensureNgModuleImports(next, names);
+                next = ensureNgModuleExports(next, names);
+            }
+
+            const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });
+            const printed = printer.printFile(next as any);
+            fs.writeFileSync(filePath, await formatTs(printed, filePath), 'utf8');
+        };
+
+        const sharedMaterialRelFromShared = toRelativeModuleImport(path.dirname(sharedAbs), sharedMaterialAbs);
+        await updateModuleFile(sharedMaterialAbs, sharedMaterialTarget.className, materialSpecs);
+        await updateModuleFile(sharedAbs, sharedTarget.className, [], [{ name: sharedMaterialTarget.className, from: sharedMaterialRelFromShared }]);
+
+        const magicFiles: vscode.Uri[] = [];
+        for (const inc of includePatterns) {
+            const found = await vscode.workspace.findFiles(inc, excludeGlob);
+            for (const f of found) { magicFiles.push(f); }
+        }
+        const uniqueMagic = Array.from(new Set(magicFiles.map(u => u.fsPath))).map(p => vscode.Uri.file(p));
+
+        const sharedImportName = sharedTarget.className;
+        const sharedMaterialImportName = sharedMaterialTarget.className;
+
+        for (const uri of uniqueMagic) {
+            const filePath = uri.fsPath;
+            const original = fs.readFileSync(filePath, 'utf8');
+            const sf = ts.createSourceFile(filePath, original, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+            let next = sf;
+
+            const sharedRel = toRelativeModuleImport(path.dirname(filePath), sharedAbs);
+            const sharedMatRel = toRelativeModuleImport(path.dirname(filePath), sharedMaterialAbs);
+            next = ensureNamedImport(next, '@angular/core', 'NgModule', '@angular/core');
+            next = ensureNamedImport(next, sharedRel, sharedImportName, sharedRel);
+            next = ensureNamedImport(next, sharedMatRel, sharedMaterialImportName, sharedMatRel);
+            next = ensureNgModuleImports(next, [sharedImportName, sharedMaterialImportName]);
+
+            // Prune moved sharedMaterial imports from magic.gen.lib.module.ts to avoid duplicates.
+            const movedToShared = partitions.sharedMaterial.filter(r => !!r.from);
+            for (const m of movedToShared) {
+                next = removeNamedImport(next, m.from as string, [m.name]);
+            }
+            next = removeNgModuleImports(next, movedToShared.map(m => m.name));
+
+            const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });
+            const printed = printer.printFile(next as any);
+            const formatted = await formatTs(printed, filePath);
+            if (formatted.trim() !== original.trim()) {
+                fs.writeFileSync(filePath, formatted, 'utf8');
+            }
+        }
+
+        vscode.window.showInformationMessage(`Wizly: Synced shared modules. Updated ${uniqueMagic.length} Magic module file(s).`);
+    });
+
     context.subscriptions.push(transformDisposable);
     context.subscriptions.push(transformUncommittedDisposable);
+    context.subscriptions.push(convertAngularProjectToScssDisposable);
+    context.subscriptions.push(convertAngularProjectToPwaDisposable);
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);
     context.subscriptions.push(patchTemplatesDisposable);
     context.subscriptions.push(patchRulesDisposable);
     context.subscriptions.push(patchSettingsDisposable);
+    context.subscriptions.push(syncSharedModulesDisposable);
 
     // Status bar
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
