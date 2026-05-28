@@ -321,6 +321,17 @@ async function convertAngularProjectToScss() {
         return;
     }
 
+    const gitMarkerPath = path.join(workspaceRoot, '.git');
+    if (!fs.existsSync(gitMarkerPath)) {
+        const proceed = await vscode.window.showWarningMessage(
+            'Wizly: This folder does not appear to be a Git repository (.git not found). This conversion changes many files and cannot be automatically undone. Do you want to continue?',
+            { modal: true },
+            'Yes',
+            'No'
+        );
+        if (proceed !== 'Yes') { return; }
+    }
+
     packageJson.devDependencies = packageJson.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
     if (!packageJson.dependencies?.sass && !packageJson.devDependencies?.sass) {
         packageJson.devDependencies.sass = '^1.78.0';
@@ -702,20 +713,117 @@ async function convertAngularProjectToPwa() {
         return;
     }
 
+    const gitMarkerPath = path.join(workspaceRoot, '.git');
+    if (!fs.existsSync(gitMarkerPath)) {
+        const proceed = await vscode.window.showWarningMessage(
+            'Wizly: This folder does not appear to be a Git repository (.git not found). This conversion changes many files and cannot be automatically undone. Do you want to continue?',
+            { modal: true },
+            'Yes',
+            'No'
+        );
+        if (proceed !== 'Yes') { return; }
+    }
+
     const hasFile = (name: string) => fs.existsSync(path.join(workspaceRoot, name));
     const pkgManager = hasFile('pnpm-lock.yaml') ? 'pnpm'
         : hasFile('yarn.lock') ? 'yarn'
             : 'npm';
 
+    const getInstalledPackageVersionFromNodeModules = (name: string): string | undefined => {
+        const pkgJsonPath = path.join(workspaceRoot, 'node_modules', ...name.split('/'), 'package.json');
+        if (!fs.existsSync(pkgJsonPath)) { return undefined; }
+        try {
+            const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')) as any;
+            return typeof pkg?.version === 'string' ? pkg.version : undefined;
+        } catch {
+            return undefined;
+        }
+    };
+
+    const getInstalledPackageVersionFromPackageLock = (name: string): string | undefined => {
+        const packageLockPath = path.join(workspaceRoot, 'package-lock.json');
+        if (!fs.existsSync(packageLockPath)) { return undefined; }
+        try {
+            const lock = JSON.parse(fs.readFileSync(packageLockPath, 'utf8')) as any;
+            const v1 = lock?.dependencies?.[name]?.version;
+            if (typeof v1 === 'string') { return v1; }
+            const v2 = lock?.packages?.[`node_modules/${name}`]?.version;
+            if (typeof v2 === 'string') { return v2; }
+            return undefined;
+        } catch {
+            return undefined;
+        }
+    };
+
+    const angularCoreVersion = getInstalledPackageVersionFromPackageLock('@angular/core')
+        ?? getInstalledPackageVersionFromNodeModules('@angular/core');
+
+    if (!angularCoreVersion) {
+        vscode.window.showErrorMessage('Wizly: Could not determine the installed @angular/core version (package-lock.json or node_modules). Run npm install first, then try again.');
+        return;
+    }
+
+    const angularCoreSpecifier = typeof packageJson?.dependencies?.['@angular/core'] === 'string'
+        ? (packageJson.dependencies['@angular/core'] as string)
+        : typeof packageJson?.devDependencies?.['@angular/core'] === 'string'
+            ? (packageJson.devDependencies['@angular/core'] as string)
+            : undefined;
+
+    const pwaSpecifier = `@angular/pwa@${angularCoreVersion}`;
+
+    const hasPwaMarkers = fs.existsSync(ngswConfigPath) || fs.existsSync(manifestPath) || hasServiceWorkerDep;
+    const installedServiceWorkerVersion = getInstalledPackageVersionFromPackageLock('@angular/service-worker')
+        ?? getInstalledPackageVersionFromNodeModules('@angular/service-worker');
+
+    if (hasPwaMarkers && installedServiceWorkerVersion) {
+        vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to have PWA support configured.');
+        return;
+    }
+
+    const setServiceWorkerSpecifierInPackageJson = (specifier: string) => {
+        const pkgPath = packageJsonPath;
+        if (!fs.existsSync(pkgPath)) { return; }
+        const pkg = readJson<any>(pkgPath);
+        const deps = pkg.dependencies && typeof pkg.dependencies === 'object' ? pkg.dependencies : {};
+        const devDeps = pkg.devDependencies && typeof pkg.devDependencies === 'object' ? pkg.devDependencies : {};
+
+        if (typeof deps['@angular/service-worker'] === 'string') {
+            deps['@angular/service-worker'] = specifier;
+        } else if (typeof devDeps['@angular/service-worker'] === 'string') {
+            devDeps['@angular/service-worker'] = specifier;
+        } else {
+            const coreInDeps = typeof deps['@angular/core'] === 'string';
+            const coreInDevDeps = typeof devDeps['@angular/core'] === 'string';
+            if (coreInDeps) {
+                deps['@angular/service-worker'] = specifier;
+            } else if (coreInDevDeps) {
+                devDeps['@angular/service-worker'] = specifier;
+            } else {
+                deps['@angular/service-worker'] = specifier;
+            }
+        }
+        pkg.dependencies = deps;
+        pkg.devDependencies = devDeps;
+        fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
+    };
+
     const cmd = pkgManager === 'pnpm'
-        ? `pnpm exec ng add @angular/pwa --project "${projectName}" --skip-confirmation`
+        ? `pnpm exec ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`
         : pkgManager === 'yarn'
-            ? `yarn ng add @angular/pwa --project "${projectName}" --skip-confirmation`
-            : `npx ng add @angular/pwa --project "${projectName}" --skip-confirmation`;
+            ? `yarn ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`
+            : `npx ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`;
+
+    const preInstallServiceWorkerCmd = pkgManager === 'pnpm'
+        ? `pnpm add @angular/service-worker@${angularCoreVersion} --save-exact`
+        : pkgManager === 'yarn'
+            ? `yarn add @angular/service-worker@${angularCoreVersion} --exact`
+            : `npm install @angular/service-worker@${angularCoreVersion} --save --save-exact`;
 
     const channel = getOutputChannel();
     channel.show(true);
     channel.appendLine(`Wizly: Enabling PWA for Angular project "${projectName}"...`);
+    channel.appendLine(`Wizly: Pre-installing @angular/service-worker@${angularCoreVersion} to avoid npm ERESOLVE...`);
+    channel.appendLine(`Wizly: Running: ${preInstallServiceWorkerCmd}`);
     channel.appendLine(`Wizly: Running: ${cmd}`);
 
     try {
@@ -727,15 +835,32 @@ async function convertAngularProjectToPwa() {
             },
             async () => {
                 await new Promise<void>((resolve, reject) => {
-                    const child = spawn(cmd, [], { cwd: workspaceRoot, shell: true, env: process.env });
+                    const child = spawn(preInstallServiceWorkerCmd, [], { cwd: workspaceRoot, shell: true, env: process.env });
                     child.stdout.on('data', (d) => channel.append(String(d)));
                     child.stderr.on('data', (d) => channel.append(String(d)));
                     child.on('error', reject);
                     child.on('close', (code) => {
                         if (code === 0) { resolve(); }
-                        else { reject(new Error(`Command failed with exit code ${code}`)); }
+                        else { reject(new Error(`Pre-install failed with exit code ${code}`)); }
                     });
                 });
+
+                if (!hasPwaMarkers) {
+                    await new Promise<void>((resolve, reject) => {
+                        const child = spawn(cmd, [], { cwd: workspaceRoot, shell: true, env: process.env });
+                        child.stdout.on('data', (d) => channel.append(String(d)));
+                        child.stderr.on('data', (d) => channel.append(String(d)));
+                        child.on('error', reject);
+                        child.on('close', (code) => {
+                            if (code === 0) { resolve(); }
+                            else { reject(new Error(`Command failed with exit code ${code}`)); }
+                        });
+                    });
+                }
+
+                if (angularCoreSpecifier) {
+                    setServiceWorkerSpecifierInPackageJson(angularCoreSpecifier);
+                }
             }
         );
     } catch (err) {
@@ -922,6 +1047,17 @@ export function activate(context: vscode.ExtensionContext) {
         if (!workspaceRoot) {
             vscode.window.showErrorMessage('Wizly: Please open a folder first.');
             return;
+        }
+
+        const gitMarkerPath = path.join(workspaceRoot, '.git');
+        if (!fs.existsSync(gitMarkerPath)) {
+            const proceed = await vscode.window.showWarningMessage(
+                'Wizly: This folder does not appear to be a Git repository (.git not found). This command updates files and cannot be automatically undone. Do you want to continue?',
+                { modal: true },
+                'Yes',
+                'No'
+            );
+            if (proceed !== 'Yes') { return; }
         }
 
         const cached = getCachedSettings() ?? {};
