@@ -488,6 +488,46 @@ async function convertAngularProjectToScss() {
         }
     };
 
+    const removeMissingMagicStylesFromOptions = (options: any): boolean => {
+        if (!options || typeof options !== 'object') { return false; }
+        const styles = (options as any).styles;
+        if (!Array.isArray(styles)) { return false; }
+        const beforeLen = styles.length;
+        const keep = (entry: any): boolean => {
+            const p = typeof entry === 'string'
+                ? entry
+                : entry && typeof entry === 'object' && typeof (entry as any).input === 'string'
+                    ? (entry as any).input
+                    : undefined;
+            if (typeof p !== 'string') { return true; }
+            const normalized = normalizeStyleRef(p).toLowerCase();
+            const isMagicStyle = normalized.endsWith('magic-styles.css') || normalized.endsWith('magic-styles.scss');
+            if (!isMagicStyle) { return true; }
+            const abs = path.isAbsolute(p) ? p : path.resolve(workspaceRoot, p);
+            return fs.existsSync(abs);
+        };
+        (options as any).styles = styles.filter(keep);
+        return (options as any).styles.length !== beforeLen;
+    };
+
+    const removeMissingMagicStylesFromAngularJson = (): boolean => {
+        let changed = false;
+        for (const name of Object.keys(projects)) {
+            const proj = projects[name];
+            const targets = getTargets(proj);
+            if (targets?.build?.options) { changed = removeMissingMagicStylesFromOptions(targets.build.options) || changed; }
+            if (targets?.test?.options) { changed = removeMissingMagicStylesFromOptions(targets.test.options) || changed; }
+        }
+        return changed;
+    };
+
+    const cleanupMagicStyleReferencesAfterDelete = () => {
+        const changed = removeMissingMagicStylesFromAngularJson();
+        if (changed) {
+            writeJson(angularJsonPath, angularJson);
+        }
+    };
+
     if (magicCandidates.length > 0) {
         const toRel = (p: string) => path.relative(workspaceRoot, p);
         let magicChosen = magicCandidates[0];
@@ -529,6 +569,7 @@ async function convertAngularProjectToScss() {
                 return;
             }
             removeMagicLinkTag(magicChosen.indexUri.fsPath);
+            cleanupMagicStyleReferencesAfterDelete();
         } else if (action?.id === 'convert') {
             const magicScssPath = path.join(scssDir, '_magic-styles.scss');
             if (fs.existsSync(magicScssPath)) {
