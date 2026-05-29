@@ -301,12 +301,12 @@ async function convertAngularProjectToScss() {
         for (const p of collectStyleEntries(buildOptions?.styles)) {
             const normalized = p.replace(/\\/g, '/');
             if (normalized.includes('styles.css')) { hasAnyStylesCssRef = true; }
-            if (normalized.includes('styles.scss')) { hasAnyStylesScssRef = true; }
+            if (normalized.includes('scss/main.scss')) { hasAnyStylesScssRef = true; }
         }
         for (const p of collectStyleEntries(testOptions?.styles)) {
             const normalized = p.replace(/\\/g, '/');
             if (normalized.includes('styles.css')) { hasAnyStylesCssRef = true; }
-            if (normalized.includes('styles.scss')) { hasAnyStylesScssRef = true; }
+            if (normalized.includes('scss/main.scss')) { hasAnyStylesScssRef = true; }
         }
     }
 
@@ -314,8 +314,8 @@ async function convertAngularProjectToScss() {
     const isSchematicsScss = rootSchematicsStyle === 'scss';
 
     const srcDir = path.join(workspaceRoot, 'src');
-    const stylesScssPath = path.join(srcDir, 'styles.scss');
-    const alreadyConfigured = isSchematicsScss || hasAnyStylesScssRef || fs.existsSync(stylesScssPath);
+    const mainScssPath = path.join(srcDir, 'scss', 'main.scss');
+    const alreadyConfigured = isSchematicsScss || hasAnyStylesScssRef || fs.existsSync(mainScssPath);
     if (alreadyConfigured) {
         vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to be configured for SCSS.');
         return;
@@ -357,15 +357,17 @@ async function convertAngularProjectToScss() {
             const s = styles[i];
             if (typeof s === 'string') {
                 const normalized = normalizeStyleRef(s);
-                if (normalized.endsWith('styles.css')) {
-                    styles[i] = s.slice(0, s.length - 'styles.css'.length) + 'styles.scss';
+                if (normalized.endsWith('styles.css') || normalized.endsWith('styles.scss')) {
+                    const suffixLen = normalized.endsWith('styles.css') ? 'styles.css'.length : 'styles.scss'.length;
+                    styles[i] = s.slice(0, s.length - suffixLen) + 'scss/main.scss';
                     changed = true;
                 }
             } else if (s && typeof s === 'object' && typeof (s as any).input === 'string') {
                 const input = (s as any).input as string;
                 const normalized = normalizeStyleRef(input);
-                if (normalized.endsWith('styles.css')) {
-                    (s as any).input = input.slice(0, input.length - 'styles.css'.length) + 'styles.scss';
+                if (normalized.endsWith('styles.css') || normalized.endsWith('styles.scss')) {
+                    const suffixLen = normalized.endsWith('styles.css') ? 'styles.css'.length : 'styles.scss'.length;
+                    (s as any).input = input.slice(0, input.length - suffixLen) + 'scss/main.scss';
                     changed = true;
                 }
             }
@@ -407,22 +409,52 @@ async function convertAngularProjectToScss() {
         fs.writeFileSync(filePath, content, 'utf8');
     };
 
-    ensureFile(path.join(scssDir, '_tokens.scss'), `$font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;\n$color-text: #0f172a;\n$color-bg: #ffffff;\n`);
-    ensureFile(path.join(scssDir, '_mixins.scss'), ``);
-    ensureFile(path.join(scssDir, '_base.scss'), `@use './tokens' as *;\n\nhtml,\nbody {\n  height: 100%;\n}\n\nbody {\n  margin: 0;\n  font-family: $font-family-base;\n  color: $color-text;\n  background: $color-bg;\n}\n`);
-    ensureFile(path.join(scssDir, 'style.scss'), `@use './tokens' as *;\n@use './base';\n`);
+    const ensureDir = (dirPath: string) => {
+        if (fs.existsSync(dirPath)) { return; }
+        fs.mkdirSync(dirPath, { recursive: true });
+    };
+
+    const sevenOneDirs = ['abstracts', 'base', 'components', 'layout', 'pages', 'themes', 'vendors'];
+    for (const d of sevenOneDirs) {
+        ensureDir(path.join(scssDir, d));
+    }
+
+    const legacyStyleEntryPath = path.join(scssDir, 'style.scss');
+    const mainEntryPath = path.join(scssDir, 'main.scss');
+    if (fs.existsSync(legacyStyleEntryPath) && !fs.existsSync(mainEntryPath)) {
+        fs.renameSync(legacyStyleEntryPath, mainEntryPath);
+    }
+
+    ensureFile(path.join(scssDir, 'abstracts', '_tokens.scss'), `$font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;\n$color-text: #0f172a;\n$color-bg: #ffffff;\n`);
+    ensureFile(path.join(scssDir, 'abstracts', '_mixins.scss'), ``);
+    ensureFile(path.join(scssDir, 'base', '_base.scss'), `@use '../abstracts/tokens' as *;\n\nhtml,\nbody {\n  height: 100%;\n}\n\nbody {\n  margin: 0;\n  font-family: $font-family-base;\n  color: $color-text;\n  background: $color-bg;\n}\n`);
+    ensureFile(mainEntryPath, `@use './abstracts/tokens' as *;\n@use './base/base';\n`);
 
     const stylesCssPath = path.join(srcDir, 'styles.css');
-    if (fs.existsSync(stylesCssPath) && !fs.existsSync(stylesScssPath)) {
-        fs.renameSync(stylesCssPath, stylesScssPath);
+    const stylesScssPath = path.join(srcDir, 'styles.scss');
+    const moveGlobalStylesIntoMain = (sourcePath: string) => {
+        if (!fs.existsSync(sourcePath)) { return; }
+        const original = fs.readFileSync(sourcePath, 'utf8');
+        if (!original.trim()) { return; }
+        let content = original;
+        content = content.replace(/^[^\S\r\n]*@use\s+(['"])\.\/scss\/main\1\s*;?[^\S\r\n]*(\r?\n)?/gmi, '');
+        content = content.replace(/^[^\S\r\n]*@use\s+(['"])\.\/scss\/style\1\s*;?[^\S\r\n]*(\r?\n)?/gmi, '');
+        content = content.replace(/^[^\S\r\n]*@use\s+(['"])scss\/main\1\s*;?[^\S\r\n]*(\r?\n)?/gmi, '');
+        content = content.replace(/^[^\S\r\n]*@use\s+(['"])scss\/style\1\s*;?[^\S\r\n]*(\r?\n)?/gmi, '');
+        content = content.trim();
+        if (!content) { return; }
+        const currentMain = fs.existsSync(mainEntryPath) ? fs.readFileSync(mainEntryPath, 'utf8') : '';
+        if (currentMain.includes(content)) { return; }
+        fs.writeFileSync(mainEntryPath, `${currentMain.trimEnd()}\n\n${content}\n`, 'utf8');
+    };
+
+    if (fs.existsSync(stylesCssPath)) {
+        moveGlobalStylesIntoMain(stylesCssPath);
+        try { fs.unlinkSync(stylesCssPath); } catch { }
     }
-    if (!fs.existsSync(stylesScssPath)) {
-        fs.writeFileSync(stylesScssPath, `@use './scss/style';\n`, 'utf8');
-    } else {
-        const current = fs.readFileSync(stylesScssPath, 'utf8');
-        if (!current.includes(`./scss/style`) && !current.includes(`scss/style`)) {
-            fs.writeFileSync(stylesScssPath, `@use './scss/style';\n${current}`, 'utf8');
-        }
+    if (fs.existsSync(stylesScssPath)) {
+        moveGlobalStylesIntoMain(stylesScssPath);
+        try { fs.unlinkSync(stylesScssPath); } catch { }
     }
 
     const componentTsFiles = await vscode.workspace.findFiles('**/*.component.ts', excludeGlob);
@@ -565,7 +597,7 @@ async function convertAngularProjectToScss() {
                 },
                 {
                     label: 'Yes (convert to SCSS)',
-                    description: 'Moves the contents into src/scss/_magic-styles.scss and deletes magic-styles.css.',
+                    description: 'Moves the contents into src/scss/vendors/_magic-styles.scss and deletes magic-styles.css.',
                     id: 'convert'
                 }
             ],
@@ -582,10 +614,10 @@ async function convertAngularProjectToScss() {
             removeMagicLinkTag(magicChosen.indexUri.fsPath);
             cleanupMagicStyleReferencesAfterDelete();
         } else if (action?.id === 'convert') {
-            const magicScssPath = path.join(scssDir, '_magic-styles.scss');
+            const magicScssPath = path.join(scssDir, 'vendors', '_magic-styles.scss');
             if (fs.existsSync(magicScssPath)) {
                 const overwrite = await vscode.window.showWarningMessage(
-                    'Wizly: src/scss/_magic-styles.scss already exists. Overwrite?',
+                    'Wizly: src/scss/vendors/_magic-styles.scss already exists. Overwrite?',
                     'Overwrite',
                     'Keep'
                 );
@@ -598,11 +630,11 @@ async function convertAngularProjectToScss() {
                 fs.writeFileSync(magicScssPath, css, 'utf8');
             }
 
-            const styleEntryPath = path.join(scssDir, 'style.scss');
+            const styleEntryPath = path.join(scssDir, 'main.scss');
             if (fs.existsSync(styleEntryPath)) {
                 const current = fs.readFileSync(styleEntryPath, 'utf8');
-                if (!current.includes(`./magic-styles`) && !current.includes(`magic-styles`)) {
-                    fs.writeFileSync(styleEntryPath, `${current.trimEnd()}\n@use './magic-styles';\n`, 'utf8');
+                if (!current.includes(`./vendors/magic-styles`) && !current.includes(`vendors/magic-styles`) && !current.includes(`magic-styles`)) {
+                    fs.writeFileSync(styleEntryPath, `${current.trimEnd()}\n@use './vendors/magic-styles';\n`, 'utf8');
                 }
             }
 
@@ -616,7 +648,7 @@ async function convertAngularProjectToScss() {
         }
     }
 
-    const doc = await vscode.workspace.openTextDocument(stylesScssPath);
+    const doc = await vscode.workspace.openTextDocument(mainEntryPath);
     await vscode.window.showTextDocument(doc, { preview: false });
     vscode.window.showInformationMessage('Wizly: Converted Angular workspace to SCSS (updated angular.json + package.json + src styles).');
 }
@@ -1099,11 +1131,62 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
 
+        const magicFiles: vscode.Uri[] = [];
+        for (const inc of includePatterns) {
+            const found = await vscode.workspace.findFiles(inc, excludeGlob);
+            for (const f of found) { magicFiles.push(f); }
+        }
+        const uniqueMagic = Array.from(new Set(magicFiles.map(u => u.fsPath))).map(p => vscode.Uri.file(p));
+        if (uniqueMagic.length === 0) {
+            vscode.window.showWarningMessage('Wizly: No Magic module files found (magic.gen.lib.module.ts). Nothing to sync.');
+            return;
+        }
+
         const allReqs = mergeAndDedupeRequirements(ruleReqs);
         const partitions = partitionRequirements(allReqs);
-        const materialSpecs = partitions.sharedMaterial
+        const materialSpecsFromRules = partitions.sharedMaterial
             .filter(r => !!r.from)
             .map(r => ({ name: r.name, from: r.from as string }));
+
+        const inferMaterialSpecsFromMagic = (): { name: string; from: string }[] => {
+            const wantedPrefixes = ['@angular/material/', '@angular/cdk/', '@magic-xpa/angular-material-core'];
+            const pairs: Array<{ name: string; from: string }> = [];
+
+            for (const uri of uniqueMagic) {
+                const text = fs.readFileSync(uri.fsPath, 'utf8');
+                const sf = ts.createSourceFile(uri.fsPath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+                for (const st of sf.statements) {
+                    if (!ts.isImportDeclaration(st)) { continue; }
+                    if (!ts.isStringLiteral(st.moduleSpecifier)) { continue; }
+                    const from = st.moduleSpecifier.text;
+                    if (!wantedPrefixes.some(p => from === p || from.startsWith(p))) { continue; }
+                    const clause = st.importClause;
+                    const named = clause?.namedBindings && ts.isNamedImports(clause.namedBindings) ? clause.namedBindings : undefined;
+                    if (!named) { continue; }
+                    for (const el of named.elements) {
+                        const name = el.name.text;
+                        if (!name.endsWith('Module')) { continue; }
+                        pairs.push({ name, from });
+                    }
+                }
+            }
+
+            const deduped = new Map<string, { name: string; from: string }>();
+            for (const p of pairs) {
+                deduped.set(`${p.from}::${p.name}`, p);
+            }
+            return [...deduped.values()].sort((a, b) => a.from.localeCompare(b.from) || a.name.localeCompare(b.name));
+        };
+
+        const materialSpecs = materialSpecsFromRules.length > 0 ? materialSpecsFromRules : inferMaterialSpecsFromMagic();
+        const hasExistingSharedMaterialModule = fs.existsSync(sharedMaterialAbs);
+        const shouldUseSharedMaterialModule = materialSpecs.length > 0 || hasExistingSharedMaterialModule;
+        if (!shouldUseSharedMaterialModule) {
+            vscode.window.showWarningMessage(
+                "Wizly: No Angular Material imports found to move to SharedMaterialModule. Nothing to sync. If you want to drive this explicitly, export advanced rules and add requires.ngModuleImports entries with placement: 'sharedMaterial'."
+            );
+            return;
+        }
 
         const loadPrettier = async (): Promise<any> => {
             try {
@@ -1190,13 +1273,6 @@ export function activate(context: vscode.ExtensionContext) {
         await updateModuleFile(sharedMaterialAbs, sharedMaterialTarget.className, materialSpecs);
         await updateModuleFile(sharedAbs, sharedTarget.className, [], [{ name: sharedMaterialTarget.className, from: sharedMaterialRelFromShared }]);
 
-        const magicFiles: vscode.Uri[] = [];
-        for (const inc of includePatterns) {
-            const found = await vscode.workspace.findFiles(inc, excludeGlob);
-            for (const f of found) { magicFiles.push(f); }
-        }
-        const uniqueMagic = Array.from(new Set(magicFiles.map(u => u.fsPath))).map(p => vscode.Uri.file(p));
-
         const sharedImportName = sharedTarget.className;
         const sharedMaterialImportName = sharedMaterialTarget.className;
 
@@ -1210,15 +1286,15 @@ export function activate(context: vscode.ExtensionContext) {
             const sharedMatRel = toRelativeModuleImport(path.dirname(filePath), sharedMaterialAbs);
             next = ensureNamedImport(next, '@angular/core', 'NgModule', '@angular/core');
             next = ensureNamedImport(next, sharedRel, sharedImportName, sharedRel);
-            next = ensureNamedImport(next, sharedMatRel, sharedMaterialImportName, sharedMatRel);
-            next = ensureNgModuleImports(next, [sharedImportName, sharedMaterialImportName]);
+            next = ensureNgModuleImports(next, [sharedImportName]);
+            next = removeNamedImport(next, sharedMatRel, [sharedMaterialImportName]);
+            next = removeNgModuleImports(next, [sharedMaterialImportName]);
 
             // Prune moved sharedMaterial imports from magic.gen.lib.module.ts to avoid duplicates.
-            const movedToShared = partitions.sharedMaterial.filter(r => !!r.from);
-            for (const m of movedToShared) {
-                next = removeNamedImport(next, m.from as string, [m.name]);
+            for (const m of materialSpecs) {
+                next = removeNamedImport(next, m.from, [m.name]);
             }
-            next = removeNgModuleImports(next, movedToShared.map(m => m.name));
+            next = removeNgModuleImports(next, materialSpecs.map(m => m.name));
 
             const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });
             const printed = printer.printFile(next as any);

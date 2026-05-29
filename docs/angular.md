@@ -8,7 +8,9 @@ Wizly can help keep Angular module imports in sync for Magic-generated projects.
 
 Command: `Wizly: Convert Angular Project to SCSS`
 
-Converts an Angular workspace from CSS to SCSS. It updates `package.json`, patches `angular.json`, updates component `styleUrl(s)` references, scaffolds `src/scss/`, and migrates `src/styles.css` to `src/styles.scss`.
+Converts an Angular workspace from CSS to SCSS. It updates `package.json`, patches `angular.json`, updates component `styleUrl(s)` references, scaffolds `src/scss/`, and moves any existing `src/styles.css`/`src/styles.scss` content into `src/scss/main.scss` (then removes `src/styles.*`).
+
+Wizly uses a 7-1 SCSS folder structure under `src/scss/` and uses `src/scss/main.scss` as the single entry point. See [scss.md](file:///c:/PROJECTS/wizly-plugin/wizly/docs/scss.md).
 
 ### Convert Angular Project to PWA
 
