@@ -10,6 +10,7 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **`Wizly: Sync Shared Modules (Angular)`**: New command to keep Angular module imports in sync for Magic-generated projects. Ensures SharedModule / SharedMaterialModule exist, updates `magic.gen.lib.module.ts` files to include them, and removes moved sharedMaterial imports to avoid duplicates.
 - **`Wizly: Convert Angular Project to PWA`**: New command to enable PWA support for an Angular project by running `ng add @angular/pwa` (adds service worker + manifest scaffolding and updates Angular configuration).
 - **Patch commands**: Added `Wizly: Patch Templates`, `Wizly: Patch Rules`, and `Wizly: Patch Settings` to compare your exported project files against the current built-in defaults and selectively adopt updates via VS Code’s diff view.
+- **Note on exported config**: If you have exported rules/templates/settings into your project, new functionality may require running the relevant patch command(s) (especially `Wizly: Patch Rules`) to pick up updated defaults.
 
 ## [0.3.1] - 2026-04-12
 

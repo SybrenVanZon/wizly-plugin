@@ -15,6 +15,12 @@ module.exports = {
       templateFile: "button.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatButtonModule", from: "@angular/material/button", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Image",
@@ -23,6 +29,11 @@ module.exports = {
       templateFile: "image.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Tab wrapping div",
@@ -40,6 +51,12 @@ module.exports = {
       templateFile: "tab.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatTabsModule", from: "@angular/material/tabs", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Subforms",
@@ -57,6 +74,12 @@ module.exports = {
       templateFile: "card.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatCardModule", from: "@angular/material/card", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Labels",
@@ -65,6 +88,11 @@ module.exports = {
       templateFile: "label.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Flex row",
@@ -81,6 +109,13 @@ module.exports = {
       templateFile: "checkbox.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatCheckboxModule", from: "@angular/material/checkbox", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Editable Combo",
@@ -89,6 +124,12 @@ module.exports = {
       templateFile: "editable-combo.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Select",
@@ -97,6 +138,14 @@ module.exports = {
       templateFile: "select.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatFormFieldModule", from: "@angular/material/form-field", placement: "sharedMaterial" },
+          { name: "MatSelectModule", from: "@angular/material/select", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Selectionlist",
@@ -105,6 +154,13 @@ module.exports = {
       templateFile: "selectionlist.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatListModule", from: "@angular/material/list", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Input - Radio",
@@ -113,6 +169,13 @@ module.exports = {
       templateFile: "radio.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatRadioModule", from: "@angular/material/radio", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Input",
@@ -121,6 +184,20 @@ module.exports = {
       templateFile: "input-base.ejs",
       active: true,
       filePattern: "*.html"
+      ,
+      requires: {
+        ngModuleImports: [
+          { name: "MatAutocompleteModule", from: "@angular/material/autocomplete", placement: "sharedMaterial" },
+          { name: "MatButtonModule", from: "@angular/material/button", placement: "sharedMaterial" },
+          { name: "MatDatepickerModule", from: "@angular/material/datepicker", placement: "sharedMaterial" },
+          { name: "MatFormFieldModule", from: "@angular/material/form-field", placement: "sharedMaterial" },
+          { name: "MatIconModule", from: "@angular/material/icon", placement: "sharedMaterial" },
+          { name: "MatInputModule", from: "@angular/material/input", placement: "sharedMaterial" },
+          { name: "MatNativeDateModule", from: "@angular/material/core", placement: "sharedMaterial" },
+          { name: "MatTimepickerModule", from: "@angular/material/timepicker", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Table",
@@ -129,6 +206,14 @@ module.exports = {
       templateFile: "table.ejs",
       active: true,
       filePattern: "*.html",
+      requires: {
+        ngModuleImports: [
+          { name: "MatPaginatorModule", from: "@angular/material/paginator", placement: "sharedMaterial" },
+          { name: "MatSortModule", from: "@angular/material/sort", placement: "sharedMaterial" },
+          { name: "MatTableModule", from: "@angular/material/table", placement: "sharedMaterial" },
+          { name: "MatTooltipModule", from: "@angular/material/tooltip", placement: "sharedMaterial" }
+        ]
+      }
     },
     {
       name: "Table Column",
