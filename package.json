@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.4.0-rc8",
+  "version": "0.4.0-rc9",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
