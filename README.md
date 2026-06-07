@@ -56,6 +56,8 @@ Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command 
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
 - `Wizly: Convert Angular Project to SCSS` — convert an Angular workspace from CSS to SCSS
 - `Wizly: Convert Angular Project to PWA` — enable PWA support for an Angular project (runs `ng add @angular/pwa`)
+- `Wizly: Generate PWA Icons & Favicon (from Active Image)` — generate the icon set from the active PNG (uses `src/manifest.webmanifest` and writes `src/favicon.ico`)
+- `Wizly: Generate Angular Material Theme (SCSS)` — scaffold a custom Angular Material theme file under `src/scss/themes/` and add it as an optional CSS bundle in `angular.json`
 - `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
 - `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
@@ -216,7 +218,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 | Document | Description |
 |---|---|
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
-| [docs/angular.md](docs/angular.md) | Angular module syncing and shared module configuration |
+| [docs/angular.md](docs/angular.md) | Angular workspace utilities (SCSS, PWA, icons, theming) and shared module syncing |
 | [docs/typescript.md](docs/typescript.md) | TypeScript support for Magic-generated files (imports, NgModule arrays, overlays, constructor→inject) |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |

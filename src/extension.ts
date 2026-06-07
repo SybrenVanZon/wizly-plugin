@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec, spawn } from 'child_process';
 import * as fs from 'fs';
+import { PNG } from 'pngjs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
@@ -1025,12 +1026,566 @@ async function convertAngularProjectToPwa() {
     vscode.window.showInformationMessage(`Wizly: Enabled PWA support for "${projectName}".`);
 }
 
+async function generatePwaIconsFromActiveImage() {
+    const getActiveFileUri = (): vscode.Uri | undefined => {
+        const uri = vscode.window.activeTextEditor?.document?.uri;
+        if (uri && uri.scheme === 'file') { return uri; }
+        const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+        const input: any = tab?.input;
+        const tabUri: vscode.Uri | undefined = input?.uri;
+        if (tabUri && tabUri.scheme === 'file') { return tabUri; }
+        return undefined;
+    };
+
+    const activeUri = getActiveFileUri();
+    if (!activeUri) {
+        vscode.window.showErrorMessage('Wizly: Open the source icon image first, then run this command.');
+        return;
+    }
+
+    const sourcePath = activeUri.fsPath;
+    if (path.extname(sourcePath).toLowerCase() !== '.png') {
+        vscode.window.showErrorMessage('Wizly: The active file must be a .png image.');
+        return;
+    }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeUri);
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('Wizly: The active image must be inside an open workspace folder.');
+        return;
+    }
+
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const srcRoot = path.join(workspaceRoot, 'src');
+    const manifestPath = path.join(srcRoot, 'manifest.webmanifest');
+    const ngswConfigPath = path.join(workspaceRoot, 'ngsw-config.json');
+
+    if (!fs.existsSync(manifestPath) || !fs.existsSync(ngswConfigPath)) {
+        vscode.window.showErrorMessage('Wizly: This workspace does not appear to be a PWA (manifest.webmanifest or ngsw-config.json not found).');
+        return;
+    }
+
+    let manifest: any;
+    try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to read ${manifestPath}: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+    }
+
+    const icons = Array.isArray(manifest?.icons) ? manifest.icons : [];
+    const parsedIcons: Array<{ size: number; src: string }> = [];
+    for (const icon of icons) {
+        const src = typeof icon?.src === 'string' ? icon.src : undefined;
+        const sizes = typeof icon?.sizes === 'string' ? icon.sizes : undefined;
+        if (!src || !sizes) { continue; }
+        if (/^(https?:)?\/\//i.test(src) || /^data:/i.test(src)) { continue; }
+        for (const token of sizes.split(/\s+/g).filter(Boolean)) {
+            const m = token.match(/^(?<w>\d+)x(?<h>\d+)$/i);
+            const w = m?.groups?.w ? Number(m.groups.w) : NaN;
+            const h = m?.groups?.h ? Number(m.groups.h) : NaN;
+            if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) { continue; }
+            if (w !== h) { continue; }
+            parsedIcons.push({ size: w, src });
+        }
+    }
+
+    const uniqueKey = (p: { size: number; src: string }) => `${p.size}::${p.src}`;
+    const unique = new Map<string, { size: number; src: string }>();
+    for (const p of parsedIcons) {
+        unique.set(uniqueKey(p), p);
+    }
+    const iconTargets = [...unique.values()].sort((a, b) => a.size - b.size || a.src.localeCompare(b.src));
+    if (iconTargets.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No local square icon targets found in src/manifest.webmanifest (icons[].src + icons[].sizes).');
+        return;
+    }
+
+    let srcPng: PNG;
+    try {
+        const buf = fs.readFileSync(sourcePath);
+        srcPng = PNG.sync.read(buf);
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to read PNG: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+    }
+
+    const faviconSizes = [16, 32, 48];
+    const maxIconSize = Math.max(
+        ...iconTargets.map(t => t.size),
+        ...faviconSizes
+    );
+
+    if (srcPng.width < maxIconSize || srcPng.height < maxIconSize) {
+        vscode.window.showErrorMessage(`Wizly: The active image is too small (${srcPng.width}x${srcPng.height}). It must be at least ${maxIconSize}x${maxIconSize}.`);
+        return;
+    }
+
+    const writeMode = await vscode.window.showQuickPick(
+        [
+            {
+                label: 'Overwrite existing files',
+                description: 'Regenerates icon files even if they already exist.',
+                id: 'overwrite'
+            },
+            {
+                label: 'Skip existing files',
+                description: 'Only creates missing icon files.',
+                id: 'skip'
+            }
+        ],
+        { title: 'Wizly: Generate PWA icons and favicon' }
+    );
+    if (!writeMode) { return; }
+
+    const overwrite = writeMode.id === 'overwrite';
+
+    const resizeRgbaBilinear = (src: Buffer, srcW: number, srcH: number, dstW: number, dstH: number): Buffer => {
+        const dst = Buffer.alloc(dstW * dstH * 4);
+        const scaleX = srcW / dstW;
+        const scaleY = srcH / dstH;
+
+        const idx = (x: number, y: number, w: number) => (y * w + x) * 4;
+
+        for (let y = 0; y < dstH; y++) {
+            const srcY = (y + 0.5) * scaleY - 0.5;
+            const y0 = Math.max(0, Math.floor(srcY));
+            const y1 = Math.min(srcH - 1, y0 + 1);
+            const wy = srcY - y0;
+
+            for (let x = 0; x < dstW; x++) {
+                const srcX = (x + 0.5) * scaleX - 0.5;
+                const x0 = Math.max(0, Math.floor(srcX));
+                const x1 = Math.min(srcW - 1, x0 + 1);
+                const wx = srcX - x0;
+
+                const i00 = idx(x0, y0, srcW);
+                const i10 = idx(x1, y0, srcW);
+                const i01 = idx(x0, y1, srcW);
+                const i11 = idx(x1, y1, srcW);
+
+                const w00 = (1 - wx) * (1 - wy);
+                const w10 = wx * (1 - wy);
+                const w01 = (1 - wx) * wy;
+                const w11 = wx * wy;
+
+                const di = idx(x, y, dstW);
+                for (let c = 0; c < 4; c++) {
+                    const v = src[i00 + c] * w00 + src[i10 + c] * w10 + src[i01 + c] * w01 + src[i11 + c] * w11;
+                    dst[di + c] = Math.max(0, Math.min(255, Math.round(v)));
+                }
+            }
+        }
+
+        return dst;
+    };
+
+    const toPngBuffer = (rgba: Buffer, size: number): Buffer => {
+        const p = new PNG({ width: size, height: size });
+        p.data = rgba;
+        return PNG.sync.write(p);
+    };
+
+    const ensureDir = (dirPath: string) => {
+        if (fs.existsSync(dirPath)) { return; }
+        fs.mkdirSync(dirPath, { recursive: true });
+    };
+
+    let written = 0;
+    let skipped = 0;
+    const warnings: string[] = [];
+
+    for (const target of iconTargets) {
+        const destAbs = path.resolve(path.dirname(manifestPath), target.src);
+        ensureDir(path.dirname(destAbs));
+        if (!overwrite && fs.existsSync(destAbs)) {
+            skipped++;
+            continue;
+        }
+        try {
+            const rgba = resizeRgbaBilinear(srcPng.data as any, srcPng.width, srcPng.height, target.size, target.size);
+            const out = toPngBuffer(rgba, target.size);
+            fs.writeFileSync(destAbs, out);
+            written++;
+        } catch (err) {
+            warnings.push(`${path.relative(workspaceRoot, destAbs)}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    const buildIco = (images: Array<{ size: number; png: Buffer }>): Buffer => {
+        const count = images.length;
+        const headerSize = 6 + 16 * count;
+        const dir = Buffer.alloc(headerSize);
+
+        dir.writeUInt16LE(0, 0);
+        dir.writeUInt16LE(1, 2);
+        dir.writeUInt16LE(count, 4);
+
+        let offset = headerSize;
+        for (let i = 0; i < images.length; i++) {
+            const { size, png } = images[i];
+            const entryOffset = 6 + i * 16;
+            dir.writeUInt8(size === 256 ? 0 : size, entryOffset + 0);
+            dir.writeUInt8(size === 256 ? 0 : size, entryOffset + 1);
+            dir.writeUInt8(0, entryOffset + 2);
+            dir.writeUInt8(0, entryOffset + 3);
+            dir.writeUInt16LE(1, entryOffset + 4);
+            dir.writeUInt16LE(32, entryOffset + 6);
+            dir.writeUInt32LE(png.length, entryOffset + 8);
+            dir.writeUInt32LE(offset, entryOffset + 12);
+            offset += png.length;
+        }
+
+        return Buffer.concat([dir, ...images.map(i => i.png)]);
+    };
+
+    const faviconAbs = path.join(srcRoot, 'favicon.ico');
+    if (overwrite || !fs.existsSync(faviconAbs)) {
+        try {
+            const icoPngs = faviconSizes.map(size => {
+                const rgba = resizeRgbaBilinear(srcPng.data as any, srcPng.width, srcPng.height, size, size);
+                return { size, png: toPngBuffer(rgba, size) };
+            });
+            const ico = buildIco(icoPngs);
+            fs.writeFileSync(faviconAbs, ico);
+            written++;
+        } catch (err) {
+            warnings.push(`${path.relative(workspaceRoot, faviconAbs)}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    } else {
+        skipped++;
+    }
+
+    if (warnings.length > 0) {
+        const channel = getOutputChannel();
+        channel.show(true);
+        channel.appendLine('Wizly: PWA icon generation warnings:');
+        for (const w of warnings) { channel.appendLine(`- ${w}`); }
+    }
+
+    const message = `Wizly: Generated PWA icons from ${path.basename(sourcePath)}. Written: ${written}, skipped: ${skipped}.`;
+    if (warnings.length > 0) {
+        vscode.window.showWarningMessage(message);
+    } else {
+        vscode.window.showInformationMessage(message);
+    }
+}
+
+async function generateAngularMaterialThemeScss() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const themeNameRaw = await vscode.window.showInputBox({
+        title: 'Wizly: Theme name',
+        prompt: 'Enter a theme name (e.g. acme, client-a, demo)',
+        validateInput: (value) => {
+            const v = value.trim();
+            if (!v) { return 'Theme name is required.'; }
+            if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(v)) {
+                return 'Use letters, numbers, hyphen and underscore only.';
+            }
+            return undefined;
+        }
+    });
+    if (!themeNameRaw) { return; }
+    const themeName = themeNameRaw.trim();
+
+    const modePick = await vscode.window.showQuickPick(
+        [
+            { label: 'Light', description: 'Generates a light Angular Material theme.', id: 'light' },
+            { label: 'Dark', description: 'Generates a dark Angular Material theme.', id: 'dark' }
+        ],
+        { title: 'Wizly: Theme mode' }
+    );
+    if (!modePick) { return; }
+    const mode = modePick.id as 'light' | 'dark';
+
+    const suffixPick = await vscode.window.showQuickPick(
+        [
+            { label: 'Yes (recommended)', description: `File/bundle will include "-${mode}" suffix.`, id: 'yes' },
+            { label: 'No', description: 'File/bundle will not include the mode suffix.', id: 'no' }
+        ],
+        { title: 'Wizly: Include light/dark suffix in file and bundle name?' }
+    );
+    if (!suffixPick) { return; }
+    const includeModeSuffix = suffixPick.id === 'yes';
+
+    const readHex = (label: string) => {
+        return vscode.window.showInputBox({
+            title: `Wizly: ${label} color`,
+            prompt: 'Enter a hex color (#RRGGBB)',
+            validateInput: (value) => {
+                const v = value.trim();
+                if (!/^#?[0-9a-fA-F]{6}$/.test(v)) { return 'Use hex like #3f51b5.'; }
+                return undefined;
+            }
+        });
+    };
+
+    const primaryHexRaw = await readHex('Primary');
+    if (!primaryHexRaw) { return; }
+    const secondaryHexRaw = await readHex('Secondary');
+    if (!secondaryHexRaw) { return; }
+
+    const warnPick = await vscode.window.showQuickPick(
+        [
+            { label: 'Default (Material red)', description: 'Uses the built-in mat.$red-palette for warn.', id: 'default' },
+            { label: 'Custom', description: 'Provide a custom hex color for warn.', id: 'custom' }
+        ],
+        { title: 'Wizly: Warn/Error color' }
+    );
+    if (!warnPick) { return; }
+
+    const warnHexRaw = warnPick.id === 'custom' ? await readHex('Warn/Error') : undefined;
+    if (warnPick.id === 'custom' && !warnHexRaw) { return; }
+
+    const normalizeHex = (hex: string) => {
+        const v = hex.trim();
+        const h = v.startsWith('#') ? v.slice(1) : v;
+        return `#${h.toLowerCase()}`;
+    };
+
+    const primaryHex = normalizeHex(primaryHexRaw);
+    const secondaryHex = normalizeHex(secondaryHexRaw);
+    const warnHex = warnHexRaw ? normalizeHex(warnHexRaw) : undefined;
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
+    const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+    const hasMaterial = typeof deps['@angular/material'] === 'string'
+        || typeof devDeps['@angular/material'] === 'string'
+        || fs.existsSync(path.join(workspaceRoot, 'node_modules', '@angular', 'material', 'package.json'));
+    if (!hasMaterial) {
+        vscode.window.showErrorMessage('Wizly: @angular/material was not found in this workspace. Install Angular Material first, then try again.');
+        return;
+    }
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && (builder.includes(':application') || builder.includes(':browser') || builder.includes('application') || builder.includes('browser'));
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to add the theme bundle to' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const themeBase = includeModeSuffix ? `${themeName}-${mode}` : themeName;
+    const themeFileName = `${themeBase}.theme.scss`;
+    const themeRelPath = `src/scss/themes/${themeFileName}`.replace(/\\/g, '/');
+    const themeAbsPath = path.join(workspaceRoot, 'src', 'scss', 'themes', themeFileName);
+
+    if (fs.existsSync(themeAbsPath)) {
+        const overwrite = await vscode.window.showWarningMessage(
+            `Wizly: ${themeRelPath} already exists. Overwrite?`,
+            'Overwrite',
+            'Cancel'
+        );
+        if (overwrite !== 'Overwrite') { return; }
+    }
+
+    const parseRgb = (hex: string) => {
+        const h = hex.replace('#', '');
+        const r = parseInt(h.slice(0, 2), 16);
+        const g = parseInt(h.slice(2, 4), 16);
+        const b = parseInt(h.slice(4, 6), 16);
+        return { r, g, b };
+    };
+
+    const toHex = (n: number) => n.toString(16).padStart(2, '0');
+    const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+
+    const mix = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => {
+        return {
+            r: clamp(a.r + (b.r - a.r) * t),
+            g: clamp(a.g + (b.g - a.g) * t),
+            b: clamp(a.b + (b.b - a.b) * t),
+        };
+    };
+
+    const rgbToHex = (rgb: { r: number; g: number; b: number }) => `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+
+    const relativeLuminance = (rgb: { r: number; g: number; b: number }) => {
+        const toLinear = (c: number) => {
+            const s = c / 255;
+            return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        };
+        const r = toLinear(rgb.r);
+        const g = toLinear(rgb.g);
+        const b = toLinear(rgb.b);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+
+    const contrastText = (hex: string) => {
+        const lum = relativeLuminance(parseRgb(hex));
+        return lum > 0.5 ? '#000000' : '#ffffff';
+    };
+
+    const buildPalette = (baseHex: string) => {
+        const base = parseRgb(baseHex);
+        const white = { r: 255, g: 255, b: 255 };
+        const black = { r: 0, g: 0, b: 0 };
+        const tints: Record<number, string> = {
+            50: rgbToHex(mix(base, white, 0.92)),
+            100: rgbToHex(mix(base, white, 0.80)),
+            200: rgbToHex(mix(base, white, 0.65)),
+            300: rgbToHex(mix(base, white, 0.50)),
+            400: rgbToHex(mix(base, white, 0.30)),
+            500: rgbToHex(base),
+            600: rgbToHex(mix(base, black, 0.12)),
+            700: rgbToHex(mix(base, black, 0.24)),
+            800: rgbToHex(mix(base, black, 0.36)),
+            900: rgbToHex(mix(base, black, 0.50)),
+        };
+        const accents: Record<string, string> = {
+            A100: tints[200],
+            A200: tints[500],
+            A400: tints[700],
+            A700: tints[800],
+        };
+        const contrast: Record<string, string> = {};
+        for (const k of Object.keys(tints)) {
+            contrast[k] = contrastText((tints as any)[k]);
+        }
+        for (const k of Object.keys(accents)) {
+            contrast[k] = contrastText((accents as any)[k]);
+        }
+        return { tints, accents, contrast };
+    };
+
+    const primaryPalette = buildPalette(primaryHex);
+    const secondaryPalette = buildPalette(secondaryHex);
+    const warnPalette = warnHex ? buildPalette(warnHex) : undefined;
+
+    const toScssMap = (entries: Record<string | number, string>, indent: string) => {
+        const keys = Object.keys(entries);
+        const lines: string[] = [];
+        for (const k of keys) {
+            lines.push(`${indent}${k}: ${(entries as any)[k]},`);
+        }
+        return lines.join('\n');
+    };
+
+    const primaryMap = `(\n${toScssMap(primaryPalette.tints, '    ')}\n${toScssMap(primaryPalette.accents, '    ')}\n    contrast: (\n${toScssMap(primaryPalette.contrast, '      ')}\n    ),\n)`;
+    const secondaryMap = `(\n${toScssMap(secondaryPalette.tints, '    ')}\n${toScssMap(secondaryPalette.accents, '    ')}\n    contrast: (\n${toScssMap(secondaryPalette.contrast, '      ')}\n    ),\n)`;
+    const warnMap = warnPalette
+        ? `(\n${toScssMap(warnPalette.tints, '    ')}\n${toScssMap(warnPalette.accents, '    ')}\n    contrast: (\n${toScssMap(warnPalette.contrast, '      ')}\n    ),\n)`
+        : undefined;
+
+    const themeVarName = themeBase.replace(/[^a-zA-Z0-9]/g, '_');
+    const themeScss = `@use '@angular/material' as mat;\n\n$${themeVarName}_primary_palette: ${primaryMap};\n$${themeVarName}_secondary_palette: ${secondaryMap};\n${warnPick.id === 'custom' ? `$${themeVarName}_warn_palette: ${warnMap};\n` : ''}\n$${themeVarName}_primary: mat.define-palette($${themeVarName}_primary_palette, 500);\n$${themeVarName}_secondary: mat.define-palette($${themeVarName}_secondary_palette, A200, A100, A400);\n$${themeVarName}_warn: ${warnPick.id === 'custom' ? `mat.define-palette($${themeVarName}_warn_palette, 500)` : `mat.define-palette(mat.$red-palette)`};\n\n$${themeVarName}_theme: mat.define-${mode}-theme((\n  color: (\n    primary: $${themeVarName}_primary,\n    accent: $${themeVarName}_secondary,\n    warn: $${themeVarName}_warn,\n  ),\n));\n\n@include mat.all-component-colors($${themeVarName}_theme);\n`;
+
+    const themesDir = path.dirname(themeAbsPath);
+    if (!fs.existsSync(themesDir)) {
+        fs.mkdirSync(themesDir, { recursive: true });
+    }
+    fs.writeFileSync(themeAbsPath, themeScss, 'utf8');
+
+    const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const targets = getTargets(projects[projectName]);
+    const buildOptions = targets?.build?.options && typeof targets.build.options === 'object' ? targets.build.options : undefined;
+    if (!buildOptions) {
+        vscode.window.showWarningMessage(`Wizly: Could not find build options for project "${projectName}". Theme file was created, but angular.json was not updated.`);
+    } else {
+        buildOptions.styles = Array.isArray(buildOptions.styles) ? buildOptions.styles : [];
+        const styles = buildOptions.styles as any[];
+        const already = styles.some((s) => {
+            if (typeof s === 'string') { return s.replace(/\\/g, '/') === themeRelPath; }
+            if (s && typeof s === 'object' && typeof s.input === 'string') { return String(s.input).replace(/\\/g, '/') === themeRelPath; }
+            return false;
+        });
+
+        if (!already) {
+            styles.push({
+                input: themeRelPath,
+                bundleName: themeBase,
+                inject: false
+            });
+            writeJson(angularJsonPath, angularJson);
+        }
+    }
+
+    const doc = await vscode.workspace.openTextDocument(themeAbsPath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage(`Wizly: Generated Angular Material theme: ${themeRelPath}`);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     // Register commands
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
     const transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);
     const convertAngularProjectToScssDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToScss', convertAngularProjectToScss);
     const convertAngularProjectToPwaDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToPwa', convertAngularProjectToPwa);
+    const generatePwaIconsFromImageDisposable = vscode.commands.registerCommand('wizly.generatePwaIconsFromImage', generatePwaIconsFromActiveImage);
+    const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
     
     const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -1422,6 +1977,8 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(transformUncommittedDisposable);
     context.subscriptions.push(convertAngularProjectToScssDisposable);
     context.subscriptions.push(convertAngularProjectToPwaDisposable);
+    context.subscriptions.push(generatePwaIconsFromImageDisposable);
+    context.subscriptions.push(generateAngularMaterialThemeScssDisposable);
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);
