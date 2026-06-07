@@ -900,14 +900,125 @@ async function convertAngularProjectToPwa() {
         return;
     }
 
+    const addUpdateHandling = await vscode.window.showQuickPick(
+        [
+            {
+                label: 'Yes (add update prompt service)',
+                description: 'Creates src/app/pwa-update.service.ts and wires it into AppComponent to prompt on new versions.',
+                id: 'yes'
+            },
+            {
+                label: 'No',
+                description: 'Only enable PWA via Angular CLI.',
+                id: 'no'
+            }
+        ],
+        { title: 'Wizly: Add PWA update handling (check + prompt + reload)?' }
+    );
+
+    const addPwaUpdateHandling = async (): Promise<string | undefined> => {
+        const proj = projects?.[projectName];
+        const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+        const appDir = path.join(workspaceRoot, sourceRoot, 'app');
+        if (!fs.existsSync(appDir)) {
+            vscode.window.showWarningMessage(`Wizly: Could not find ${path.relative(workspaceRoot, appDir)}. Skipping update handling scaffolding.`);
+            return undefined;
+        }
+
+        const servicePath = path.join(appDir, 'pwa-update.service.ts');
+        if (!fs.existsSync(servicePath)) {
+            const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
+            const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+            const hasMaterial = typeof deps['@angular/material'] === 'string'
+                || typeof devDeps['@angular/material'] === 'string'
+                || fs.existsSync(path.join(workspaceRoot, 'node_modules', '@angular', 'material', 'package.json'));
+
+            const serviceContent = hasMaterial
+                ? `import { Component, inject, Injectable, Injector } from '@angular/core';\nimport { SwUpdate, VersionReadyEvent } from '@angular/service-worker';\nimport { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';\nimport { firstValueFrom } from 'rxjs';\nimport { filter, take } from 'rxjs/operators';\n\nexport type PwaUpdateMode = 'prompt' | 'silent';\n\nexport type PwaUpdateOptions = {\n    checkIntervalMs?: number;\n    mode?: PwaUpdateMode;\n    prompt?: (message: string) => boolean | Promise<boolean>;\n};\n\n@Component({\n    selector: 'wizly-pwa-update-dialog',\n    standalone: true,\n    template: ` + "`" + `<h2 style="margin: 0 0 12px">Update available</h2>\n<p style="margin: 0 0 16px">{{ data.message }}</p>\n<div style="display: flex; gap: 8px; justify-content: flex-end">\n  <button type="button" (click)="close(false)">Later</button>\n  <button type="button" (click)="close(true)">Reload</button>\n</div>\n` + "`" + `\n})\nexport class PwaUpdateDialogComponent {\n    readonly data = inject<{ message: string }>(MAT_DIALOG_DATA);\n    private readonly dialogRef = inject(MatDialogRef<PwaUpdateDialogComponent, boolean>);\n\n    close(value: boolean) {\n        this.dialogRef.close(value);\n    }\n}\n\n@Injectable({ providedIn: 'root' })\nexport class PwaUpdateService {\n    private readonly swUpdate = inject(SwUpdate);\n    private readonly injector = inject(Injector);\n\n    init(options?: PwaUpdateOptions) {\n        if (!this.swUpdate.isEnabled) { return; }\n\n        this.swUpdate.versionUpdates\n            .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))\n            .subscribe(() => {\n                void this.handleVersionReady(options);\n            });\n\n        const intervalMs = options?.checkIntervalMs ?? 10 * 60_000;\n        setInterval(() => this.swUpdate.checkForUpdate(), intervalMs);\n    }\n\n    private async handleVersionReady(options?: PwaUpdateOptions) {\n        const mode: PwaUpdateMode = options?.mode ?? 'prompt';\n        if (mode === 'silent') {\n            await this.swUpdate.activateUpdate();\n            location.reload();\n            return;\n        }\n\n        const message = 'A new version is available. Reload now?';\n        const shouldReload = await this.promptReload(message, options);\n        if (shouldReload) {\n            await this.swUpdate.activateUpdate();\n            location.reload();\n        }\n    }\n\n    private async promptReload(message: string, options?: PwaUpdateOptions): Promise<boolean> {\n        if (options?.prompt) {\n            return await options.prompt(message);\n        }\n\n        const dialog = this.injector.get(MatDialog, null as any);\n        if (dialog) {\n            const ref = dialog.open(PwaUpdateDialogComponent, {\n                data: { message },\n                disableClose: true,\n                width: '420px'\n            });\n            const result = await firstValueFrom(ref.afterClosed().pipe(take(1)));\n            return result === true;\n        }\n\n        return confirm(message);\n    }\n}\n`
+                : `import { inject, Injectable } from '@angular/core';\nimport { SwUpdate, VersionReadyEvent } from '@angular/service-worker';\nimport { filter } from 'rxjs/operators';\n\nexport type PwaUpdateMode = 'prompt' | 'silent';\n\nexport type PwaUpdateOptions = {\n    checkIntervalMs?: number;\n    mode?: PwaUpdateMode;\n    prompt?: (message: string) => boolean | Promise<boolean>;\n};\n\n@Injectable({ providedIn: 'root' })\nexport class PwaUpdateService {\n    private readonly swUpdate = inject(SwUpdate);\n\n    init(options?: PwaUpdateOptions) {\n        if (!this.swUpdate.isEnabled) { return; }\n\n        this.swUpdate.versionUpdates\n            .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))\n            .subscribe(() => {\n                void this.handleVersionReady(options);\n            });\n\n        const intervalMs = options?.checkIntervalMs ?? 10 * 60_000;\n        setInterval(() => this.swUpdate.checkForUpdate(), intervalMs);\n    }\n\n    private async handleVersionReady(options?: PwaUpdateOptions) {\n        const mode: PwaUpdateMode = options?.mode ?? 'prompt';\n        if (mode === 'silent') {\n            await this.swUpdate.activateUpdate();\n            location.reload();\n            return;\n        }\n\n        const message = 'A new version is available. Reload now?';\n        const shouldReload = options?.prompt ? await options.prompt(message) : confirm(message);\n        if (shouldReload) {\n            await this.swUpdate.activateUpdate();\n            location.reload();\n        }\n    }\n}\n`;
+            fs.writeFileSync(servicePath, serviceContent, 'utf8');
+        }
+
+        const appComponentCandidates = await vscode.workspace.findFiles('**/app.component.ts', excludeGlob);
+        const sourceRootAbs = path.join(workspaceRoot, sourceRoot) + path.sep;
+        const scoped = appComponentCandidates
+            .map(u => u.fsPath)
+            .filter(p => p.startsWith(sourceRootAbs))
+            .sort((a, b) => a.length - b.length);
+
+        const appComponentPath = scoped[0];
+        if (!appComponentPath || !fs.existsSync(appComponentPath)) {
+            vscode.window.showWarningMessage('Wizly: Could not find app.component.ts to wire update handling. Created pwa-update.service.ts only.');
+            return servicePath;
+        }
+
+        const before = fs.readFileSync(appComponentPath, 'utf8');
+        let after = before;
+
+        if (!after.includes(`'./pwa-update.service'`) && !after.includes(`"./pwa-update.service"`)) {
+            const importLine = `import { PwaUpdateService } from './pwa-update.service';\n`;
+            const importMatches = [...after.matchAll(/^[^\S\r\n]*import\s+[\s\S]*?;\s*(\r?\n)/gm)];
+            if (importMatches.length > 0) {
+                const last = importMatches[importMatches.length - 1];
+                const insertAt = (last.index ?? 0) + last[0].length;
+                after = after.slice(0, insertAt) + importLine + after.slice(insertAt);
+            } else {
+                after = importLine + after;
+            }
+        }
+
+        const ensureInitCallInConstructorBody = (text: string): string => {
+            if (text.includes('this.pwaUpdateService.init(') || text.includes('this.pwaUpdateService.init();')) { return text; }
+            return text.replace(/\bconstructor\s*\([^)]*\)\s*\{\s*/m, (m) => `${m}\n        this.pwaUpdateService.init();\n`);
+        };
+
+        if (/\bconstructor\s*\(/m.test(after)) {
+            if (!/\bpwaUpdateService\s*:\s*PwaUpdateService\b/m.test(after)) {
+                after = after.replace(/\bconstructor\s*\((?<params>[^)]*)\)/m, (full, _params, _offset, _str, groups: any) => {
+                    const params = String(groups?.params ?? '');
+                    const trimmed = params.trim();
+                    const addition = `private readonly pwaUpdateService: PwaUpdateService`;
+                    if (!trimmed) {
+                        return `constructor(${addition})`;
+                    }
+                    if (trimmed.includes('PwaUpdateService')) {
+                        return full;
+                    }
+                    return `constructor(${params}, ${addition})`;
+                });
+            }
+            after = ensureInitCallInConstructorBody(after);
+        } else if (/export\s+class\s+AppComponent\b/.test(after)) {
+            const ctor = `\n    constructor(private readonly pwaUpdateService: PwaUpdateService) {\n        this.pwaUpdateService.init();\n    }\n`;
+            after = after.replace(/(export\s+class\s+AppComponent\b[^{]*\{)/m, `$1${ctor}`);
+        } else {
+            vscode.window.showWarningMessage('Wizly: Could not safely wire update handling into AppComponent. Created pwa-update.service.ts only.');
+            if (after !== before) {
+                fs.writeFileSync(appComponentPath, after, 'utf8');
+            }
+            return servicePath;
+        }
+
+        if (after !== before) {
+            fs.writeFileSync(appComponentPath, after, 'utf8');
+        }
+
+        return appComponentPath;
+    };
+
+    const updateHandlingDocToOpen = addUpdateHandling?.id === 'yes'
+        ? await addPwaUpdateHandling()
+        : undefined;
+
     const docToOpen = fs.existsSync(manifestPath)
         ? manifestPath
         : fs.existsSync(ngswConfigPath)
             ? ngswConfigPath
             : undefined;
 
-    if (docToOpen) {
-        const doc = await vscode.workspace.openTextDocument(docToOpen);
+    const effectiveDocToOpen = updateHandlingDocToOpen ?? docToOpen;
+    if (effectiveDocToOpen) {
+        const doc = await vscode.workspace.openTextDocument(effectiveDocToOpen);
         await vscode.window.showTextDocument(doc, { preview: false });
     }
 

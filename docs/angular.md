@@ -10,7 +10,12 @@ Command: `Wizly: Convert Angular Project to SCSS`
 
 Converts an Angular workspace from CSS to SCSS. It updates `package.json`, patches `angular.json`, updates component `styleUrl(s)` references, scaffolds `src/scss/`, and moves any existing `src/styles.css`/`src/styles.scss` content into `src/scss/main.scss` (then removes `src/styles.*`).
 
-Wizly uses a 7-1 SCSS folder structure under `src/scss/` and uses `src/scss/main.scss` as the single entry point. See [scss.md](file:///c:/PROJECTS/wizly-plugin/wizly/docs/scss.md).
+Wizly uses a 7-1 SCSS folder structure under `src/scss/` and uses `src/scss/main.scss` as the single entry point. See [css.md](file:///c:/PROJECTS/wizly-plugin/wizly/docs/css.md).
+
+If a `magic-styles.css` file is found next to an `index.html`, Wizly asks whether it should be kept:
+
+- **Delete**: deletes `magic-styles.css`, removes the `<link>` tag from `index.html`, and removes missing `magic-styles.*` entries from `angular.json` if present
+- **Convert**: moves the contents to `src/scss/vendors/_magic-styles.scss`, wires it into `src/scss/main.scss` via `@use './vendors/magic-styles';`, removes the `<link>` tag from `index.html`, and deletes `magic-styles.css`
 
 ### Convert Angular Project to PWA
 
@@ -23,6 +28,57 @@ After running this command, these are the most common places to customise brandi
 - **Icons**: `src/assets/icons/` (the files referenced by `src/manifest.webmanifest`)
 - **PWA colors**: `src/manifest.webmanifest` (`theme_color` and `background_color`)
 - **Browser UI theme color**: `src/index.html` (`<meta name="theme-color" ...>`)
+
+#### Service Worker Update Handling
+
+Angular’s service worker updates are downloaded in the background, but your app typically needs to decide when to refresh to activate the new version.
+
+The safest baseline is:
+
+- Call `checkForUpdate()` periodically
+- When a new version is ready, prompt the user to reload
+
+Wizly can optionally scaffold a small update helper during PWA conversion:
+
+- Creates `src/app/pwa-update.service.ts`
+- Tries to wire it into `AppComponent` (constructor injection + `init()` call)
+- If Angular Material is available, the default prompt uses `MatDialog`; otherwise it falls back to `confirm()`
+
+Example (works in Angular apps where `@angular/service-worker` is installed and enabled in production builds):
+
+```ts
+import { inject, Injectable } from '@angular/core';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
+
+@Injectable({ providedIn: 'root' })
+export class PwaUpdateService {
+  private readonly swUpdate = inject(SwUpdate);
+
+  init() {
+    if (!this.swUpdate.isEnabled) { return; }
+
+    this.swUpdate.versionUpdates
+      .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
+      .subscribe(() => {
+        const shouldReload = confirm('A new version is available. Reload now?');
+        if (shouldReload) {
+          location.reload();
+        }
+      });
+
+    setInterval(() => this.swUpdate.checkForUpdate(), 60_000);
+  }
+}
+```
+
+Wire it in early in app startup (e.g. `AppComponent` constructor, or your `main.ts` bootstrap flow) and ensure it is not executed in SSR contexts.
+
+To switch behaviour:
+
+- **Prompt mode** (default): `this.pwaUpdateService.init()` (or `init({ mode: 'prompt' })`)
+- **Silent mode** (auto-reload on update): `this.pwaUpdateService.init({ mode: 'silent' })`
+- **Force browser confirm** (even when Material is installed): `this.pwaUpdateService.init({ prompt: (m) => confirm(m) })`
 
 ## Sync Shared Modules Command
 
