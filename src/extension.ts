@@ -968,29 +968,38 @@ async function convertAngularProjectToPwa() {
             }
         }
 
+        const ensureInjectImport = (text: string): string => {
+            const hasInjectImport = /from\s+['"]@angular\/core['"]/.test(text) && /\binject\b/.test(text);
+            if (hasInjectImport) { return text; }
+            const importRegex = /^\s*import\s*\{(?<names>[^}]+)\}\s*from\s*['"]@angular\/core['"];\s*$/m;
+            const m = text.match(importRegex);
+            if (m && m.groups?.names) {
+                const names = m.groups.names.split(',').map(s => s.trim()).filter(Boolean);
+                if (names.includes('inject')) { return text; }
+                const updated = [...names, 'inject'].sort((a, b) => a.localeCompare(b)).join(', ');
+                return text.replace(importRegex, `import { ${updated} } from '@angular/core';`);
+            }
+            return `import { inject } from '@angular/core';\n${text}`;
+        };
+
+        const ensureServiceField = (text: string): string => {
+            if (text.includes('inject(PwaUpdateService)')) { return text; }
+            if (!/export\s+class\s+AppComponent\b/.test(text)) { return text; }
+            return text.replace(/(export\s+class\s+AppComponent\b[^{]*\{\s*)/m, `$1\n    private readonly pwaUpdateService = inject(PwaUpdateService);\n`);
+        };
+
         const ensureInitCallInConstructorBody = (text: string): string => {
             if (text.includes('this.pwaUpdateService.init(') || text.includes('this.pwaUpdateService.init();')) { return text; }
             return text.replace(/\bconstructor\s*\([^)]*\)\s*\{\s*/m, (m) => `${m}\n        this.pwaUpdateService.init();\n`);
         };
 
+        after = ensureInjectImport(after);
+        after = ensureServiceField(after);
+
         if (/\bconstructor\s*\(/m.test(after)) {
-            if (!/\bpwaUpdateService\s*:\s*PwaUpdateService\b/m.test(after)) {
-                after = after.replace(/\bconstructor\s*\((?<params>[^)]*)\)/m, (full, _params, _offset, _str, groups: any) => {
-                    const params = String(groups?.params ?? '');
-                    const trimmed = params.trim();
-                    const addition = `private readonly pwaUpdateService: PwaUpdateService`;
-                    if (!trimmed) {
-                        return `constructor(${addition})`;
-                    }
-                    if (trimmed.includes('PwaUpdateService')) {
-                        return full;
-                    }
-                    return `constructor(${params}, ${addition})`;
-                });
-            }
             after = ensureInitCallInConstructorBody(after);
         } else if (/export\s+class\s+AppComponent\b/.test(after)) {
-            const ctor = `\n    constructor(private readonly pwaUpdateService: PwaUpdateService) {\n        this.pwaUpdateService.init();\n    }\n`;
+            const ctor = `\n    constructor() {\n        this.pwaUpdateService.init();\n    }\n`;
             after = after.replace(/(export\s+class\s+AppComponent\b[^{]*\{)/m, `$1${ctor}`);
         } else {
             vscode.window.showWarningMessage('Wizly: Could not safely wire update handling into AppComponent. Created pwa-update.service.ts only.');
@@ -1057,10 +1066,15 @@ async function generatePwaIconsFromActiveImage() {
 
     const workspaceRoot = workspaceFolder.uri.fsPath;
     const srcRoot = path.join(workspaceRoot, 'src');
-    const manifestPath = path.join(srcRoot, 'manifest.webmanifest');
+    const manifestCandidates = [
+        path.join(workspaceRoot, 'public', 'manifest.webmanifest'),
+        path.join(srcRoot, 'manifest.webmanifest'),
+        path.join(srcRoot, 'public', 'manifest.webmanifest')
+    ];
+    const manifestPath = manifestCandidates.find(p => fs.existsSync(p));
     const ngswConfigPath = path.join(workspaceRoot, 'ngsw-config.json');
 
-    if (!fs.existsSync(manifestPath) || !fs.existsSync(ngswConfigPath)) {
+    if (!manifestPath || !fs.existsSync(ngswConfigPath)) {
         vscode.window.showErrorMessage('Wizly: This workspace does not appear to be a PWA (manifest.webmanifest or ngsw-config.json not found).');
         return;
     }
@@ -1097,7 +1111,7 @@ async function generatePwaIconsFromActiveImage() {
     }
     const iconTargets = [...unique.values()].sort((a, b) => a.size - b.size || a.src.localeCompare(b.src));
     if (iconTargets.length === 0) {
-        vscode.window.showErrorMessage('Wizly: No local square icon targets found in src/manifest.webmanifest (icons[].src + icons[].sizes).');
+        vscode.window.showErrorMessage('Wizly: No local square icon targets found in manifest.webmanifest (icons[].src + icons[].sizes).');
         return;
     }
 
@@ -1195,8 +1209,20 @@ async function generatePwaIconsFromActiveImage() {
     let skipped = 0;
     const warnings: string[] = [];
 
+    const resolveManifestIconTargetAbsPath = (src: string): string => {
+        const normalized = src.replace(/\\/g, '/').replace(/^\//, '');
+        if (normalized.startsWith('assets/')) {
+            return path.join(srcRoot, normalized);
+        }
+        const publicRoot = path.join(workspaceRoot, 'public');
+        if (manifestPath.replace(/\\/g, '/').includes('/public/') && fs.existsSync(publicRoot)) {
+            return path.join(publicRoot, normalized);
+        }
+        return path.join(srcRoot, normalized);
+    };
+
     for (const target of iconTargets) {
-        const destAbs = path.resolve(path.dirname(manifestPath), target.src);
+        const destAbs = resolveManifestIconTargetAbsPath(target.src);
         ensureDir(path.dirname(destAbs));
         if (!overwrite && fs.existsSync(destAbs)) {
             skipped++;
@@ -1818,6 +1844,12 @@ async function setupAngularRuntimeSettings() {
     const angularJson = readJson<any>(angularJsonPath);
     const packageJson = readJson<any>(packageJsonPath);
 
+    const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
+    const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+    const hasMaterial = typeof deps['@angular/material'] === 'string'
+        || typeof devDeps['@angular/material'] === 'string'
+        || fs.existsSync(path.join(workspaceRoot, 'node_modules', '@angular', 'material', 'package.json'));
+
     const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
     const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
     const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
@@ -1952,10 +1984,34 @@ async function setupAngularRuntimeSettings() {
         return;
     }
 
-    const serviceAbs = path.join(appDirAbs, 'wizly-settings.service.ts');
+    const coreDirAbs = path.join(appDirAbs, 'core');
+    const hasCoreDir = fs.existsSync(coreDirAbs) && fs.statSync(coreDirAbs).isDirectory();
+    const wizlyBaseDirAbs = hasCoreDir ? coreDirAbs : appDirAbs;
+    const serviceImportRel = hasCoreDir ? './core/wizly/wizly-settings.service' : './wizly/wizly-settings.service';
+
+    const wizlyDirAbs = path.join(wizlyBaseDirAbs, 'wizly');
+    ensureDir(wizlyDirAbs);
+
+    const serviceAbs = path.join(wizlyDirAbs, 'wizly-settings.service.ts');
     if (!fs.existsSync(serviceAbs)) {
-        const serviceContent = `import { Injectable } from '@angular/core';\n\nexport type WizlyThemeMode = 'single' | 'multi' | 'hostbased';\nexport type WizlyMode = 'light' | 'dark' | 'system';\n\nexport type WizlyTheme = {\n    name: string;\n    href: string;\n    host?: string;\n};\n\nexport type WizlySettings = {\n    themeMode: WizlyThemeMode;\n    defaultMode?: WizlyMode;\n    defaultTheme?: string;\n    themes?: WizlyTheme[];\n};\n\n@Injectable({ providedIn: 'root' })\nexport class WizlySettingsService {\n    private settings?: WizlySettings;\n\n    async load() {\n        const url = ` + "`" + `settings/settings.json?v=${Date.now()}` + "`" + `;\n        try {\n            const res = await fetch(url, { cache: 'no-store' });\n            if (!res.ok) { return; }\n            const json = (await res.json()) as WizlySettings;\n            this.settings = json;\n            this.applyTheme();\n        } catch {\n        }\n    }\n\n    getSettings() {\n        return this.settings;\n    }\n\n    getThemes() {\n        return this.settings?.themes ?? [];\n    }\n\n    setTheme(href: string) {\n        try { localStorage.setItem('wizly.themeHref', href); } catch { }\n        this.applyTheme(href);\n    }\n\n    setMode(mode: WizlyMode) {\n        try { localStorage.setItem('wizly.mode', mode); } catch { }\n        this.applyMode(mode);\n    }\n\n    private applyTheme(overrideHref?: string) {\n        if (typeof document === 'undefined') { return; }\n\n        const s = this.settings;\n        const mode = this.resolveMode(s);\n        this.applyMode(mode);\n\n        const href = this.resolveThemeHref(s, overrideHref);\n        if (!href) { return; }\n\n        const existing = document.getElementById('wizly-theme');\n        const link = (existing && existing.tagName.toLowerCase() === 'link')\n            ? (existing as HTMLLinkElement)\n            : document.createElement('link');\n\n        link.id = 'wizly-theme';\n        link.rel = 'stylesheet';\n        link.href = href;\n\n        if (!existing) {\n            document.head.appendChild(link);\n        }\n    }\n\n    private resolveMode(s?: WizlySettings): WizlyMode {\n        let override: string | null = null;\n        try { override = localStorage.getItem('wizly.mode'); } catch { }\n        if (override === 'light' || override === 'dark' || override === 'system') { return override; }\n        const def = s?.defaultMode;\n        return def === 'light' || def === 'dark' || def === 'system' ? def : 'system';\n    }\n\n    private resolveThemeHref(s?: WizlySettings, overrideHref?: string): string {\n        if (overrideHref) { return overrideHref; }\n\n        const mode = s?.themeMode ?? 'single';\n        const themes = s?.themes ?? [];\n\n        if (mode === 'multi') {\n            let stored: string | null = null;\n            try { stored = localStorage.getItem('wizly.themeHref'); } catch { }\n            if (stored && themes.some(t => t.href === stored)) { return stored; }\n        }\n\n        if (mode === 'hostbased') {\n            const host = typeof location !== 'undefined' ? location.hostname : '';\n            const match = themes.find(t => t.host === host);\n            if (match?.href) { return match.href; }\n        }\n\n        const def = s?.defaultTheme;\n        if (def) { return def; }\n\n        return themes[0]?.href ?? '';\n    }\n\n    private applyMode(mode: WizlyMode) {\n        if (typeof document === 'undefined') { return; }\n        const el = document.documentElement;\n        el.dataset['wizlyMode'] = mode;\n    }\n}\n`;
+        const serviceContent = `import { Injectable } from '@angular/core';\nimport { BehaviorSubject } from 'rxjs';\n\nexport type WizlyThemeMode = 'single' | 'multi' | 'hostbased';\nexport type WizlyMode = 'light' | 'dark' | 'system';\nexport type WizlyColorScheme = 'light' | 'dark';\n\nexport type WizlyTheme = {\n    name: string;\n    href: string;\n    host?: string;\n    defaultMode?: WizlyMode;\n};\n\nexport type WizlySettings = {\n    themeMode: WizlyThemeMode;\n    defaultMode?: WizlyMode;\n    defaultTheme?: string;\n    themes?: WizlyTheme[];\n};\n\nexport type WizlySettingsState = {\n    settings?: WizlySettings;\n    themes: WizlyTheme[];\n    themeMode: WizlyThemeMode;\n    defaultTheme?: string;\n    activeThemeHref?: string;\n    mode: WizlyMode;\n    colorScheme: WizlyColorScheme;\n};\n\n@Injectable({ providedIn: 'root' })\nexport class WizlySettingsService {\n    private readonly stateSubject = new BehaviorSubject<WizlySettingsState>({\n        themes: [],\n        themeMode: 'single',\n        mode: 'system',\n        colorScheme: this.getSystemScheme()\n    });\n\n    readonly state$ = this.stateSubject.asObservable();\n\n    getState() {\n        return this.stateSubject.value;\n    }\n\n    async load() {\n        this.applyFromStorageBestEffort();\n\n        const url = ` + "`" + `settings/settings.json?v=${Date.now()}` + "`" + `;\n        try {\n            const res = await fetch(url, { cache: 'no-store' });\n            if (!res.ok) {\n                this.recomputeAndApply();\n                return;\n            }\n            const raw = (await res.json()) as unknown;\n            const normalized = this.normalizeSettings(raw);\n            const prev = this.stateSubject.value;\n            const themeMode = normalized.themeMode;\n            const themes = normalized.themes ?? [];\n            const defaultTheme = normalized.defaultTheme;\n            const mode = this.resolveMode(normalized);\n            const activeThemeHref = this.resolveThemeHref(normalized);\n            const colorScheme = this.resolveColorScheme(mode);\n\n            this.stateSubject.next({\n                ...prev,\n                settings: normalized,\n                themeMode,\n                themes,\n                defaultTheme,\n                mode,\n                colorScheme,\n                activeThemeHref\n            });\n\n            this.applyMode(mode);\n            this.applyThemeLink(activeThemeHref);\n        } catch {\n            this.recomputeAndApply();\n        }\n    }\n\n    canUserSwitchTheme() {\n        return this.stateSubject.value.themeMode === 'multi';\n    }\n\n    canUserSwitchMode() {\n        return true;\n    }\n\n    setTheme(href: string) {\n        const state = this.stateSubject.value;\n        if (!href || !state.themes.some(t => t.href === href)) { return; }\n        try { localStorage.setItem('wizly.themeHref', href); } catch { }\n        this.stateSubject.next({ ...state, activeThemeHref: href });\n        this.applyThemeLink(href);\n    }\n\n    setMode(mode: WizlyMode) {\n        try { localStorage.setItem('wizly.mode', mode); } catch { }\n        const state = this.stateSubject.value;\n        const scheme = this.resolveColorScheme(mode);\n        this.stateSubject.next({ ...state, mode, colorScheme: scheme });\n        this.applyMode(mode);\n    }\n\n    private applyFromStorageBestEffort() {\n        const state = this.stateSubject.value;\n        const storedMode = this.readStoredMode();\n        const scheme = this.resolveColorScheme(storedMode);\n        const storedThemeHref = this.readStoredThemeHref();\n\n        this.stateSubject.next({\n            ...state,\n            mode: storedMode,\n            colorScheme: scheme,\n            activeThemeHref: storedThemeHref || state.activeThemeHref\n        });\n\n        this.applyMode(storedMode);\n        if (storedThemeHref) {\n            this.applyThemeLink(storedThemeHref);\n        }\n    }\n\n    private recomputeAndApply() {\n        const state = this.stateSubject.value;\n        const settings = state.settings;\n        const mode = this.resolveMode(settings);\n        const activeThemeHref = this.resolveThemeHref(settings);\n        const scheme = this.resolveColorScheme(mode);\n\n        this.stateSubject.next({\n            ...state,\n            mode,\n            colorScheme: scheme,\n            activeThemeHref\n        });\n\n        this.applyMode(mode);\n        this.applyThemeLink(activeThemeHref);\n    }\n\n    private normalizeSettings(raw: unknown): WizlySettings {\n        const obj = raw && typeof raw === 'object' ? raw as any : {};\n        const themeMode: WizlyThemeMode = (obj.themeMode === 'single' || obj.themeMode === 'multi' || obj.themeMode === 'hostbased')\n            ? obj.themeMode\n            : 'single';\n\n        const defaultMode: WizlyMode = (obj.defaultMode === 'light' || obj.defaultMode === 'dark' || obj.defaultMode === 'system')\n            ? obj.defaultMode\n            : 'system';\n\n        const themesRaw = Array.isArray(obj.themes) ? obj.themes : [];\n        const themes: WizlyTheme[] = [];\n        for (const t of themesRaw) {\n            const href = typeof t?.href === 'string' ? t.href.trim() : '';\n            if (!href) { continue; }\n            const name = typeof t?.name === 'string' && t.name.trim() ? t.name.trim() : this.deriveThemeName(href);\n            const host = typeof t?.host === 'string' && t.host.trim() ? t.host.trim() : undefined;\n            const perThemeDefaultMode: WizlyMode | undefined = (t?.defaultMode === 'light' || t?.defaultMode === 'dark' || t?.defaultMode === 'system')\n                ? t.defaultMode\n                : undefined;\n            themes.push({ name, href, host, defaultMode: perThemeDefaultMode });\n        }\n\n        const deduped = new Map<string, WizlyTheme>();\n        for (const t of themes) {\n            if (!deduped.has(t.href)) {\n                deduped.set(t.href, t);\n            }\n        }\n        const mergedThemes = [...deduped.values()];\n\n        let defaultTheme = typeof obj.defaultTheme === 'string' ? obj.defaultTheme.trim() : '';\n        if (defaultTheme && !mergedThemes.some(t => t.href === defaultTheme)) {\n            defaultTheme = '';\n        }\n        if (!defaultTheme && mergedThemes.length > 0) {\n            defaultTheme = mergedThemes[0].href;\n        }\n\n        return {\n            themeMode,\n            defaultMode,\n            defaultTheme,\n            themes: mergedThemes\n        };\n    }\n\n    private deriveThemeName(href: string) {\n        const file = href.split('/').pop() ?? href;\n        const base = file.replace(/\\.css$/i, '');\n        const spaced = base.replace(/[_-]+/g, ' ').trim();\n        return spaced ? spaced.replace(/\\b\\w/g, (m) => m.toUpperCase()) : href;\n    }\n\n    private readStoredThemeHref() {\n        let stored: string | null = null;\n        try { stored = localStorage.getItem('wizly.themeHref'); } catch { }\n        return stored && stored.trim() ? stored.trim() : undefined;\n    }\n\n    private readStoredMode(): WizlyMode {\n        let override: string | null = null;\n        try { override = localStorage.getItem('wizly.mode'); } catch { }\n        if (override === 'light' || override === 'dark' || override === 'system') { return override; }\n        return 'system';\n    }\n\n    private resolveMode(settings?: WizlySettings): WizlyMode {\n        const stored = this.readStoredMode();\n        if (stored !== 'system') { return stored; }\n\n        const s = settings;\n        const defaultMode = s?.defaultMode;\n        if (defaultMode === 'light' || defaultMode === 'dark' || defaultMode === 'system') { return defaultMode; }\n        return 'system';\n    }\n\n    private resolveThemeHref(settings?: WizlySettings): string {\n        const s = settings;\n        const themeMode: WizlyThemeMode = s?.themeMode ?? this.stateSubject.value.themeMode;\n        const themes = s?.themes ?? this.stateSubject.value.themes;\n\n        if (themes.length === 0) {\n            return '';\n        }\n\n        if (themeMode === 'multi') {\n            const stored = this.readStoredThemeHref();\n            if (stored && themes.some(t => t.href === stored)) {\n                return stored;\n            }\n        }\n\n        if (themeMode === 'hostbased') {\n            const host = typeof location !== 'undefined' ? location.hostname : '';\n            const match = themes.find(t => t.host === host);\n            if (match?.href) { return match.href; }\n        }\n\n        const def = s?.defaultTheme;\n        if (def && themes.some(t => t.href === def)) {\n            return def;\n        }\n\n        return themes[0].href;\n    }\n\n    private applyThemeLink(href?: string) {\n        if (!href) { return; }\n        if (typeof document === 'undefined') { return; }\n\n        const existing = document.getElementById('wizly-theme');\n        const link = (existing && existing.tagName.toLowerCase() === 'link')\n            ? (existing as HTMLLinkElement)\n            : document.createElement('link');\n\n        link.id = 'wizly-theme';\n        link.rel = 'stylesheet';\n        link.href = href;\n\n        if (!existing) {\n            document.head.appendChild(link);\n        }\n    }\n\n    private getSystemScheme(): WizlyColorScheme {\n        if (typeof window === 'undefined' || !('matchMedia' in window)) { return 'light'; }\n        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n    }\n\n    private resolveColorScheme(mode: WizlyMode): WizlyColorScheme {\n        if (mode === 'dark') { return 'dark'; }\n        if (mode === 'light') { return 'light'; }\n        return this.getSystemScheme();\n    }\n\n    private applyMode(mode: WizlyMode) {\n        if (typeof document === 'undefined') { return; }\n        const el = document.documentElement;\n        const scheme = this.resolveColorScheme(mode);\n\n        el.dataset['wizlyMode'] = mode;\n        el.dataset['themeMode'] = mode;\n        el.dataset['colorScheme'] = scheme;\n        (el.style as any).colorScheme = scheme;\n\n        if (mode === 'system' && typeof window !== 'undefined' && 'matchMedia' in window) {\n            const mq = window.matchMedia('(prefers-color-scheme: dark)');\n            const handler = () => {\n                const current = this.stateSubject.value.mode;\n                if (current !== 'system') { return; }\n                const nextScheme = mq.matches ? 'dark' : 'light';\n                const next = { ...this.stateSubject.value, colorScheme: nextScheme };\n                this.stateSubject.next(next);\n                el.dataset['colorScheme'] = nextScheme;\n                (el.style as any).colorScheme = nextScheme;\n            };\n            try {\n                mq.removeEventListener('change', handler);\n                mq.addEventListener('change', handler);\n            } catch {\n            }\n        }\n    }\n}\n`;
         fs.writeFileSync(serviceAbs, serviceContent, 'utf8');
+    }
+
+    const themeSelectorAbs = path.join(wizlyDirAbs, 'wizly-theme-selector.component.ts');
+    if (!fs.existsSync(themeSelectorAbs)) {
+        const selectorContent = hasMaterial
+            ? `import { CommonModule } from '@angular/common';\nimport { Component, inject } from '@angular/core';\nimport { MatFormFieldModule } from '@angular/material/form-field';\nimport { MatSelectModule } from '@angular/material/select';\nimport { map } from 'rxjs/operators';\nimport { WizlySettingsService } from './wizly-settings.service';\n\n@Component({\n    selector: 'wizly-theme-selector',\n    standalone: true,\n    imports: [CommonModule, MatFormFieldModule, MatSelectModule],\n    template: \`<mat-form-field appearance=\"fill\" style=\"width: 100%\">\n  <mat-label>Theme</mat-label>\n  <mat-select [disabled]=\"!(canSwitch$ | async)\" [value]=\"(activeHref$ | async) ?? ''\" (selectionChange)=\"setTheme($any($event.value))\">\n    <mat-option *ngFor=\"let t of (themes$ | async)\" [value]=\"t.href\">{{ t.name }}</mat-option>\n  </mat-select>\n</mat-form-field>\`\n})\nexport class WizlyThemeSelectorComponent {\n    private readonly settings = inject(WizlySettingsService);\n    readonly themes$ = this.settings.state$.pipe(map(s => s.themes));\n    readonly activeHref$ = this.settings.state$.pipe(map(s => s.activeThemeHref ?? ''));\n    readonly canSwitch$ = this.settings.state$.pipe(map(s => s.themeMode === 'multi'));\n\n    setTheme(href: string) {\n        this.settings.setTheme(href);\n    }\n}\n`
+            : `import { CommonModule } from '@angular/common';\nimport { Component, inject } from '@angular/core';\nimport { map } from 'rxjs/operators';\nimport { WizlySettingsService } from './wizly-settings.service';\n\n@Component({\n    selector: 'wizly-theme-selector',\n    standalone: true,\n    imports: [CommonModule],\n    template: \`<label style=\"display: block; font: inherit\">\n  <span style=\"display: block; margin-bottom: 6px\">Theme</span>\n  <select [disabled]=\"!(canSwitch$ | async)\" [value]=\"(activeHref$ | async) ?? ''\" (change)=\"setTheme(($any($event.target).value))\" style=\"width: 100%\">\n    <option *ngFor=\"let t of (themes$ | async)\" [value]=\"t.href\">{{ t.name }}</option>\n  </select>\n</label>\`\n})\nexport class WizlyThemeSelectorComponent {\n    private readonly settings = inject(WizlySettingsService);\n    readonly themes$ = this.settings.state$.pipe(map(s => s.themes));\n    readonly activeHref$ = this.settings.state$.pipe(map(s => s.activeThemeHref ?? ''));\n    readonly canSwitch$ = this.settings.state$.pipe(map(s => s.themeMode === 'multi'));\n\n    setTheme(href: string) {\n        this.settings.setTheme(href);\n    }\n}\n`;
+        fs.writeFileSync(themeSelectorAbs, selectorContent, 'utf8');
+    }
+
+    const modeToggleAbs = path.join(wizlyDirAbs, 'wizly-mode-toggle.component.ts');
+    if (!fs.existsSync(modeToggleAbs)) {
+        const modeToggleContent = hasMaterial
+            ? `import { CommonModule } from '@angular/common';\nimport { Component, inject } from '@angular/core';\nimport { MatButtonModule } from '@angular/material/button';\nimport { MatIconModule } from '@angular/material/icon';\nimport { map } from 'rxjs/operators';\nimport { WizlyMode, WizlySettingsService } from './wizly-settings.service';\n\n@Component({\n    selector: 'wizly-mode-toggle',\n    standalone: true,\n    imports: [CommonModule, MatButtonModule, MatIconModule],\n    template: \`<button type=\"button\" mat-icon-button (click)=\"cycle()\" [attr.aria-label]=\"label$ | async\">\n  <mat-icon>{{ icon$ | async }}</mat-icon>\n</button>\`\n})\nexport class WizlyModeToggleComponent {\n    private readonly settings = inject(WizlySettingsService);\n    readonly mode$ = this.settings.state$.pipe(map(s => s.mode));\n    readonly icon$ = this.mode$.pipe(map(m => m === 'dark' ? 'dark_mode' : m === 'light' ? 'light_mode' : 'brightness_auto'));\n    readonly label$ = this.mode$.pipe(map(m => m === 'dark' ? 'Dark mode' : m === 'light' ? 'Light mode' : 'System mode'));\n\n    cycle() {\n        const current = this.settings.getState().mode;\n        const next: WizlyMode = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';\n        this.settings.setMode(next);\n    }\n}\n`
+            : `import { CommonModule } from '@angular/common';\nimport { Component, inject } from '@angular/core';\nimport { map } from 'rxjs/operators';\nimport { WizlyMode, WizlySettingsService } from './wizly-settings.service';\n\n@Component({\n    selector: 'wizly-mode-toggle',\n    standalone: true,\n    imports: [CommonModule],\n    template: \`<label style=\"display: inline-flex; align-items: center; gap: 8px\">\n  <span>Mode</span>\n  <select [value]=\"(mode$ | async) ?? 'system'\" (change)=\"setMode($any($event.target).value)\">\n    <option value=\"system\">System</option>\n    <option value=\"light\">Light</option>\n    <option value=\"dark\">Dark</option>\n  </select>\n</label>\`\n})\nexport class WizlyModeToggleComponent {\n    private readonly settings = inject(WizlySettingsService);\n    readonly mode$ = this.settings.state$.pipe(map(s => s.mode));\n\n    setMode(mode: string) {\n        const m: WizlyMode = mode === 'light' || mode === 'dark' || mode === 'system' ? mode : 'system';\n        this.settings.setMode(m);\n    }\n}\n`;
+        fs.writeFileSync(modeToggleAbs, modeToggleContent, 'utf8');
     }
 
     const mainTsAbs = path.join(workspaceRoot, sourceRoot, 'main.ts');
@@ -1980,10 +2036,10 @@ async function setupAngularRuntimeSettings() {
     };
 
     const ensureServiceImport = (text: string): string => {
-        if (text.includes(`from './wizly-settings.service'`) || text.includes(`from "./wizly-settings.service"`)) {
+        if (text.includes(`from '${serviceImportRel}'`) || text.includes(`from "${serviceImportRel}"`)) {
             return text;
         }
-        return `import { WizlySettingsService } from './wizly-settings.service';\n${text}`;
+        return `import { WizlySettingsService } from '${serviceImportRel}';\n${text}`;
     };
 
     const initializerProvider = `{ provide: APP_INITIALIZER, useFactory: (s: WizlySettingsService) => () => s.load(), deps: [WizlySettingsService], multi: true }`;
@@ -2043,6 +2099,168 @@ async function setupAngularRuntimeSettings() {
     vscode.window.showInformationMessage(`Wizly: Setup runtime settings for "${projectName}".`);
 }
 
+async function syncAngularRuntimeThemes() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+
+    const angularJson = readJson<any>(angularJsonPath);
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+    const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const getBuildOptions = (proj: any) => {
+        const targets = getTargets(proj);
+        const target = targets?.build;
+        const options = target?.options;
+        return options && typeof options === 'object' ? options : undefined;
+    };
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = getTargets(proj);
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && (builder.includes(':application') || builder.includes(':browser') || builder.includes('application') || builder.includes('browser'));
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to sync themes for' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const proj = projects[projectName];
+    const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+    const settingsPathAbs = path.join(workspaceRoot, sourceRoot, 'settings', 'settings.json');
+    if (!fs.existsSync(settingsPathAbs)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find ${path.relative(workspaceRoot, settingsPathAbs)}. Run "Wizly: Setup Runtime Settings (Angular)" first.`);
+        return;
+    }
+
+    const buildOptions = getBuildOptions(proj);
+    if (!buildOptions) {
+        vscode.window.showErrorMessage(`Wizly: Could not find build options for project "${projectName}".`);
+        return;
+    }
+
+    const styles = Array.isArray((buildOptions as any).styles) ? (buildOptions as any).styles : [];
+    const out: Array<{ name: string; href: string }> = [];
+    for (const s of styles) {
+        if (!s || typeof s !== 'object') { continue; }
+        const inject = (s as any).inject;
+        const bundleName = (s as any).bundleName;
+        if (inject === false && typeof bundleName === 'string' && bundleName.trim()) {
+            const bn = bundleName.trim();
+            out.push({ name: bn, href: `${bn}.css` });
+        }
+    }
+    const deduped = new Map<string, { name: string; href: string }>();
+    for (const t of out) {
+        deduped.set(t.href, t);
+    }
+    const detectedThemes = [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    const deriveThemeName = (href: string) => {
+        const file = href.split('/').pop() ?? href;
+        const base = file.replace(/\.css$/i, '');
+        const spaced = base.replace(/[_-]+/g, ' ').trim();
+        return spaced ? spaced.replace(/\b\w/g, (m) => m.toUpperCase()) : href;
+    };
+
+    let settingsRaw: any;
+    try {
+        settingsRaw = JSON.parse(fs.readFileSync(settingsPathAbs, 'utf8'));
+    } catch {
+        vscode.window.showErrorMessage(`Wizly: Could not parse ${path.relative(workspaceRoot, settingsPathAbs)} as JSON.`);
+        return;
+    }
+
+    settingsRaw.themes = Array.isArray(settingsRaw.themes) ? settingsRaw.themes : [];
+    const byHref = new Map<string, any>();
+    for (const t of settingsRaw.themes) {
+        const href = typeof t?.href === 'string' ? t.href.trim() : '';
+        if (!href) { continue; }
+        if (!byHref.has(href)) {
+            byHref.set(href, t);
+        }
+    }
+
+    for (const t of detectedThemes) {
+        const existing = byHref.get(t.href);
+        if (existing) {
+            if (!existing.name || (typeof existing.name === 'string' && !existing.name.trim())) {
+                existing.name = deriveThemeName(t.href);
+            }
+            continue;
+        }
+        byHref.set(t.href, { name: deriveThemeName(t.href), href: t.href });
+    }
+
+    settingsRaw.themes = [...byHref.values()];
+
+    const defaultTheme = typeof settingsRaw.defaultTheme === 'string' ? settingsRaw.defaultTheme.trim() : '';
+    const hasDefault = defaultTheme && settingsRaw.themes.some((t: any) => String(t?.href ?? '').trim() === defaultTheme);
+    if (!hasDefault) {
+        settingsRaw.defaultTheme = String(settingsRaw.themes[0]?.href ?? '').trim();
+    }
+
+    fs.writeFileSync(settingsPathAbs, `${JSON.stringify(settingsRaw, null, 2)}\n`, 'utf8');
+    const doc = await vscode.workspace.openTextDocument(settingsPathAbs);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage(`Wizly: Synced ${detectedThemes.length} theme bundle(s) into settings.json for "${projectName}".`);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     // Register commands
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
@@ -2053,6 +2271,7 @@ export function activate(context: vscode.ExtensionContext) {
     const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
     const generateBlankThemeScssDisposable = vscode.commands.registerCommand('wizly.generateBlankThemeScss', generateBlankThemeScss);
     const setupAngularRuntimeSettingsDisposable = vscode.commands.registerCommand('wizly.setupAngularRuntimeSettings', setupAngularRuntimeSettings);
+    const syncAngularRuntimeThemesDisposable = vscode.commands.registerCommand('wizly.syncAngularRuntimeThemes', syncAngularRuntimeThemes);
     
     const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -2448,6 +2667,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(generateAngularMaterialThemeScssDisposable);
     context.subscriptions.push(generateBlankThemeScssDisposable);
     context.subscriptions.push(setupAngularRuntimeSettingsDisposable);
+    context.subscriptions.push(syncAngularRuntimeThemesDisposable);
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);

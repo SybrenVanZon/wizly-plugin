@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.4.0-rc7",
+  "version": "0.4.0-rc8",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -84,6 +84,10 @@
         "title": "Wizly: Setup Runtime Settings (Angular)"
       },
       {
+        "command": "wizly.syncAngularRuntimeThemes",
+        "title": "Wizly: Sync Runtime Themes (Angular)"
+      },
+      {
         "command": "wizly.exportSettings",
         "title": "Wizly: Export Settings"
       },
@@ -138,6 +142,9 @@
         },
         {
           "command": "wizly.setupAngularRuntimeSettings"
+        },
+        {
+          "command": "wizly.syncAngularRuntimeThemes"
         },
         {
           "command": "wizly.exportSettings"

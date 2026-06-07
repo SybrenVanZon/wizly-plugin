@@ -8,6 +8,7 @@ Wizly includes a few commands that help with Angular workspaces (SCSS conversion
 - [PWA setup, updates, and icons](./angular/pwa.md)
 - [Angular Material theme generation](./angular/material-theme.md)
 - [Blank theme bundle generation](./angular/blank-theme.md)
+- [Runtime settings and theme loader](./angular/runtime-settings.md)
 
 ## Magic module syncing
 
