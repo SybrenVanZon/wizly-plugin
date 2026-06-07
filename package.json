@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.3.1",
+  "version": "0.4.0-rc7",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -46,8 +46,6 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:html",
-    "onCommand:wizly.convertAngularProjectToScss",
-    "onCommand:wizly.convertAngularProjectToPwa",
     "workspaceContains:.vswizly.js",
     "workspaceContains:.vswizly/wizly.config.js"
   ],
@@ -68,6 +66,22 @@
       {
         "command": "wizly.convertAngularProjectToPwa",
         "title": "Wizly: Convert Angular Project to PWA"
+      },
+      {
+        "command": "wizly.generatePwaIconsFromImage",
+        "title": "Wizly: Generate PWA Icons & Favicon (from Active Image)"
+      },
+      {
+        "command": "wizly.generateAngularMaterialThemeScss",
+        "title": "Wizly: Generate Angular Material Theme (SCSS)"
+      },
+      {
+        "command": "wizly.generateBlankThemeScss",
+        "title": "Wizly: Generate Theme Bundle (Blank SCSS)"
+      },
+      {
+        "command": "wizly.setupAngularRuntimeSettings",
+        "title": "Wizly: Setup Runtime Settings (Angular)"
       },
       {
         "command": "wizly.exportSettings",
@@ -112,6 +126,18 @@
         },
         {
           "command": "wizly.convertAngularProjectToPwa"
+        },
+        {
+          "command": "wizly.generatePwaIconsFromImage"
+        },
+        {
+          "command": "wizly.generateAngularMaterialThemeScss"
+        },
+        {
+          "command": "wizly.generateBlankThemeScss"
+        },
+        {
+          "command": "wizly.setupAngularRuntimeSettings"
         },
         {
           "command": "wizly.exportSettings"
@@ -219,10 +245,18 @@
               "type": "object",
               "description": "Default values to apply to MagicModal static configuration fields in Magic-generated overlay components. Fields are only overwritten when they still match Magic defaults, and can be skipped per-field by adding a WIZLY:KEEP comment.",
               "properties": {
-                "showTitleBar": { "type": "boolean" },
-                "shouldCloseOnBackgroundClick": { "type": "boolean" },
-                "isResizable": { "type": "boolean" },
-                "isMovable": { "type": "boolean" }
+                "showTitleBar": {
+                  "type": "boolean"
+                },
+                "shouldCloseOnBackgroundClick": {
+                  "type": "boolean"
+                },
+                "isResizable": {
+                  "type": "boolean"
+                },
+                "isMovable": {
+                  "type": "boolean"
+                }
               },
               "default": {}
             },
@@ -445,6 +479,7 @@
     "@types/ejs": "^3.1.5",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/pngjs": "^6.0.5",
     "@types/vscode": "^1.109.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
@@ -455,6 +490,7 @@
     "eslint": "^9.32.0",
     "mocha": "^11.7.5",
     "mock-require": "^3.0.3",
+    "pngjs": "^7.0.0",
     "typescript": "^5.9.2"
   }
 }

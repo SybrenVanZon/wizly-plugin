@@ -1578,6 +1578,471 @@ async function generateAngularMaterialThemeScss() {
     vscode.window.showInformationMessage(`Wizly: Generated Angular Material theme: ${themeRelPath}`);
 }
 
+async function generateBlankThemeScss() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const themeNameRaw = await vscode.window.showInputBox({
+        title: 'Wizly: Theme name',
+        prompt: 'Enter a theme name (e.g. acme, client-a, demo)',
+        validateInput: (value) => {
+            const v = value.trim();
+            if (!v) { return 'Theme name is required.'; }
+            if (!/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(v)) {
+                return 'Use letters, numbers, hyphen and underscore only.';
+            }
+            return undefined;
+        }
+    });
+    if (!themeNameRaw) { return; }
+    const themeName = themeNameRaw.trim();
+
+    const modePick = await vscode.window.showQuickPick(
+        [
+            { label: 'Light', description: 'Generates a light theme bundle (blank SCSS).', id: 'light' },
+            { label: 'Dark', description: 'Generates a dark theme bundle (blank SCSS).', id: 'dark' }
+        ],
+        { title: 'Wizly: Theme mode' }
+    );
+    if (!modePick) { return; }
+    const mode = modePick.id as 'light' | 'dark';
+
+    const suffixPick = await vscode.window.showQuickPick(
+        [
+            { label: 'Yes (recommended)', description: `File/bundle will include "-${mode}" suffix.`, id: 'yes' },
+            { label: 'No', description: 'File/bundle will not include the mode suffix.', id: 'no' }
+        ],
+        { title: 'Wizly: Include light/dark suffix in file and bundle name?' }
+    );
+    if (!suffixPick) { return; }
+    const includeModeSuffix = suffixPick.id === 'yes';
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
+    const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+    const hasSass = typeof deps['sass'] === 'string'
+        || typeof devDeps['sass'] === 'string'
+        || fs.existsSync(path.join(workspaceRoot, 'node_modules', 'sass', 'package.json'));
+    if (!hasSass) {
+        vscode.window.showErrorMessage('Wizly: Sass (sass) was not found in this workspace. Install sass or run "Wizly: Convert Angular Project to SCSS" first.');
+        return;
+    }
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && (builder.includes(':application') || builder.includes(':browser') || builder.includes('application') || builder.includes('browser'));
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to add the theme bundle to' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const themeBase = includeModeSuffix ? `${themeName}-${mode}` : themeName;
+    const themeFileName = `${themeBase}.theme.scss`;
+    const themeRelPath = `src/scss/themes/${themeFileName}`.replace(/\\/g, '/');
+    const themeAbsPath = path.join(workspaceRoot, 'src', 'scss', 'themes', themeFileName);
+
+    if (fs.existsSync(themeAbsPath)) {
+        const overwrite = await vscode.window.showWarningMessage(
+            `Wizly: ${themeRelPath} already exists. Overwrite?`,
+            'Overwrite',
+            'Cancel'
+        );
+        if (overwrite !== 'Overwrite') { return; }
+    }
+
+    const themesDir = path.dirname(themeAbsPath);
+    if (!fs.existsSync(themesDir)) {
+        fs.mkdirSync(themesDir, { recursive: true });
+    }
+    fs.writeFileSync(themeAbsPath, '\n', 'utf8');
+
+    const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const targets = getTargets(projects[projectName]);
+    const buildOptions = targets?.build?.options && typeof targets.build.options === 'object' ? targets.build.options : undefined;
+    if (!buildOptions) {
+        vscode.window.showWarningMessage(`Wizly: Could not find build options for project "${projectName}". Theme file was created, but angular.json was not updated.`);
+    } else {
+        buildOptions.styles = Array.isArray(buildOptions.styles) ? buildOptions.styles : [];
+        const styles = buildOptions.styles as any[];
+        const already = styles.some((s) => {
+            if (typeof s === 'string') { return s.replace(/\\/g, '/') === themeRelPath; }
+            if (s && typeof s === 'object' && typeof s.input === 'string') { return String(s.input).replace(/\\/g, '/') === themeRelPath; }
+            return false;
+        });
+
+        if (!already) {
+            styles.push({
+                input: themeRelPath,
+                bundleName: themeBase,
+                inject: false
+            });
+            writeJson(angularJsonPath, angularJson);
+        }
+    }
+
+    const doc = await vscode.workspace.openTextDocument(themeAbsPath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage(`Wizly: Generated blank theme bundle: ${themeRelPath}`);
+}
+
+async function setupAngularRuntimeSettings() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const gitMarkerPath = path.join(workspaceRoot, '.git');
+    if (!fs.existsSync(gitMarkerPath)) {
+        const proceed = await vscode.window.showWarningMessage(
+            'Wizly: This folder does not appear to be a Git repository (.git not found). This command updates files and cannot be automatically undone. Do you want to continue?',
+            { modal: true },
+            'Yes',
+            'No'
+        );
+        if (proceed !== 'Yes') { return; }
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+    const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const getBuildOptions = (proj: any) => {
+        const targets = getTargets(proj);
+        const target = targets?.build;
+        const options = target?.options;
+        return options && typeof options === 'object' ? options : undefined;
+    };
+
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = getTargets(proj);
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && (builder.includes(':application') || builder.includes(':browser') || builder.includes('application') || builder.includes('browser'));
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to setup runtime settings for' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const themeModePick = await vscode.window.showQuickPick(
+        [
+            { label: 'Single', description: 'Always use defaultTheme.', id: 'single' },
+            { label: 'Multi', description: 'User can pick a theme and store it in localStorage.', id: 'multi' },
+            { label: 'Hostbased', description: 'Select a theme based on window.location.hostname.', id: 'hostbased' }
+        ],
+        { title: 'Wizly: Theme mode' }
+    );
+    if (!themeModePick) { return; }
+    const themeMode = themeModePick.id as 'single' | 'multi' | 'hostbased';
+
+    const proj = projects[projectName];
+    const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+    const settingsDirAbs = path.join(workspaceRoot, sourceRoot, 'settings');
+    const settingsPathAbs = path.join(settingsDirAbs, 'settings.json');
+
+    const ensureDir = (dirPath: string) => {
+        if (fs.existsSync(dirPath)) { return; }
+        fs.mkdirSync(dirPath, { recursive: true });
+    };
+
+    ensureDir(settingsDirAbs);
+
+    if (fs.existsSync(settingsPathAbs)) {
+        const overwrite = await vscode.window.showWarningMessage(
+            `Wizly: ${path.relative(workspaceRoot, settingsPathAbs)} already exists. Overwrite?`,
+            'Overwrite',
+            'Keep'
+        );
+        if (overwrite !== 'Overwrite') {
+            vscode.window.showInformationMessage('Wizly: Kept existing settings.json.');
+        } else {
+            fs.writeFileSync(settingsPathAbs, '', 'utf8');
+        }
+    }
+
+    const buildOptions = getBuildOptions(proj);
+    const bundleThemes = (): Array<{ name: string; href: string }> => {
+        if (!buildOptions) { return []; }
+        const styles = Array.isArray((buildOptions as any).styles) ? (buildOptions as any).styles : [];
+        const out: Array<{ name: string; href: string }> = [];
+        for (const s of styles) {
+            if (!s || typeof s !== 'object') { continue; }
+            const inject = (s as any).inject;
+            const bundleName = (s as any).bundleName;
+            if (inject === false && typeof bundleName === 'string' && bundleName.trim()) {
+                const bn = bundleName.trim();
+                out.push({ name: bn, href: `${bn}.css` });
+            }
+        }
+        const deduped = new Map<string, { name: string; href: string }>();
+        for (const t of out) {
+            deduped.set(t.href, t);
+        }
+        return [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name));
+    };
+
+    const detectedThemes = bundleThemes();
+    const defaultThemeHref = detectedThemes[0]?.href ?? '';
+    const settingsJson = {
+        themeMode,
+        defaultMode: 'system',
+        defaultTheme: defaultThemeHref,
+        themes: detectedThemes.length > 0 ? detectedThemes : [
+            { name: 'Default', href: '' }
+        ]
+    };
+
+    if (!fs.readFileSync(settingsPathAbs, 'utf8').trim()) {
+        fs.writeFileSync(settingsPathAbs, `${JSON.stringify(settingsJson, null, 2)}\n`, 'utf8');
+    }
+
+    if (buildOptions) {
+        (buildOptions as any).assets = Array.isArray((buildOptions as any).assets) ? (buildOptions as any).assets : [];
+        const assets = (buildOptions as any).assets as any[];
+        const inputRel = `${sourceRoot.replace(/\\/g, '/')}/settings`;
+        const already = assets.some((a) => {
+            if (!a || typeof a !== 'object') { return false; }
+            return String(a.input ?? '').replace(/\\/g, '/') === inputRel && String(a.output ?? '').replace(/\\/g, '/') === 'settings';
+        });
+        if (!already) {
+            assets.push({ glob: '**/*', input: inputRel, output: 'settings' });
+            writeJson(angularJsonPath, angularJson);
+        }
+    } else {
+        vscode.window.showWarningMessage(`Wizly: Could not find build options for project "${projectName}". settings.json was created, but angular.json was not updated (assets).`);
+    }
+
+    const appDirAbs = path.join(workspaceRoot, sourceRoot, 'app');
+    if (!fs.existsSync(appDirAbs)) {
+        vscode.window.showWarningMessage(`Wizly: Could not find ${path.relative(workspaceRoot, appDirAbs)}. Skipping Angular initializer scaffolding.`);
+        const doc = await vscode.workspace.openTextDocument(settingsPathAbs);
+        await vscode.window.showTextDocument(doc, { preview: false });
+        return;
+    }
+
+    const serviceAbs = path.join(appDirAbs, 'wizly-settings.service.ts');
+    if (!fs.existsSync(serviceAbs)) {
+        const serviceContent = `import { Injectable } from '@angular/core';\n\nexport type WizlyThemeMode = 'single' | 'multi' | 'hostbased';\nexport type WizlyMode = 'light' | 'dark' | 'system';\n\nexport type WizlyTheme = {\n    name: string;\n    href: string;\n    host?: string;\n};\n\nexport type WizlySettings = {\n    themeMode: WizlyThemeMode;\n    defaultMode?: WizlyMode;\n    defaultTheme?: string;\n    themes?: WizlyTheme[];\n};\n\n@Injectable({ providedIn: 'root' })\nexport class WizlySettingsService {\n    private settings?: WizlySettings;\n\n    async load() {\n        const url = ` + "`" + `settings/settings.json?v=${Date.now()}` + "`" + `;\n        try {\n            const res = await fetch(url, { cache: 'no-store' });\n            if (!res.ok) { return; }\n            const json = (await res.json()) as WizlySettings;\n            this.settings = json;\n            this.applyTheme();\n        } catch {\n        }\n    }\n\n    getSettings() {\n        return this.settings;\n    }\n\n    getThemes() {\n        return this.settings?.themes ?? [];\n    }\n\n    setTheme(href: string) {\n        try { localStorage.setItem('wizly.themeHref', href); } catch { }\n        this.applyTheme(href);\n    }\n\n    setMode(mode: WizlyMode) {\n        try { localStorage.setItem('wizly.mode', mode); } catch { }\n        this.applyMode(mode);\n    }\n\n    private applyTheme(overrideHref?: string) {\n        if (typeof document === 'undefined') { return; }\n\n        const s = this.settings;\n        const mode = this.resolveMode(s);\n        this.applyMode(mode);\n\n        const href = this.resolveThemeHref(s, overrideHref);\n        if (!href) { return; }\n\n        const existing = document.getElementById('wizly-theme');\n        const link = (existing && existing.tagName.toLowerCase() === 'link')\n            ? (existing as HTMLLinkElement)\n            : document.createElement('link');\n\n        link.id = 'wizly-theme';\n        link.rel = 'stylesheet';\n        link.href = href;\n\n        if (!existing) {\n            document.head.appendChild(link);\n        }\n    }\n\n    private resolveMode(s?: WizlySettings): WizlyMode {\n        let override: string | null = null;\n        try { override = localStorage.getItem('wizly.mode'); } catch { }\n        if (override === 'light' || override === 'dark' || override === 'system') { return override; }\n        const def = s?.defaultMode;\n        return def === 'light' || def === 'dark' || def === 'system' ? def : 'system';\n    }\n\n    private resolveThemeHref(s?: WizlySettings, overrideHref?: string): string {\n        if (overrideHref) { return overrideHref; }\n\n        const mode = s?.themeMode ?? 'single';\n        const themes = s?.themes ?? [];\n\n        if (mode === 'multi') {\n            let stored: string | null = null;\n            try { stored = localStorage.getItem('wizly.themeHref'); } catch { }\n            if (stored && themes.some(t => t.href === stored)) { return stored; }\n        }\n\n        if (mode === 'hostbased') {\n            const host = typeof location !== 'undefined' ? location.hostname : '';\n            const match = themes.find(t => t.host === host);\n            if (match?.href) { return match.href; }\n        }\n\n        const def = s?.defaultTheme;\n        if (def) { return def; }\n\n        return themes[0]?.href ?? '';\n    }\n\n    private applyMode(mode: WizlyMode) {\n        if (typeof document === 'undefined') { return; }\n        const el = document.documentElement;\n        el.dataset['wizlyMode'] = mode;\n    }\n}\n`;
+        fs.writeFileSync(serviceAbs, serviceContent, 'utf8');
+    }
+
+    const mainTsAbs = path.join(workspaceRoot, sourceRoot, 'main.ts');
+    const appConfigAbs = path.join(appDirAbs, 'app.config.ts');
+    const appModuleAbs = path.join(appDirAbs, 'app.module.ts');
+
+    const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const ensureNamedImportFrom = (text: string, from: string, name: string): string => {
+        const importRegex = new RegExp(`^\\s*import\\s*\\{(?<names>[^}]+)\\}\\s*from\\s*['"]${escapeRegex(from)}['"];\\s*$`, 'm');
+        const m = text.match(importRegex);
+        if (m && m.groups?.names) {
+            const names = m.groups.names.split(',').map(s => s.trim()).filter(Boolean);
+            if (names.includes(name)) { return text; }
+            const updated = [...names, name].sort((a, b) => a.localeCompare(b)).join(', ');
+            return text.replace(importRegex, `import { ${updated} } from '${from}';`);
+        }
+        if (text.includes(`from '${from}'`) || text.includes(`from "${from}"`)) {
+            return text;
+        }
+        return `import { ${name} } from '${from}';\n${text}`;
+    };
+
+    const ensureServiceImport = (text: string): string => {
+        if (text.includes(`from './wizly-settings.service'`) || text.includes(`from "./wizly-settings.service"`)) {
+            return text;
+        }
+        return `import { WizlySettingsService } from './wizly-settings.service';\n${text}`;
+    };
+
+    const initializerProvider = `{ provide: APP_INITIALIZER, useFactory: (s: WizlySettingsService) => () => s.load(), deps: [WizlySettingsService], multi: true }`;
+
+    const patchProvidersArray = (text: string): string | undefined => {
+        if (text.includes('WizlySettingsService') && text.includes('APP_INITIALIZER') && text.includes('s.load()')) {
+            return text;
+        }
+
+        let out = text;
+        out = ensureNamedImportFrom(out, '@angular/core', 'APP_INITIALIZER');
+        out = ensureServiceImport(out);
+
+        const providersArrayRegex = /\bproviders\s*:\s*\[(?<inner>[\s\S]*?)\]/m;
+        const m = out.match(providersArrayRegex);
+        if (m) {
+            const inner = String(m.groups?.inner ?? '');
+            if (inner.includes('WizlySettingsService') && inner.includes('APP_INITIALIZER')) { return out; }
+            const full = m[0];
+            const index = m.index ?? 0;
+            const trimmed = inner.trim();
+            const sep = trimmed ? (trimmed.endsWith(',') ? '' : ',') : '';
+            const nextInner = trimmed ? `${trimmed}${sep}\n    ${initializerProvider}\n` : `\n    ${initializerProvider}\n`;
+            const replaced = full.replace(inner, nextInner);
+            return out.slice(0, index) + replaced + out.slice(index + full.length);
+        }
+        return undefined;
+    };
+
+    let patched = false;
+    const tryPatchFile = (filePath: string) => {
+        if (!fs.existsSync(filePath)) { return false; }
+        const before = fs.readFileSync(filePath, 'utf8');
+        const after = patchProvidersArray(before);
+        if (!after || after === before) { return !!after; }
+        fs.writeFileSync(filePath, after, 'utf8');
+        return true;
+    };
+
+    if (fs.existsSync(appConfigAbs)) {
+        patched = tryPatchFile(appConfigAbs);
+    }
+    if (!patched && fs.existsSync(appModuleAbs)) {
+        patched = tryPatchFile(appModuleAbs);
+    }
+    if (!patched && fs.existsSync(mainTsAbs)) {
+        const before = fs.readFileSync(mainTsAbs, 'utf8');
+        if (before.includes('APP_INITIALIZER') && before.includes('WizlySettingsService')) {
+            patched = true;
+        } else {
+            vscode.window.showWarningMessage('Wizly: Could not automatically wire APP_INITIALIZER. Created settings + service, but you may need to add the initializer provider manually.');
+        }
+    }
+
+    const doc = await vscode.workspace.openTextDocument(settingsPathAbs);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage(`Wizly: Setup runtime settings for "${projectName}".`);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     // Register commands
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
@@ -1586,6 +2051,8 @@ export function activate(context: vscode.ExtensionContext) {
     const convertAngularProjectToPwaDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToPwa', convertAngularProjectToPwa);
     const generatePwaIconsFromImageDisposable = vscode.commands.registerCommand('wizly.generatePwaIconsFromImage', generatePwaIconsFromActiveImage);
     const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
+    const generateBlankThemeScssDisposable = vscode.commands.registerCommand('wizly.generateBlankThemeScss', generateBlankThemeScss);
+    const setupAngularRuntimeSettingsDisposable = vscode.commands.registerCommand('wizly.setupAngularRuntimeSettings', setupAngularRuntimeSettings);
     
     const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -1979,6 +2446,8 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(convertAngularProjectToPwaDisposable);
     context.subscriptions.push(generatePwaIconsFromImageDisposable);
     context.subscriptions.push(generateAngularMaterialThemeScssDisposable);
+    context.subscriptions.push(generateBlankThemeScssDisposable);
+    context.subscriptions.push(setupAngularRuntimeSettingsDisposable);
     context.subscriptions.push(exportSettingsDisposable);
     context.subscriptions.push(exportTemplatesDisposable);
     context.subscriptions.push(exportRulesDisposable);

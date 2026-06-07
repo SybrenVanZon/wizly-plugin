@@ -58,6 +58,8 @@ Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command 
 - `Wizly: Convert Angular Project to PWA` — enable PWA support for an Angular project (runs `ng add @angular/pwa`)
 - `Wizly: Generate PWA Icons & Favicon (from Active Image)` — generate the icon set from the active PNG (uses `src/manifest.webmanifest` and writes `src/favicon.ico`)
 - `Wizly: Generate Angular Material Theme (SCSS)` — scaffold a custom Angular Material theme file under `src/scss/themes/` and add it as an optional CSS bundle in `angular.json`
+- `Wizly: Generate Theme Bundle (Blank SCSS)` — scaffold a blank theme bundle under `src/scss/themes/` and add it as an optional CSS bundle in `angular.json`
+- `Wizly: Setup Runtime Settings (Angular)` — scaffold a runtime-loaded `settings.json` and an Angular initializer that applies the active theme at app startup
 - `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
 - `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
