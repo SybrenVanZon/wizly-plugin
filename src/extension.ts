@@ -2533,7 +2533,7 @@ async function importMagicColorFileScss() {
         openLabel: 'Import Magic color file',
         title: 'Wizly: Choose Magic color file',
         filters: {
-            'Magic Color Files': ['txt', 'clr', 'csv'],
+            'Magic Color Files (*.eng)': ['eng'],
             'All Files': ['*']
         }
     });

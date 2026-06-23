@@ -1,6 +1,6 @@
 # Magic Colors
 
-If you already maintain a Magic color file, Wizly can import that file into SCSS so you can keep working with the same Magic color numbers inside your Angular project.
+If you already maintain a Magic `.eng` color file, Wizly can import that file into SCSS so you can keep working with the same Magic color numbers inside your Angular project.
 
 ## Why This Is Useful
 
@@ -19,7 +19,13 @@ What you can do in Web Client is use a custom property instead.
 
 That custom property can return a Magic color number through an expression. In Angular, you can then read that custom property and bind it to a CSS class.
 
-In practice, that value often arrives in Angular as a string. For color classes that is fine, because `'magic-color-' + '7'` still becomes `magic-color-7`.
+For this Wizly approach, it is recommended to make that custom property a string in Magic.
+
+Why:
+
+- when the value arrives as `"7"`, the class becomes `magic-color-7`
+- when the value is treated as a formatted number, it can arrive as something like `7.00`, which would lead to `magic-color-7.00`
+- if you use a Magic expression for this custom property, make sure that expression returns an alpha or alphanumeric string value for the color number, not a numeric result with formatting
 
 Typical idea:
 
@@ -47,7 +53,7 @@ This means that if you convert a project from Online or RIA to Web Client, you c
 
 ## What The Command Creates
 
-The command reads a Magic color file and creates:
+The command reads a Magic `.eng` color file and creates:
 
 - `src/scss/vars/_magic-colors.scss`
 - `src/scss/base/_magic-color-utilities.scss`
@@ -115,6 +121,8 @@ In this example, `magic-color-7` only sets the text color because the Magic row 
 
 If your Magic program stores a color number in a custom property, you can use that number directly in Angular.
 
+The recommended setup is to return that color number from Magic as a string, not as a numeric value.
+
 For example:
 
 ```html
@@ -125,13 +133,15 @@ For example:
 
 This is especially useful because Web Client does not support the normal Magic color property, while a custom property still gives you a clean way to pass the color number from Magic into the Angular front end.
 
-Even though the color itself is a number in Magic, the custom property value can still be returned as a string in Angular. That is not a problem for this approach.
+Even though the color itself is a number in Magic, the custom property should be exposed as a string for this class-based approach. That is not a problem for Angular. It is actually the safer option here.
 
 For example, if the custom property returns `"7"`, the binding still becomes:
 
 ```html
 class="magic-color-7"
 ```
+
+If the value is sent as a formatted number instead, it can become something like `7.00`, which would not match the generated class names.
 
 ## Why Use CSS Classes Instead Of Runtime Style Functions
 
