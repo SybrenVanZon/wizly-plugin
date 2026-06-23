@@ -23,13 +23,55 @@ Rules are the advanced processing layer in Wizly. They are useful when settings 
 - Later rules work on the output of earlier rules.
 - Order matters.
 
+## Rule Fields
+
+- `name`: descriptive identifier of the rule
+- `description`: short human-readable summary
+- `regex`: pattern to match, as string or `RegExp`
+- `flags`: regex flags when `regex` is a string
+- `templateFile`: EJS template used for the replacement
+- `active`: whether the rule is enabled
+- `filePattern`: file filter such as `*.html` or `*.ts`
+- `useBalancedTag`: stack-based opening/closing tag matching for nested elements
+
+## Advanced Notes
+
+- Named capture groups are supported, for example `(?<content>[\\s\\S]*?)`
+- Wizly automatically applies `g` and `m` to replace operations
+- Keep patterns intentionally narrow to avoid over-matching
+- Use `useBalancedTag` when nested elements of the same type must be matched correctly
+
+## How Replace Works
+
+### EOF Marker
+
+For replace operations, Wizly temporarily adds `~~WIZLY_EOF~~` at the end of the document during processing.
+
+This helps match end-of-document structures reliably when Magic output does not end with a normal `</body>` tag.
+
+Example:
+
+```regex
+</div>\s*~~WIZLY_EOF~~
+```
+
+### Named Groups
+
+Example:
+
+```json
+{
+  "regex": "<label>(?<content>[\\s\\S]*?)</label>",
+  "replacement": "<span>$<content></span>"
+}
+```
+
+### Regex Flags
+
+- `g`: match all occurrences
+- `m`: treat `^` and `$` as line-based anchors
+
 ## Export And Maintenance
 
 - Export with `Wizly: Export Advanced Rules`
 - Review changes after upgrades with `Wizly: Patch Rules`
-
-## Detailed Reference
-
-The full rule reference stays in the repository docs:
-
-- [docs/rules.md](https://github.com/SybrenVanZon/wizly-plugin/blob/main/docs/rules.md)

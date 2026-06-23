@@ -26,6 +26,10 @@ This page lists the main Wizly commands grouped by purpose.
 - `Wizly: Generate PWA Icons & Favicon (from Active Image)`
 - `Wizly: Generate Angular Material Theme (SCSS)`
 - `Wizly: Generate Theme Bundle (Blank SCSS)`
+- `Wizly: Generate Theme Color Utilities (SCSS)`
+- `Wizly: Import Magic Color File (SCSS)`
+- `Wizly: Check Angular Setup`
+- `Wizly: Upgrade Assistant`
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
 - `Wizly: Sync Shared Modules (Angular)`

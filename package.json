@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.4.0-rc9",
+  "version": "0.4.0-rc35",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -80,6 +80,22 @@
         "title": "Wizly: Generate Theme Bundle (Blank SCSS)"
       },
       {
+        "command": "wizly.generateThemeColorUtilitiesScss",
+        "title": "Wizly: Generate Theme Color Utilities (SCSS)"
+      },
+      {
+        "command": "wizly.importMagicColorFileScss",
+        "title": "Wizly: Import Magic Color File (SCSS)"
+      },
+      {
+        "command": "wizly.checkAngularSetup",
+        "title": "Wizly: Check Angular Setup"
+      },
+      {
+        "command": "wizly.upgradeAssistant",
+        "title": "Wizly: Upgrade Assistant"
+      },
+      {
         "command": "wizly.setupAngularRuntimeSettings",
         "title": "Wizly: Setup Runtime Settings (Angular)"
       },
@@ -139,6 +155,18 @@
         },
         {
           "command": "wizly.generateBlankThemeScss"
+        },
+        {
+          "command": "wizly.generateThemeColorUtilitiesScss"
+        },
+        {
+          "command": "wizly.importMagicColorFileScss"
+        },
+        {
+          "command": "wizly.checkAngularSetup"
+        },
+        {
+          "command": "wizly.upgradeAssistant"
         },
         {
           "command": "wizly.setupAngularRuntimeSettings"
@@ -492,7 +520,7 @@
     "@typescript-eslint/parser": "^8.39.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "mocha": "^11.7.5",

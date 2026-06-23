@@ -1,6 +1,6 @@
 # Getting Started
 
-This page lists the recommended first-time setup flow for a team that wants to start using Wizly in a controlled way.
+This page lists a practical first-time setup flow for teams that want to improve a Magic-generated Angular front end step by step, without diving into technical customization too early.
 
 ## Recommended Order
 
@@ -8,59 +8,150 @@ This page lists the recommended first-time setup flow for a team that wants to s
 
 Install the extension from the Visual Studio Code Marketplace and open the project you want to work on.
 
-### 2. Export Settings
+### 2. Transform One File First
+
+Start with one representative generated file and run:
+
+- `Wizly: Transform Current File`
+
+This lets you see the baseline value of Wizly before you start changing project-wide settings.
+
+### 3. Move the Angular Project to SCSS
+
+If the project still relies mainly on CSS, SCSS is usually the first structural improvement to make.
 
 Run:
 
+- `Wizly: Convert Angular Project to SCSS`
+
+Why this comes early:
+
+- It gives you a cleaner styling structure than the default Magic setup.
+- It creates a more maintainable base for themes and styling conventions.
+- It makes it easier to reuse only the style parts you need from other packages, instead of including a full CSS library.
+- Other front-end improvements usually become easier after this step.
+
+Important to know:
+
+- You can still use normal CSS files in this setup if that is easier for the team.
+- SCSS mainly gives you more structure and flexibility on top of regular CSS.
+
+See [Convert to SCSS](./Convert-to-SCSS.md).
+
+### 4. Add Themes If Branding Matters
+
+If you need customer branding, light/dark mode, or different theme bundles, start with themes after SCSS.
+
+Magic already ships with a standard Material Design theme, so if you want something different from that baseline, this is usually the best route.
+
+Typical commands:
+
+- `Wizly: Generate Angular Material Theme (SCSS)`
+- `Wizly: Generate Theme Bundle (Blank SCSS)`
+
+Why this is useful:
+
+- It gives you a cleaner branding story than editing generated output by hand.
+- It supports multi-theme setups.
+- It prepares the project for runtime switching later on.
+
+See [Themes](./Themes.md).
+
+### 5. Add Runtime Settings If Theme Switching Or Per-Environment Settings Matter
+
+If you want the running application to choose themes dynamically, add runtime settings after the theme bundles exist.
+
+Typical commands:
+
+- `Wizly: Setup Runtime Settings (Angular)`
+- `Wizly: Sync Runtime Themes (Angular)`
+
+This setup can also scaffold the theme selector and the dark/light/system mode toggle. These are included through the runtime settings command, not through separate commands.
+
+Why this is useful:
+
+- It allows theme switching at runtime.
+- It lets you deploy the same source with different themes based on the host or URL.
+
+See [Runtime Settings](./Runtime-Settings.md).
+
+### 6. Sync Shared Modules in Larger Projects
+
+If your project already contains many Magic-generated modules, this is a strong next step.
+
+Run:
+
+- `Wizly: Sync Shared Modules (Angular)`
+
+Why this helps beyond the Magic baseline:
+
+- It centralizes shared Angular and Material dependencies.
+- It reduces repeated imports in generated modules.
+- It makes a larger codebase easier to keep consistent.
+
+See [Shared Modules](./Shared-Modules.md).
+
+### 7. Add PWA Support If Needed
+
+If the application should behave more like an installable app, support offline assets, use branded icons, or prepare for push messages, this is often a good next step after the styling and structural setup is in place.
+
+Run:
+
+- `Wizly: Convert Angular Project to PWA`
+- `Wizly: Generate PWA Icons & Favicon (from Active Image)`
+
+Why this adds value beyond a default Magic front end:
+
+- It adds modern app capabilities that Magic does not set up for you.
+- It helps you brand the app properly with icons and install metadata.
+- It gives you a better foundation for things like push messages and app-like behavior.
+- It can help the app feel faster after caching, because static files no longer need to be downloaded again every time.
+- It can reduce requests to the server by serving cached files locally.
+- It reduces the need to arrange separate cache behavior on the webserver for these files.
+- It can give users an app icon on the desktop or start screen to launch the application more directly.
+- It gives you a better foundation for deployment as a web app.
+
+See [PWA](./PWA.md).
+
+### 8. Roll Out to More Files
+
+When the structure looks good, run:
+
+- `Wizly: Transform All Uncommitted Files`
+
+This is a safe way to broaden adoption without immediately touching every generated file in the project.
+
+### 9. Export Settings for Team-Wide Defaults
+
+Only after the functional flow feels right, export the project config:
+
 - `Wizly: Export Settings`
 
-This creates `.vswizly/wizly.config.js` in the workspace so your team can version shared behavior.
+This creates `.vswizly/wizly.config.js` so you can version shared defaults for the team.
 
-### 3. Configure Shared Defaults
-
-Open `.vswizly/wizly.config.js` and decide which project-level features should be enabled first.
-
-Common starting points:
+Useful starting points:
 
 - `smartLabelMatcher.enabled`
 - `autoTransformOnCreate`
 - `typescript.enableAstTransforms`
 
-Use VS Code settings for editor-level preferences and `.vswizly/wizly.config.js` for team-wide project defaults.
-
-### 4. Transform a Single File First
-
-Run:
-
-- `Wizly: Transform Current File`
-
-Start with one representative generated file so you can validate the output before rolling the setup out more broadly.
-
-### 5. Transform Existing Changed Files
-
-Run:
-
-- `Wizly: Transform All Uncommitted Files`
-
-This is the safest next step when you already have generated files in Git and want to update only the files that are already part of your current change set.
-
-### 6. Export Templates Only If You Need Custom Markup
+### 10. Export Templates Only If You Need Different Markup
 
 Run:
 
 - `Wizly: Export Templates`
 
-Do this when the built-in HTML output is close, but not exactly what your project needs.
+Do this when the built-in output is close, but not exactly what your project needs.
 
-### 7. Export Advanced Rules Only If You Need Custom Processing
+### 11. Export Advanced Rules Only If You Need Custom Processing
 
 Run:
 
 - `Wizly: Export Advanced Rules`
 
-Only use this when templates and settings are not enough. Rules are powerful, but they are also the most advanced customization layer.
+Only use this when settings and templates are not enough. Rules are powerful, but they are also the most technical customization layer.
 
-### 8. Use Patch Commands After Upgrades
+### 12. Use Patch Commands After Upgrades
 
 After updating Wizly, compare your exported files with the latest built-in defaults:
 
@@ -70,20 +161,10 @@ After updating Wizly, compare your exported files with the latest built-in defau
 
 This keeps your project customizations intact while still letting you adopt improvements from newer releases.
 
-## Angular-Specific Order
-
-If you also use the Angular helper commands, this sequence is usually the most practical:
-
-1. `Wizly: Convert Angular Project to SCSS`
-2. `Wizly: Convert Angular Project to PWA`
-3. `Wizly: Generate PWA Icons & Favicon (from Active Image)`
-4. `Wizly: Generate Angular Material Theme (SCSS)` or `Wizly: Generate Theme Bundle (Blank SCSS)`
-5. `Wizly: Setup Runtime Settings (Angular)`
-6. `Wizly: Sync Runtime Themes (Angular)`
-7. `Wizly: Sync Shared Modules (Angular)`
-
 ## Next Pages
 
-- [Commands](./Commands.md)
-- [Configuration](./Configuration.md)
-- [Patching](./Patching.md)
+- [Convert to SCSS](./Convert-to-SCSS.md)
+- [Themes](./Themes.md)
+- [Runtime Settings](./Runtime-Settings.md)
+- [Shared Modules](./Shared-Modules.md)
+- [PWA](./PWA.md)

@@ -20,7 +20,7 @@ This is meant to support:
 ```json
 {
   "themeMode": "multi",
-  "defaultMode": "system",
+  "defaultThemePreference": "system",
   "defaultTheme": "acme-light.css",
   "themes": [
     { "name": "Acme Light", "href": "acme-light.css" },
@@ -29,9 +29,9 @@ This is meant to support:
 }
 ```
 
-## defaultMode: system
+## defaultThemePreference: system
 
-`defaultMode: "system"` means the app follows the OS/browser preference using `prefers-color-scheme`. When the user switches their OS between light/dark and the active mode is `system`, the CSS hook updates automatically.
+`defaultThemePreference: "system"` means the app follows the OS/browser preference using `prefers-color-scheme`. When the user switches their OS between light/dark and the active theme preference is `system`, the CSS hook updates automatically.
 
 ## themeMode
 
@@ -71,7 +71,7 @@ It also sets `document.documentElement.style.colorScheme` to `light` or `dark`.
 `Wizly: Setup Runtime Settings (Angular)` can scaffold these optional standalone components under `src/app/wizly/` (or `src/app/core/wizly/` if your project already has a `src/app/core/` folder):
 
 - `wizly-theme-selector.component.ts` (theme dropdown, only useful for `themeMode: "multi"`)
-- `wizly-mode-toggle.component.ts` (system/light/dark toggle)
+- `wizly-mode-toggle.component.ts` (system/light/dark theme preference toggle)
 
 If Angular Material is installed, Wizly scaffolds Material-based UI; otherwise it scaffolds plain HTML equivalents.
 
