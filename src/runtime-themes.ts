@@ -16,6 +16,7 @@ export function inferRuntimeThemeMode(...candidates: Array<string | undefined>):
         if (!trimmed) { continue; }
         const normalized = trimmed
             .replace(/\.css$/i, '')
+            .replace(/\.theme$/i, '')
             .replace(/(?:[-_\s]?theme)$/i, '')
             .trim();
         const match = normalized.match(/(?:^|[-_\s])(light|dark)$/i);
@@ -30,6 +31,7 @@ export function deriveRuntimeThemeName(value: string, mode?: RuntimeThemeVariant
     const trimmed = value.trim();
     const normalized = trimmed
         .replace(/\.css$/i, '')
+        .replace(/\.theme$/i, '')
         .replace(/(?:[-_\s]?theme)$/i, '')
         .trim();
     const stripped = mode

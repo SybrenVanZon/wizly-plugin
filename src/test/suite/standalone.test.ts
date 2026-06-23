@@ -232,6 +232,7 @@ suite('Wizly Utils Test Suite', () => {
             }, null, 2), 'utf8');
             fs.writeFileSync(path.join(tempRoot, 'src', 'app', 'wizly', 'wizly-settings.service.ts'), 'export class WizlySettingsService {}', 'utf8');
             fs.writeFileSync(path.join(tempRoot, 'ngsw-config.json'), '{}', 'utf8');
+            fs.writeFileSync(path.join(tempRoot, 'src', 'manifest.webmanifest'), '{}', 'utf8');
             fs.writeFileSync(path.join(tempRoot, 'package.json'), JSON.stringify({
                 dependencies: {
                     sass: '^1.0.0',
