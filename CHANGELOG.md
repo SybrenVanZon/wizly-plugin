@@ -3,6 +3,12 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.4.0] - 2026-06-28
+
+### Added
+- **In-app release notes on update**: Wizly now stores the previously installed extension version and, after an update, looks for `release-notes/<version>.md`. When a matching file exists, Wizly shows a compact popup summary and lets the user open `CHANGELOG.md` for the full list of changes.
+- **Preparation for 1.0.0 communication**: This release adds the foundation for clearly communicating the larger set of upcoming `1.0.0` changes, so important improvements are not silently auto-installed without context.
+
 ## [0.3.1] - 2026-04-12
 
 ### Fixed
