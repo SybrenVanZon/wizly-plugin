@@ -45,6 +45,7 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:html",
     "workspaceContains:.vswizly.js",
     "workspaceContains:.vswizly/wizly.config.js"
