@@ -21,6 +21,7 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **Note on exported config**: If you have exported rules/templates/settings into your project, new functionality may require running the relevant patch command(s) (especially `Wizly: Patch Rules`) to pick up updated defaults.
 
 ### Changed
+- **PWA conversion budgets**: `Wizly: Convert Angular Project to PWA` now relaxes Angular CLI's default `initial` production budget from `500kb/1mb` to `3mb/5mb` when those untouched defaults would otherwise block Magic-sized production builds during the first PWA test run.
 - **Theme color utilities**: `Wizly: Generate Theme Color Utilities (SCSS)` now also generates `mat-border-*` and `mat-fill-*` helpers next to the existing `mat-bg-*` and `mat-text-*` classes.
 - **Post-command feedback**: Key Angular setup commands now show clearer success messages with created files and the most logical next step.
 - **Runtime theme grouping**: Runtime settings and theme sync now recognize `-light` / `-dark` bundle pairs as one logical theme family, can store an optional `mode` per theme entry, and generate selector/toggle helpers that work with grouped theme variants more naturally.

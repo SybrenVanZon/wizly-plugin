@@ -176,6 +176,55 @@ function showCommandSuccess(message: string, options?: { created?: string[]; nex
     vscode.window.showInformationMessage(`${message}${suffix}`);
 }
 
+function normalizeBudgetThreshold(value: unknown): string | undefined {
+    if (typeof value !== 'string') { return undefined; }
+    return value.replace(/\s+/g, '').toLowerCase();
+}
+
+function relaxDefaultPwaInitialBudgets(angularJson: any, projectName: string): string[] {
+    const proj = angularJson?.projects?.[projectName];
+    const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+    const build = targets?.build;
+    if (!build || typeof build !== 'object') { return []; }
+
+    const updatedScopes: string[] = [];
+    const desiredWarning = '3mb';
+    const desiredError = '5mb';
+
+    const maybeUpdateBudgets = (holder: any, scopeLabel: string) => {
+        if (!holder || typeof holder !== 'object' || !Array.isArray(holder.budgets)) { return; }
+        let changed = false;
+        for (const budget of holder.budgets) {
+            if (!budget || typeof budget !== 'object') { continue; }
+            if (String((budget as any).type ?? '').trim() !== 'initial') { continue; }
+
+            const warning = normalizeBudgetThreshold((budget as any).maximumWarning);
+            const error = normalizeBudgetThreshold((budget as any).maximumError);
+            const isAngularDefaultInitialBudget = warning === '500kb' && error === '1mb';
+            if (!isAngularDefaultInitialBudget) { continue; }
+
+            (budget as any).maximumWarning = desiredWarning;
+            (budget as any).maximumError = desiredError;
+            changed = true;
+        }
+        if (changed) {
+            updatedScopes.push(scopeLabel);
+        }
+    };
+
+    maybeUpdateBudgets(build.options, 'build.options');
+
+    const configurations = build.configurations && typeof build.configurations === 'object'
+        ? build.configurations
+        : {};
+    for (const [configName, configValue] of Object.entries(configurations)) {
+        if (!/prod/i.test(configName)) { continue; }
+        maybeUpdateBudgets(configValue, `build.configurations.${configName}`);
+    }
+
+    return updatedScopes;
+}
+
 function escapeHtml(text: string): string {
     return text
         .replace(/&/g, '&amp;')
@@ -1323,6 +1372,7 @@ async function convertAngularProjectToPwa() {
     }
 
     const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
     const angularJson = readJson<any>(angularJsonPath);
     const packageJson = readJson<any>(packageJsonPath);
 
@@ -1359,8 +1409,13 @@ async function convertAngularProjectToPwa() {
 
     const hasServiceWorkerDep = !!(packageJson?.dependencies?.['@angular/service-worker'] || packageJson?.devDependencies?.['@angular/service-worker']);
     const ngswConfigPath = path.join(workspaceRoot, 'ngsw-config.json');
-    const manifestPath = path.join(workspaceRoot, 'src', 'manifest.webmanifest');
-    if (hasServiceWorkerDep || fs.existsSync(ngswConfigPath) || fs.existsSync(manifestPath)) {
+    const manifestCandidates = [
+        path.join(workspaceRoot, 'public', 'manifest.webmanifest'),
+        path.join(workspaceRoot, 'src', 'manifest.webmanifest'),
+        path.join(workspaceRoot, 'src', 'public', 'manifest.webmanifest')
+    ];
+    const findManifestPath = () => manifestCandidates.find(candidate => fs.existsSync(candidate));
+    if (hasServiceWorkerDep || fs.existsSync(ngswConfigPath) || !!findManifestPath()) {
         vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to have PWA support configured.');
         return;
     }
@@ -1423,7 +1478,7 @@ async function convertAngularProjectToPwa() {
 
     const pwaSpecifier = `@angular/pwa@${angularCoreVersion}`;
 
-    const hasPwaMarkers = fs.existsSync(ngswConfigPath) || fs.existsSync(manifestPath) || hasServiceWorkerDep;
+    const hasPwaMarkers = fs.existsSync(ngswConfigPath) || !!findManifestPath() || hasServiceWorkerDep;
     const installedServiceWorkerVersion = getInstalledPackageVersionFromPackageLock('@angular/service-worker')
         ?? getInstalledPackageVersionFromNodeModules('@angular/service-worker');
 
@@ -1479,6 +1534,7 @@ async function convertAngularProjectToPwa() {
     channel.appendLine(`Wizly: Running: ${cmd}`);
 
     try {
+        let updatedBudgetScopes: string[] = [];
         await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
@@ -1513,8 +1569,19 @@ async function convertAngularProjectToPwa() {
                 if (angularCoreSpecifier) {
                     setServiceWorkerSpecifierInPackageJson(angularCoreSpecifier);
                 }
+
+                const refreshedAngularJson = readJson<any>(angularJsonPath);
+                updatedBudgetScopes = relaxDefaultPwaInitialBudgets(refreshedAngularJson, projectName);
+                if (updatedBudgetScopes.length > 0) {
+                    writeJson(angularJsonPath, refreshedAngularJson);
+                    channel.appendLine(`Wizly: Relaxed default Angular initial budgets for Magic-sized production bundles (${updatedBudgetScopes.join(', ')}).`);
+                }
             }
         );
+
+        if (updatedBudgetScopes.length > 0) {
+            channel.appendLine('Wizly: Updated initial budget defaults from 500kb/1mb to 3mb/5mb where Angular CLI had added the standard production budget.');
+        }
     } catch (err) {
         vscode.window.showErrorMessage(`Wizly: Failed to enable PWA. ${err instanceof Error ? err.message : String(err)}. Check the Wizly output for details.`);
         return;
@@ -1638,8 +1705,9 @@ async function convertAngularProjectToPwa() {
     const updateHandlingDocToOpen = addUpdateHandling?.id === 'yes'
         ? await addPwaUpdateHandling()
         : undefined;
+    const manifestPath = findManifestPath();
 
-    const docToOpen = fs.existsSync(manifestPath)
+    const docToOpen = manifestPath && fs.existsSync(manifestPath)
         ? manifestPath
         : fs.existsSync(ngswConfigPath)
             ? ngswConfigPath

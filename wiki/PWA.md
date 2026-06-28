@@ -85,10 +85,12 @@ That can mean:
 
 `Wizly: Convert Angular Project to PWA` runs Angular CLI's PWA setup for the selected Angular application project.
 
+For Magic Web Client projects, Wizly also relaxes Angular's default `initial` production budget when Angular CLI just added the standard `500kb` warning and `1mb` error budget. Those defaults are often too small for Magic-sized production bundles and can block the first PWA production build even when the setup itself is otherwise correct.
+
 The most common follow-up customization points are:
 
-- `src/assets/icons/`
-- `src/manifest.webmanifest`
+- `public/icons/`
+- `public/manifest.webmanifest`
 - `src/index.html`
 
 ## Service Worker Update Handling
