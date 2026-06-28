@@ -22,7 +22,7 @@ whole team applies the same rules.
 - Auto‑transform on file creation (`autoTransformOnCreate`)
 - Optional info toast (`autoTransformToast`)
 - Transform tag to avoid re‑processing
-- Commands: Transform current file, Transform uncommitted files, Export settings / templates / advanced rules
+- Commands for HTML transforms, Angular SCSS/theming/runtime setup, and export/patch workflows
 - Status bar showing active rule count with quick access to the config file
 - Works with another editor: keep VS Code open with `autoTransformOnCreate: true`; new `.html` files in the workspace transform automatically.
 - Compatibility: Requires `VS Code 1.109.0+`
@@ -54,6 +54,13 @@ Use `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS) to open the command 
 
 - `Wizly: Transform Current File` — transform the active file
 - `Wizly: Transform All Uncommitted Files` — transform files changed in Git
+- `Wizly: Convert Angular Project to SCSS` — convert an Angular workspace to `src/scss/main.scss` plus SCSS-based component styles
+- `Wizly: Generate Angular Material Theme (SCSS)` — generate a Material theme bundle and register it in `angular.json`
+- `Wizly: Generate Theme Bundle (Blank SCSS)` — create an empty SCSS theme bundle for custom theming
+- `Wizly: Generate Theme Color Utilities (SCSS)` — generate theme-aware utility classes for background, text, border, and fill
+- `Wizly: Setup Runtime Settings (Angular)` — scaffold runtime-loaded theme settings and Angular startup wiring
+- `Wizly: Sync Runtime Themes (Angular)` — sync runtime theme entries from `angular.json` into `settings.json`
+- `Wizly: Check Angular Setup` — inspect the Angular theming/runtime setup and open a report
 - `Wizly: Export Settings` — writes a starter `.vswizly.js` at the workspace root (fails if the file already exists)
 - `Wizly: Export Templates` — exports the built-in EJS templates so you can customise them per project
 - `Wizly: Export Advanced Rules` — exports the built-in regex rules as a starting point for custom rules
@@ -192,6 +199,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 | Document | Description |
 |---|---|
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
+| [docs/angular.md](docs/angular.md) | Angular SCSS conversion, theming, runtime settings, and setup flow |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
 | [docs/helpers.md](docs/helpers.md) | Helper functions available inside templates |
