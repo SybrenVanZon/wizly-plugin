@@ -199,7 +199,7 @@ Note: End users installing the extension do not need Node.js. Runtime compatibil
 | Document | Description |
 |---|---|
 | [docs/rules.md](docs/rules.md) | Rule fields, EOF marker, named groups, regex flags, and tips |
-| [docs/angular.md](docs/angular.md) | Angular SCSS conversion, theming, runtime settings, and setup flow |
+| [wiki/Home.md](wiki/Home.md) | Angular SCSS conversion, theming, runtime settings, and setup flow |
 | [docs/templates.md](docs/templates.md) | EJS template system and per-component template reference |
 | [docs/template-variables.md](docs/template-variables.md) | Variables available inside templates |
 | [docs/helpers.md](docs/helpers.md) | Helper functions available inside templates |

@@ -13,10 +13,11 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **`Wizly: Setup Runtime Settings (Angular)`**: Scaffolds runtime-loaded `settings.json`, Angular startup wiring, and optional theme/mode UI helpers for runtime theme activation.
 - **`Wizly: Sync Runtime Themes (Angular)`**: Syncs `inject: false` theme bundles from `angular.json` into `settings.json`.
 - **`Wizly: Check Angular Setup`**: Opens a markdown report that verifies the Wizly Angular theming/runtime setup across SCSS, theme bundles, runtime settings, and related project markers.
-- **Angular theming docs**: Adds focused documentation under `docs/angular/` for SCSS conversion, theme generation, blank bundles, and runtime settings.
+- **Angular theming wiki**: Adds focused documentation under `wiki/` for SCSS conversion, theme generation, blank bundles, and runtime settings.
 
 ### Changed
 - **Release scope**: `0.5.0` now focuses on Angular theming and runtime foundation, keeping PWA, Magic Colors, upgrade tooling, and TypeScript-heavy flows for later releases.
+- **Single-theme activation flow**: When the first single light/dark theme bundle is generated, Wizly can now offer to activate it directly in `index.html`; if a fixed theme link already exists and another single theme is generated later, Wizly can keep, switch, or disconnect that fixed activation.
 
 ## [0.4.0] - 2026-06-28
 

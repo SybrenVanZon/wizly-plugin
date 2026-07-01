@@ -162,6 +162,302 @@ function findExistingRuntimeSettingsPath(workspaceRoot: string, proj: any, sourc
     return undefined;
 }
 
+type ThemeBundleInfo = {
+    name: string;
+    href: string;
+    input?: string;
+};
+
+type FixedThemeLinkInfo = {
+    href: string;
+    normalizedHref: string;
+    tag: string;
+    start: number;
+    end: number;
+    managed: boolean;
+};
+
+type SingleThemeActivationAction = 'none' | 'activated' | 'kept-separate' | 'runtime-settings' | 'kept-existing' | 'switched' | 'disconnected';
+
+type SingleThemeActivationResult = {
+    action: SingleThemeActivationAction;
+    indexPatched: boolean;
+    indexRelPath?: string;
+    activeHref?: string;
+    previousHref?: string;
+};
+
+function normalizeThemeAssetHref(value: string): string {
+    return value
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/[?#].*$/, '')
+        .replace(/^(?:\.\/)+/, '')
+        .replace(/^\/+/, '');
+}
+
+function getThemeBundlesFromBuildOptions(buildOptions: any): ThemeBundleInfo[] {
+    const styles = Array.isArray(buildOptions?.styles) ? buildOptions.styles : [];
+    const bundles: ThemeBundleInfo[] = [];
+    for (const styleEntry of styles) {
+        if (!styleEntry || typeof styleEntry !== 'object') { continue; }
+        const inject = (styleEntry as any).inject;
+        const bundleName = typeof (styleEntry as any).bundleName === 'string' ? (styleEntry as any).bundleName.trim() : '';
+        const input = typeof (styleEntry as any).input === 'string' ? String((styleEntry as any).input).replace(/\\/g, '/') : undefined;
+        if (inject === false && bundleName) {
+            bundles.push({ name: bundleName, href: `${bundleName}.css`, input });
+        }
+    }
+    const deduped = new Map<string, ThemeBundleInfo>();
+    for (const bundle of bundles) {
+        deduped.set(bundle.href, bundle);
+    }
+    return [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getProjectIndexHtmlPath(workspaceRoot: string, sourceRoot: string, buildOptions: any): { abs: string; rel: string } {
+    const rel = typeof buildOptions?.index === 'string' && buildOptions.index.trim()
+        ? buildOptions.index.trim().replace(/\\/g, '/')
+        : `${sourceRoot.replace(/\\/g, '/')}/index.html`;
+    return {
+        abs: path.join(workspaceRoot, rel),
+        rel
+    };
+}
+
+function findFixedThemeLinkInHtml(indexHtmlText: string, knownThemeHrefs: Iterable<string>): FixedThemeLinkInfo | undefined {
+    const normalizedKnownHrefs = new Set([...knownThemeHrefs].map(normalizeThemeAssetHref));
+    const linkRegex = /<link\b[^>]*>/gi;
+    let managedMatch: FixedThemeLinkInfo | undefined;
+    let knownHrefMatch: FixedThemeLinkInfo | undefined;
+    let match: RegExpExecArray | null;
+
+    while ((match = linkRegex.exec(indexHtmlText)) !== null) {
+        const tag = match[0];
+        const hrefMatch = tag.match(/\bhref\s*=\s*(["'])(.*?)\1/i);
+        if (!hrefMatch) { continue; }
+        const href = hrefMatch[2].trim();
+        if (!href) { continue; }
+        const normalizedHref = normalizeThemeAssetHref(href);
+        const managed = /\bdata-wizly-theme-activation\s*=\s*(["'])fixed\1/i.test(tag);
+        const info: FixedThemeLinkInfo = {
+            href,
+            normalizedHref,
+            tag,
+            start: match.index,
+            end: match.index + tag.length,
+            managed
+        };
+
+        if (managed) {
+            managedMatch = info;
+            break;
+        }
+        if (!knownHrefMatch && normalizedKnownHrefs.has(normalizedHref)) {
+            knownHrefMatch = info;
+        }
+    }
+
+    return managedMatch ?? knownHrefMatch;
+}
+
+function renderFixedThemeLinkTag(href: string): string {
+    return `<link rel="stylesheet" href="${href}" data-wizly-theme-activation="fixed">`;
+}
+
+function upsertFixedThemeLinkInHtml(indexHtmlText: string, href: string, knownThemeHrefs: Iterable<string>): { text: string; changed: boolean; previousHref?: string } {
+    const existing = findFixedThemeLinkInHtml(indexHtmlText, knownThemeHrefs);
+    const replacement = renderFixedThemeLinkTag(href);
+
+    if (existing) {
+        const nextText = `${indexHtmlText.slice(0, existing.start)}${replacement}${indexHtmlText.slice(existing.end)}`;
+        return {
+            text: nextText,
+            changed: nextText !== indexHtmlText,
+            previousHref: existing.href
+        };
+    }
+
+    if (/<\/head>/i.test(indexHtmlText)) {
+        const nextText = indexHtmlText.replace(/<\/head>/i, `  ${replacement}\n</head>`);
+        return {
+            text: nextText,
+            changed: nextText !== indexHtmlText
+        };
+    }
+
+    const newline = indexHtmlText.includes('\r\n') ? '\r\n' : '\n';
+    const nextText = `${replacement}${newline}${indexHtmlText}`;
+    return {
+        text: nextText,
+        changed: nextText !== indexHtmlText
+    };
+}
+
+function removeFixedThemeLinkFromHtml(indexHtmlText: string, knownThemeHrefs: Iterable<string>): { text: string; changed: boolean; removedHref?: string } {
+    const existing = findFixedThemeLinkInHtml(indexHtmlText, knownThemeHrefs);
+    if (!existing) {
+        return {
+            text: indexHtmlText,
+            changed: false
+        };
+    }
+
+    const newline = indexHtmlText.includes('\r\n') ? '\r\n' : '\n';
+    let start = existing.start;
+    let end = existing.end;
+
+    if (indexHtmlText.slice(end, end + newline.length) === newline) {
+        end += newline.length;
+    } else if (start >= newline.length && indexHtmlText.slice(start - newline.length, start) === newline) {
+        start -= newline.length;
+    }
+
+    return {
+        text: `${indexHtmlText.slice(0, start)}${indexHtmlText.slice(end)}`,
+        changed: true,
+        removedHref: existing.href
+    };
+}
+
+async function maybeHandleSingleThemeActivation(options: {
+    workspaceRoot: string;
+    sourceRoot: string;
+    buildOptions: any;
+    selectedMode: 'light' | 'dark' | 'both';
+    createdThemeHrefs: string[];
+    existingThemeBundlesBefore: ThemeBundleInfo[];
+}): Promise<SingleThemeActivationResult> {
+    if (options.selectedMode === 'both' || options.createdThemeHrefs.length !== 1) {
+        return { action: 'none', indexPatched: false };
+    }
+
+    const { abs: indexHtmlAbs, rel: indexHtmlRel } = getProjectIndexHtmlPath(options.workspaceRoot, options.sourceRoot, options.buildOptions);
+    if (!fs.existsSync(indexHtmlAbs)) {
+        return { action: 'none', indexPatched: false };
+    }
+
+    const createdHref = options.createdThemeHrefs[0];
+    const knownThemeHrefs = [
+        ...options.existingThemeBundlesBefore.map((bundle) => bundle.href),
+        ...options.createdThemeHrefs
+    ];
+    const before = fs.readFileSync(indexHtmlAbs, 'utf8');
+    const existingFixedTheme = findFixedThemeLinkInHtml(before, knownThemeHrefs);
+
+    if (existingFixedTheme && existingFixedTheme.normalizedHref !== normalizeThemeAssetHref(createdHref)) {
+        const choice = await vscode.window.showQuickPick(
+            [
+                {
+                    label: 'Keep Current Fixed Theme',
+                    description: `index.html keeps using ${existingFixedTheme.href}.`,
+                    id: 'keep'
+                },
+                {
+                    label: 'Switch To New Theme',
+                    description: `index.html will use ${createdHref} instead.`,
+                    id: 'switch'
+                },
+                {
+                    label: 'Disconnect Fixed Theme',
+                    description: 'Remove the fixed theme link from index.html and keep bundles separate.',
+                    id: 'disconnect'
+                }
+            ],
+            { title: 'Wizly: index.html already activates a fixed theme. What should happen now?' }
+        );
+
+        if (!choice || choice.id === 'keep') {
+            return {
+                action: 'kept-existing',
+                indexPatched: false,
+                indexRelPath: indexHtmlRel,
+                activeHref: existingFixedTheme.href
+            };
+        }
+
+        if (choice.id === 'switch') {
+            const updated = upsertFixedThemeLinkInHtml(before, createdHref, knownThemeHrefs);
+            if (updated.changed) {
+                fs.writeFileSync(indexHtmlAbs, updated.text, 'utf8');
+            }
+            return {
+                action: 'switched',
+                indexPatched: updated.changed,
+                indexRelPath: indexHtmlRel,
+                activeHref: createdHref,
+                previousHref: updated.previousHref
+            };
+        }
+
+        const removed = removeFixedThemeLinkFromHtml(before, knownThemeHrefs);
+        if (removed.changed) {
+            fs.writeFileSync(indexHtmlAbs, removed.text, 'utf8');
+        }
+        return {
+            action: 'disconnected',
+            indexPatched: removed.changed,
+            indexRelPath: indexHtmlRel,
+            previousHref: removed.removedHref
+        };
+    }
+
+    if (!existingFixedTheme && options.existingThemeBundlesBefore.length === 0) {
+        const choice = await vscode.window.showQuickPick(
+            [
+                {
+                    label: 'Activate In index.html',
+                    description: `Adds ${createdHref} as the fixed app theme.`,
+                    id: 'activate'
+                },
+                {
+                    label: 'Keep As Separate Bundle',
+                    description: 'Do not activate it now. Use runtime settings or manual loading later.',
+                    id: 'keep'
+                },
+                {
+                    label: 'Use Runtime Settings Instead',
+                    description: 'Keep the bundle separate and use Setup Runtime Settings for activation.',
+                    id: 'runtime'
+                }
+            ],
+            { title: 'Wizly: This is the first generated theme bundle. How do you want to activate it?' }
+        );
+
+        if (!choice || choice.id === 'keep') {
+            return {
+                action: 'kept-separate',
+                indexPatched: false
+            };
+        }
+
+        if (choice.id === 'runtime') {
+            return {
+                action: 'runtime-settings',
+                indexPatched: false
+            };
+        }
+
+        const updated = upsertFixedThemeLinkInHtml(before, createdHref, knownThemeHrefs);
+        if (updated.changed) {
+            fs.writeFileSync(indexHtmlAbs, updated.text, 'utf8');
+        }
+        return {
+            action: 'activated',
+            indexPatched: updated.changed,
+            indexRelPath: indexHtmlRel,
+            activeHref: createdHref
+        };
+    }
+
+    return {
+        action: 'none',
+        indexPatched: false,
+        indexRelPath: existingFixedTheme ? indexHtmlRel : undefined,
+        activeHref: existingFixedTheme?.href
+    };
+}
+
 function showCommandSuccess(message: string, options?: { created?: string[]; nextStep?: string }) {
     const details: string[] = [];
     if (options?.created && options.created.length > 0) {
@@ -1718,8 +2014,10 @@ async function generateAngularMaterialThemeScss() {
     const sourceRoot = typeof selectedProject?.sourceRoot === 'string' ? selectedProject.sourceRoot : 'src';
     const targets = getTargets(selectedProject);
     const buildOptions = targets?.build?.options && typeof targets.build.options === 'object' ? targets.build.options : undefined;
+    const existingThemeBundlesBefore = getThemeBundlesFromBuildOptions(buildOptions);
     const createdThemeAbsPaths: string[] = [];
     const createdThemeRelPaths: string[] = [];
+    const createdThemeHrefs: string[] = [];
 
     for (const mode of modes) {
         const themeBase = includeModeSuffix ? `${themeName}-${mode}` : themeName;
@@ -1770,17 +2068,53 @@ async function generateAngularMaterialThemeScss() {
 
         createdThemeAbsPaths.push(themeAbsPath);
         createdThemeRelPaths.push(themeRelPath);
+        createdThemeHrefs.push(`${themeBase}.css`);
     }
 
     if (buildOptions) {
         writeJson(angularJsonPath, angularJson);
     }
 
+    const activationResult = buildOptions
+        ? await maybeHandleSingleThemeActivation({
+            workspaceRoot,
+            sourceRoot,
+            buildOptions,
+            selectedMode,
+            createdThemeHrefs,
+            existingThemeBundlesBefore
+        })
+        : { action: 'none', indexPatched: false } as SingleThemeActivationResult;
+
     const doc = await vscode.workspace.openTextDocument(createdThemeAbsPaths[0]);
     await vscode.window.showTextDocument(doc, { preview: false });
+    const createdPaths = [...createdThemeRelPaths];
+    if (activationResult.indexPatched && activationResult.indexRelPath) {
+        createdPaths.push(activationResult.indexRelPath);
+    }
+    let nextStep = 'Load the bundle through runtime settings or index.html so the theme becomes active.';
+    switch (activationResult.action) {
+        case 'activated':
+            nextStep = `index.html now loads ${activationResult.activeHref}. If you later want theme switching, move to Setup Runtime Settings.`;
+            break;
+        case 'runtime-settings':
+            nextStep = 'Run "Wizly: Setup Runtime Settings (Angular)" and use themeMode "single" or "multi" to activate the bundle.';
+            break;
+        case 'kept-existing':
+            nextStep = `index.html keeps using ${activationResult.activeHref}. Use runtime settings if you want to move away from a fixed theme.`;
+            break;
+        case 'switched':
+            nextStep = `index.html now loads ${activationResult.activeHref}. If you want multiple themes later, use runtime settings instead of a fixed link.`;
+            break;
+        case 'disconnected':
+            nextStep = 'No fixed theme is linked in index.html now. Use runtime settings or add a manual link when you want to activate a theme.';
+            break;
+        default:
+            break;
+    }
     showCommandSuccess('Wizly: Generated Angular Material theme bundle(s).', {
-        created: createdThemeRelPaths,
-        nextStep: 'Load the bundle through runtime settings or index.html so the theme becomes active.'
+        created: createdPaths,
+        nextStep
     });
 }
 
@@ -1922,8 +2256,10 @@ async function generateBlankThemeScss() {
     const sourceRoot = typeof selectedProject?.sourceRoot === 'string' ? selectedProject.sourceRoot : 'src';
     const targets = getTargets(selectedProject);
     const buildOptions = targets?.build?.options && typeof targets.build.options === 'object' ? targets.build.options : undefined;
+    const existingThemeBundlesBefore = getThemeBundlesFromBuildOptions(buildOptions);
     const createdThemeAbsPaths: string[] = [];
     const createdThemeRelPaths: string[] = [];
+    const createdThemeHrefs: string[] = [];
 
     for (const mode of modes) {
         const themeBase = includeModeSuffix ? `${themeName}-${mode}` : themeName;
@@ -1968,17 +2304,53 @@ async function generateBlankThemeScss() {
 
         createdThemeAbsPaths.push(themeAbsPath);
         createdThemeRelPaths.push(themeRelPath);
+        createdThemeHrefs.push(`${themeBase}.css`);
     }
 
     if (buildOptions) {
         writeJson(angularJsonPath, angularJson);
     }
 
+    const activationResult = buildOptions
+        ? await maybeHandleSingleThemeActivation({
+            workspaceRoot,
+            sourceRoot,
+            buildOptions,
+            selectedMode,
+            createdThemeHrefs,
+            existingThemeBundlesBefore
+        })
+        : { action: 'none', indexPatched: false } as SingleThemeActivationResult;
+
     const doc = await vscode.workspace.openTextDocument(createdThemeAbsPaths[0]);
     await vscode.window.showTextDocument(doc, { preview: false });
+    const createdPaths = [...createdThemeRelPaths];
+    if (activationResult.indexPatched && activationResult.indexRelPath) {
+        createdPaths.push(activationResult.indexRelPath);
+    }
+    let nextStep = 'Add your own CSS variables or styles, then load the bundle through runtime settings or index.html.';
+    switch (activationResult.action) {
+        case 'activated':
+            nextStep = `Add your own CSS variables or styles, then build the app. index.html now loads ${activationResult.activeHref} as the fixed theme.`;
+            break;
+        case 'runtime-settings':
+            nextStep = 'Add your own CSS variables or styles, then run "Wizly: Setup Runtime Settings (Angular)" to activate the bundle.';
+            break;
+        case 'kept-existing':
+            nextStep = `Add your own CSS variables or styles. index.html keeps using ${activationResult.activeHref} as the fixed theme.`;
+            break;
+        case 'switched':
+            nextStep = `Add your own CSS variables or styles, then build the app. index.html now loads ${activationResult.activeHref}.`;
+            break;
+        case 'disconnected':
+            nextStep = 'Add your own CSS variables or styles, then use runtime settings or a manual link when you want to activate a theme.';
+            break;
+        default:
+            break;
+    }
     showCommandSuccess('Wizly: Generated blank theme bundle(s).', {
-        created: createdThemeRelPaths,
-        nextStep: 'Add your own CSS variables or styles, then load the bundle through runtime settings or index.html.'
+        created: createdPaths,
+        nextStep
     });
 }
 

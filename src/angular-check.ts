@@ -74,6 +74,47 @@ function getThemeBundles(buildOptions: any): Array<{ name: string; href: string;
     return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function normalizeThemeAssetHref(value: string): string {
+    return value
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/[?#].*$/, '')
+        .replace(/^(?:\.\/)+/, '')
+        .replace(/^\/+/, '');
+}
+
+function getIndexHtmlPath(workspaceRoot: string, sourceRoot: string, buildOptions: any): string {
+    const rel = typeof buildOptions?.index === 'string' && buildOptions.index.trim()
+        ? buildOptions.index.trim().replace(/\\/g, '/')
+        : `${normalizePath(sourceRoot)}/index.html`;
+    return path.join(workspaceRoot, rel);
+}
+
+function findFixedThemeLink(indexHtmlText: string, knownThemeHrefs: Iterable<string>): { href: string; managed: boolean } | undefined {
+    const normalizedKnownHrefs = new Set([...knownThemeHrefs].map(normalizeThemeAssetHref));
+    const linkRegex = /<link\b[^>]*>/gi;
+    let matchedKnownHref: { href: string; managed: boolean } | undefined;
+    let match: RegExpExecArray | null;
+
+    while ((match = linkRegex.exec(indexHtmlText)) !== null) {
+        const tag = match[0];
+        const hrefMatch = tag.match(/\bhref\s*=\s*(["'])(.*?)\1/i);
+        if (!hrefMatch) { continue; }
+        const href = hrefMatch[2].trim();
+        if (!href) { continue; }
+        const managed = /\bdata-wizly-theme-activation\s*=\s*(["'])fixed\1/i.test(tag);
+        const normalizedHref = normalizeThemeAssetHref(href);
+        if (managed) {
+            return { href, managed: true };
+        }
+        if (!matchedKnownHref && normalizedKnownHrefs.has(normalizedHref)) {
+            matchedKnownHref = { href, managed: false };
+        }
+    }
+
+    return matchedKnownHref;
+}
+
 function hasSettingsAsset(buildOptions: any, inputRel: string): boolean {
     const assets = Array.isArray(buildOptions?.assets) ? buildOptions.assets : [];
     return assets.some((a: any) => {
@@ -164,6 +205,19 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('success', `Found ${themeBundles.length} theme bundle(s) in angular.json.`, themeBundles.map((bundle) => `${bundle.name} -> ${bundle.href}`).join('\n'));
     } else {
         add('info', 'No theme bundles were found in angular.json.', 'That is fine unless you want separate deployable themes or runtime theme switching.');
+    }
+
+    const indexHtmlAbs = getIndexHtmlPath(workspaceRoot, sourceRoot, buildOptions);
+    const fixedThemeLink = fs.existsSync(indexHtmlAbs)
+        ? findFixedThemeLink(fs.readFileSync(indexHtmlAbs, 'utf8'), themeBundles.map((bundle) => bundle.href))
+        : undefined;
+    if (fixedThemeLink) {
+        const matchedBundle = themeBundles.find((bundle) => normalizeThemeAssetHref(bundle.href) === normalizeThemeAssetHref(fixedThemeLink.href));
+        if (matchedBundle) {
+            add('success', `index.html loads a fixed theme (${fixedThemeLink.href}).`);
+        } else {
+            add('warning', `index.html references "${fixedThemeLink.href}" as a fixed theme, but that href does not match the current theme bundles.`);
+        }
     }
 
     const themeUtilitiesAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'base', '_mat-color-utilities.scss');
@@ -280,8 +334,20 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         } else {
             add('warning', 'settings.json exists but Wizly runtime settings service was not found.');
         }
+
+        if (fixedThemeLink) {
+            add('warning', 'Both runtime settings and a fixed theme link in index.html were found.', 'This can be valid during migration, but usually you should choose one primary activation path.');
+        }
     } else {
-        add('info', 'Runtime settings are not configured.');
+        if (fixedThemeLink) {
+            add('info', 'Runtime settings are not configured.', 'That is fine because index.html already activates a fixed theme.');
+        } else {
+            add('info', 'Runtime settings are not configured.');
+        }
+    }
+
+    if (themeBundles.length > 0 && !settingsPathAbs && !fixedThemeLink) {
+        add('warning', 'Theme bundles exist, but no activation path was found.', 'Use runtime settings or add a fixed theme link in index.html so one of the generated bundles becomes active.');
     }
 
     const manifestCandidates = [
