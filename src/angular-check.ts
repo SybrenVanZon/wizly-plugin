@@ -358,6 +358,33 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
             add('warning', 'settings.json exists but Wizly runtime settings service was not found.');
         }
 
+        if (hasMaterial) {
+            const formFieldDefaultsCandidates = [
+                path.join(workspaceRoot, sourceRoot, 'app', 'wizly', 'wizly-material-form-field.defaults.ts'),
+                path.join(workspaceRoot, sourceRoot, 'app', 'core', 'wizly', 'wizly-material-form-field.defaults.ts')
+            ];
+            const formFieldDefaultsPath = formFieldDefaultsCandidates.find((candidate) => fs.existsSync(candidate));
+            if (!formFieldDefaultsPath) {
+                add('warning', 'Angular Material is installed but no central form-field defaults file was found.', 'Re-run "Wizly: Setup Runtime Settings (Angular)" to generate wizly-material-form-field.defaults.ts, so appearance and floatLabel are controlled from one place instead of per field.');
+            } else {
+                add('success', 'Central Material form-field defaults file exists.');
+                const providerWiringCandidates = [
+                    path.join(workspaceRoot, sourceRoot, 'app', 'app.config.ts'),
+                    path.join(workspaceRoot, sourceRoot, 'app', 'app.module.ts')
+                ];
+                const isWired = providerWiringCandidates.some((candidate) => {
+                    if (!fs.existsSync(candidate)) { return false; }
+                    const text = fs.readFileSync(candidate, 'utf8');
+                    return text.includes('MAT_FORM_FIELD_DEFAULT_OPTIONS') && text.includes('wizlyMatFormFieldDefaults');
+                });
+                if (isWired) {
+                    add('success', 'Form-field defaults are registered as a provider.');
+                } else {
+                    add('warning', 'wizly-material-form-field.defaults.ts exists but is not registered as a MAT_FORM_FIELD_DEFAULT_OPTIONS provider.', 'Without this, mat-form-field appearance and floatLabel fall back to Angular Material defaults instead of your central config.');
+                }
+            }
+        }
+
         if (fixedThemeLink) {
             add('warning', 'Both runtime settings and a fixed theme link in index.html were found.', 'This can be valid during migration, but usually you should choose one primary activation path.');
         }

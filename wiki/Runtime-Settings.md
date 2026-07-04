@@ -58,6 +58,32 @@ These are included as part of the runtime settings setup. They are not separate 
 
 For the generated selector/toggle components and the custom-UI approach on top of `WizlySettingsService`, see [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md).
 
+### One Central Place For Form-Field Style
+
+When Angular Material is detected, Wizly generates `wizly-material-form-field.defaults.ts`:
+
+```typescript
+import { MatFormFieldDefaultOptions } from '@angular/material/form-field';
+
+export const wizlyMatFormFieldDefaults: MatFormFieldDefaultOptions = {
+    appearance: 'fill',
+    floatLabel: 'auto'
+};
+```
+
+This is registered once as a provider (`MAT_FORM_FIELD_DEFAULT_OPTIONS`) in `app.config.ts` / `app.module.ts`, and applies to every `<mat-form-field>` in the application — inputs, selects, autocompletes, and anything else Wizly generates. You never need to set an appearance or float-label option per field.
+
+To change the look of every field at once, edit this one file. For example, to switch from the filled look to the outlined Material style:
+
+```typescript
+export const wizlyMatFormFieldDefaults: MatFormFieldDefaultOptions = {
+    appearance: 'outline',
+    floatLabel: 'auto'
+};
+```
+
+`Wizly: Check Angular Setup` verifies that this file exists and is wired into your providers whenever Angular Material is present.
+
 ## Minimal `settings.json`
 
 All Wizly-managed runtime settings live under a `wizly` key, so `settings.json` can also hold your own application config (see [Custom Values](#custom-values-and-host-overrides) below) without name clashes.
