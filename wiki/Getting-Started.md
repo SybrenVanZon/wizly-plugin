@@ -68,7 +68,7 @@ Typical commands:
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
 
-This setup can also scaffold the theme selector and the dark/light/system mode toggle. These are included through the runtime settings command, not through separate commands.
+This setup can also scaffold the theme selector and the dark/light/system mode toggle. These are included through the runtime settings command, not through separate commands. For the generated components and the custom approach, see [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md).
 
 Why this is useful:
 

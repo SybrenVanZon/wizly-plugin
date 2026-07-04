@@ -33,6 +33,7 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 ## Supporting Pages
 
 - [Commands](./Commands.md)
+- [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md)
 - [SCSS Structure](./SCSS-Structure.md)
 - [CSS Requirements](./CSS-Requirements.md)
 

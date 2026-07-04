@@ -1,0 +1,184 @@
+# Theme Selector and Mode Toggle
+
+This page explains the runtime UI that Wizly can scaffold for theme selection and light/dark/system preference switching.
+
+It also shows how to build your own custom UI on top of the generated Wizly runtime settings service.
+
+## What Wizly Can Generate
+
+When you run `Wizly: Setup Runtime Settings (Angular)`, Wizly can scaffold:
+
+- `wizly-theme-selector.component.ts`
+- `wizly-mode-toggle.component.ts`
+- `wizly-material-form-field.defaults.ts` when Angular Material is installed
+
+These are not separate commands. They are optional helpers that belong to the runtime settings setup.
+
+## Generated Locations
+
+After `Wizly: Setup Runtime Settings (Angular)`, Wizly creates the runtime UI components in one of these folders:
+
+- `src/app/wizly/`
+- `src/app/core/wizly/` when your project already uses a `core/` folder
+
+The selectors are:
+
+- `<wizly-theme-selector></wizly-theme-selector>`
+- `<wizly-mode-toggle></wizly-mode-toggle>`
+
+## What The Built-In Components Do
+
+The built-in components are reference implementations for the generated runtime settings service.
+
+- The theme selector is mainly useful with `themeMode: "multi"`.
+- The mode toggle works with `light`, `dark`, and `system`.
+- If related theme files share the same `name` and define `mode: "light"` / `mode: "dark"`, the mode toggle can switch between those files automatically.
+
+If Angular Material is installed, Material-based UI is generated. Otherwise plain HTML equivalents are used.
+
+When the Material-based mode toggle is generated, Wizly can also offer to add the Material Icons stylesheet to `index.html`, because the toggle uses `<mat-icon>`.
+
+## Material Defaults Helper
+
+If Angular Material is installed, Wizly also creates:
+
+- `wizly-material-form-field.defaults.ts`
+
+That file is registered through `MAT_FORM_FIELD_DEFAULT_OPTIONS` and becomes the central place for settings such as:
+
+- `appearance`
+- `floatLabel`
+
+If your SCSS base file exists, Wizly also adds a basic `mat-form-field { width: 100%; }` rule there so generated Material fields behave more like full-width business form controls by default.
+
+## How To Use The Built-In Components
+
+### Standalone Angular Example
+
+If your page or shell component is standalone, import the Wizly components there and place them in your template.
+
+```ts
+import { Component } from '@angular/core';
+import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
+import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
+
+@Component({
+  selector: 'app-shell',
+  standalone: true,
+  imports: [WizlyThemeSelectorComponent, WizlyModeToggleComponent],
+  templateUrl: './shell.component.html'
+})
+export class ShellComponent {}
+```
+
+```html
+<wizly-theme-selector></wizly-theme-selector>
+<wizly-mode-toggle></wizly-mode-toggle>
+```
+
+If your project uses `src/app/core/wizly/` instead, change the import path accordingly.
+
+### NgModule Example
+
+If your project still uses `AppModule` or another Angular module, import the standalone Wizly components in that module.
+
+```ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { AppComponent } from './app.component';
+import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
+import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
+
+@NgModule({
+  declarations: [AppComponent],
+  imports: [
+    BrowserModule,
+    WizlyThemeSelectorComponent,
+    WizlyModeToggleComponent
+  ],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+```
+
+Then place the selectors where you want them to appear, for example in your top bar, login page, or settings page.
+
+## Build Your Own Custom UI
+
+You do not have to use the generated `<wizly-theme-selector>` or `<wizly-mode-toggle>` components.
+
+You can inject the generated `WizlySettingsService` and build your own dropdown, buttons, chips, menu, toolbar, or completely custom layout.
+
+Useful service members include:
+
+- `state$`
+- `getState()`
+- `getSelectableThemes()`
+- `getActiveThemeSelection()`
+- `canUserSwitchTheme()`
+- `canUserSwitchMode()`
+- `setTheme(selection)`
+- `setMode(mode)`
+
+The service state also exposes values such as:
+
+- `themeMode`
+- `themes`
+- `defaultTheme`
+- `activeThemeHref`
+- `mode`
+- `colorScheme`
+
+### Custom Example
+
+```ts
+import { Component, inject } from '@angular/core';
+import { map } from 'rxjs/operators';
+import { WizlySettingsService } from './wizly/wizly-settings.service';
+
+@Component({
+  selector: 'app-theme-tools',
+  standalone: true,
+  template: `
+    <button type="button" (click)="setMode('light')">Light</button>
+    <button type="button" (click)="setMode('dark')">Dark</button>
+    <button type="button" (click)="setMode('system')">System</button>
+
+    <select [value]="(activeTheme$ | async) ?? ''" (change)="setTheme($any($event.target).value)">
+      <option *ngFor="let t of (themes$ | async)" [value]="t.key">{{ t.name }}</option>
+    </select>
+  `
+})
+export class ThemeToolsComponent {
+  private readonly settings = inject(WizlySettingsService);
+
+  readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));
+  readonly activeTheme$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));
+
+  setTheme(selection: string) {
+    this.settings.setTheme(selection);
+  }
+
+  setMode(mode: 'light' | 'dark' | 'system') {
+    this.settings.setMode(mode);
+  }
+}
+```
+
+## CSS And DOM Hooks
+
+The runtime loader also updates HTML-level hooks, so your own CSS or JavaScript can react without directly using the generated components:
+
+- `data-wizly-mode`
+- `data-theme-mode`
+- `data-color-scheme`
+
+It also updates `document.documentElement.style.colorScheme`.
+
+## Important Notes
+
+- The theme selector only becomes interactive when `themeMode` is set to `multi`.
+- The user's selected theme is stored in local storage under `wizly.themeHref`.
+- The user's selected mode is stored in local storage under `wizly.themePreference`.
+- `defaultTheme` and `defaultThemePreference` act as the starting values or fallback values.
+- `Wizly: Setup Runtime Settings (Angular)` wires up the settings service and startup loading, but you still choose where these UI components appear in your application.

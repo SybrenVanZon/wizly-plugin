@@ -56,6 +56,8 @@ This can include:
 
 These are included as part of the runtime settings setup. They are not separate commands.
 
+For the generated selector/toggle components and the custom-UI approach on top of `WizlySettingsService`, see [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md).
+
 ## Minimal `settings.json`
 
 ```json
@@ -139,110 +141,8 @@ The runtime loader sets attributes on `<html>` such as:
 
 It also updates `document.documentElement.style.colorScheme`.
 
-## Optional UI Components
-
-Wizly can optionally scaffold:
-
-- `wizly-theme-selector.component.ts`
-- `wizly-mode-toggle.component.ts`
-
-If Angular Material is installed, Material-based UI is generated; otherwise plain HTML equivalents are used.
-
-When that Material-based mode toggle is generated, Wizly can also offer to add the Material Icons stylesheet to `index.html`, because the toggle uses `<mat-icon>`.
-It also creates `wizly-material-form-field.defaults.ts`, so label mode and appearance can be changed in one central place instead of per generated template.
-If your SCSS base file exists, Wizly also adds a basic `mat-form-field { width: 100%; }` rule there so generated Material fields behave more like full-width business form controls by default.
-
-These components can override the defaults at runtime:
-
-- the theme selector is mainly useful with `themeMode: "multi"` and stores the selected theme in local storage under `wizly.themeHref`
-- the preference toggle stores the selected theme preference in local storage under `wizly.themePreference`
-
-That means `defaultTheme` and `defaultThemePreference` act as the starting values or fallback values, while the user's later choice can be remembered for the next visit.
-
-## How To Use The UI Components
-
-After `Wizly: Setup Runtime Settings (Angular)`, Wizly creates the runtime UI components in one of these folders:
-
-- `src/app/wizly/`
-- `src/app/core/wizly/` when your project already uses a `core/` folder
-
-The selectors are:
-
-- `<wizly-theme-selector></wizly-theme-selector>`
-- `<wizly-mode-toggle></wizly-mode-toggle>`
-
-If Angular Material is installed, Wizly also creates:
-
-- `wizly-material-form-field.defaults.ts`
-
-That file is registered through `MAT_FORM_FIELD_DEFAULT_OPTIONS` and becomes the central place for settings such as:
-
-- `appearance`
-- `floatLabel`
-
-The width rule stays in SCSS instead of that provider, because full width is a layout/CSS concern rather than an Angular Material option.
-
-### Standalone Angular Example
-
-If your page or shell component is standalone, import the Wizly components there and place them in your template.
-
-Example:
-
-```ts
-import { Component } from '@angular/core';
-import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
-import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
-
-@Component({
-  selector: 'app-shell',
-  standalone: true,
-  imports: [WizlyThemeSelectorComponent, WizlyModeToggleComponent],
-  templateUrl: './shell.component.html'
-})
-export class ShellComponent {}
-```
-
-```html
-<wizly-theme-selector></wizly-theme-selector>
-<wizly-mode-toggle></wizly-mode-toggle>
-```
-
-If your project uses `src/app/core/wizly/` instead, change the import path accordingly.
-
-### NgModule Example
-
-If your project still uses `AppModule` or another Angular module, import the standalone Wizly components in that module.
-
-Example:
-
-```ts
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
-import { AppComponent } from './app.component';
-import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
-import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
-
-@NgModule({
-  declarations: [AppComponent],
-  imports: [
-    BrowserModule,
-    WizlyThemeSelectorComponent,
-    WizlyModeToggleComponent
-  ],
-  bootstrap: [AppComponent]
-})
-export class AppModule {}
-```
-
-Then place the selectors where you want them to appear, for example in your top bar, login page, or settings page.
-
 ### Important Notes
 
-- The theme selector only becomes interactive when `themeMode` is set to `multi`
-- The mode toggle works with `light`, `dark`, and `system`
-- If related theme files share the same `name` and define `mode: "light"` / `mode: "dark"`, the mode toggle can switch between those files automatically
-- When Angular Material is present and the Material-based toggle is used, make sure the Material Icons stylesheet is available; `Wizly: Setup Runtime Settings (Angular)` can offer to add it for you
-- When Angular Material is present, `Wizly: Setup Runtime Settings (Angular)` also scaffolds a central form-field defaults file so you can adjust label behavior in one place
-- When Angular Material is present and `_base.scss` exists, Wizly can also add a central `mat-form-field { width: 100%; }` rule there
+- The theme selector and mode toggle are documented separately in [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md).
 - The runtime loader still sets the HTML hooks and `color-scheme`, so your own CSS can react to them as well
-- `Wizly: Setup Runtime Settings (Angular)` wires up the settings service and startup loading, but you still choose where these UI components appear in your application
+- `Wizly: Setup Runtime Settings (Angular)` wires up the settings service and startup loading, but you still choose where your own theme UI appears in the application
