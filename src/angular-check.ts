@@ -263,7 +263,8 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         if (parsedSettings.error) {
             add('error', 'settings.json could not be parsed.', parsedSettings.error);
         } else {
-            const settings = parsedSettings.value ?? {};
+            const settingsRoot = parsedSettings.value ?? {};
+            const settings = settingsRoot.wizly && typeof settingsRoot.wizly === 'object' ? settingsRoot.wizly : {};
             const themeMode = settings.themeMode;
             if (themeMode === 'single' || themeMode === 'multi' || themeMode === 'hostbased') {
                 add('success', `Runtime theme mode is set to "${themeMode}".`);
@@ -317,6 +318,28 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
                     add('success', 'All hostbased runtime themes define a host.');
                 } else {
                     add('warning', 'Hostbased theme mode is active but some themes do not define a host.', missingHost.map((theme: any) => String(theme?.href ?? '')).join('\n'));
+                }
+
+                const themesByHost = new Map<string, any[]>();
+                for (const theme of runtimeThemes) {
+                    const host = String(theme?.host ?? '').trim();
+                    if (!host) { continue; }
+                    const list = themesByHost.get(host) ?? [];
+                    list.push(theme);
+                    themesByHost.set(host, list);
+                }
+                const ambiguousHosts = [...themesByHost.entries()].filter(([host, list]) => {
+                    if (list.length < 2) { return false; }
+                    const hasExplicitDefault = list.some((theme) => theme?.default === true);
+                    const hasMatchingGlobalDefault = defaultTheme && list.some((theme) => String(theme?.href ?? '').trim() === defaultTheme);
+                    return !hasExplicitDefault && !hasMatchingGlobalDefault;
+                });
+                if (ambiguousHosts.length > 0) {
+                    add(
+                        'warning',
+                        'Some hosts have multiple themes without a clear default.',
+                        `${ambiguousHosts.map(([host]) => host).join('\n')}\n\nMark one theme per host with "default": true, or point defaultTheme at one of that host's themes. Without either, the first matching theme in the array is used.`
+                    );
                 }
             }
 

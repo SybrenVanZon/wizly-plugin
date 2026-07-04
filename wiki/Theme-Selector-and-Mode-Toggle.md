@@ -30,7 +30,7 @@ The selectors are:
 
 The built-in components are reference implementations for the generated runtime settings service.
 
-- The theme selector is mainly useful with `themeMode: "multi"`.
+- The theme selector is mainly useful with `themeMode: "multi"`, or with `themeMode: "hostbased"` when a host has more than one theme.
 - The mode toggle works with `light`, `dark`, and `system`.
 - If related theme files share the same `name` and define `mode: "light"` / `mode: "dark"`, the mode toggle can switch between those files automatically.
 
@@ -119,6 +119,7 @@ Useful service members include:
 - `canUserSwitchMode()`
 - `setTheme(selection)`
 - `setMode(mode)`
+- `getValue(key, fallback)` — reads your own custom values from `settings.json` (see [Runtime Settings](./Runtime-Settings.md#custom-values-and-host-overrides))
 
 The service state also exposes values such as:
 
@@ -132,6 +133,7 @@ The service state also exposes values such as:
 ### Custom Example
 
 ```ts
+import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { map } from 'rxjs/operators';
 import { WizlySettingsService } from './wizly/wizly-settings.service';
@@ -139,12 +141,13 @@ import { WizlySettingsService } from './wizly/wizly-settings.service';
 @Component({
   selector: 'app-theme-tools',
   standalone: true,
+  imports: [CommonModule],
   template: `
     <button type="button" (click)="setMode('light')">Light</button>
     <button type="button" (click)="setMode('dark')">Dark</button>
     <button type="button" (click)="setMode('system')">System</button>
 
-    <select [value]="(activeTheme$ | async) ?? ''" (change)="setTheme($any($event.target).value)">
+    <select *ngIf="canSwitch$ | async" [value]="(activeTheme$ | async) ?? ''" (change)="setTheme($any($event.target).value)">
       <option *ngFor="let t of (themes$ | async)" [value]="t.key">{{ t.name }}</option>
     </select>
   `
@@ -154,6 +157,7 @@ export class ThemeToolsComponent {
 
   readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));
   readonly activeTheme$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));
+  readonly canSwitch$ = this.settings.state$.pipe(map(() => this.settings.canUserSwitchTheme()));
 
   setTheme(selection: string) {
     this.settings.setTheme(selection);
@@ -164,6 +168,12 @@ export class ThemeToolsComponent {
   }
 }
 ```
+
+### Hiding The Selector When There Is Nothing To Switch
+
+`getSelectableThemes()` is already scoped to what the current visitor can actually pick from — for `themeMode: "hostbased"` it only returns the current host's themes, so it works the same way whether a host has one theme or several.
+
+`canUserSwitchTheme()` tells you whether that list has more than one real choice: `true` for `themeMode: "multi"`, and for `themeMode: "hostbased"` only when the current host itself has more than one theme. The generated `<wizly-theme-selector>` wraps its whole template in `*ngIf="canSwitch$ | async"` so the control disappears completely (not just becomes disabled) when there is nothing to switch to — for example a `hostbased` host with a single theme, or `themeMode: "single"`. Do the same in your own UI: gate the selector's container element behind `canSwitch$ | async`, as shown above, instead of only disabling the `<select>`.
 
 ## CSS And DOM Hooks
 
@@ -177,7 +187,7 @@ It also updates `document.documentElement.style.colorScheme`.
 
 ## Important Notes
 
-- The theme selector only becomes interactive when `themeMode` is set to `multi`.
+- The theme selector becomes interactive when `themeMode` is `multi`, or when `themeMode` is `hostbased` and the current host has more than one theme (see [Runtime Settings](./Runtime-Settings.md#hostbased-with-multiple-themes-per-host)).
 - The user's selected theme is stored in local storage under `wizly.themeHref`.
 - The user's selected mode is stored in local storage under `wizly.themePreference`.
 - `defaultTheme` and `defaultThemePreference` act as the starting values or fallback values.

@@ -2660,12 +2660,16 @@ async function setupAngularRuntimeSettings() {
     const detectedThemes = bundleThemes();
     const defaultThemeHref = detectedThemes[0]?.href ?? '';
     const settingsJson = {
-        themeMode,
-        defaultThemePreference: 'system',
-        defaultTheme: defaultThemeHref,
-        themes: detectedThemes.length > 0 ? detectedThemes : [
-            { name: 'Default', href: '' }
-        ]
+        wizly: {
+            themeMode,
+            defaultThemePreference: 'system',
+            defaultTheme: defaultThemeHref,
+            themes: detectedThemes.length > 0 ? detectedThemes : [
+                { name: 'Default', href: '' }
+            ]
+        },
+        custom: {},
+        hostOverrides: {}
     };
 
     const currentSettingsText = fs.existsSync(settingsPathAbs)
@@ -2731,6 +2735,7 @@ async function setupAngularRuntimeSettings() {
         "    host?: string;",
         "    mode?: WizlyThemeVariantMode;",
         "    defaultThemePreference?: WizlyMode;",
+        "    default?: boolean;",
         "};",
         "",
         "export type WizlyThemeChoice = {",
@@ -2746,8 +2751,12 @@ async function setupAngularRuntimeSettings() {
         "    themes?: WizlyTheme[];",
         "};",
         "",
+        "export type WizlyValues = Record<string, unknown>;",
+        "",
         "export type WizlySettingsState = {",
         "    settings?: WizlySettings;",
+        "    custom: WizlyValues;",
+        "    hostOverrides: Record<string, WizlyValues>;",
         "    themes: WizlyTheme[];",
         "    themeMode: WizlyThemeMode;",
         "    defaultTheme?: string;",
@@ -2760,6 +2769,8 @@ async function setupAngularRuntimeSettings() {
         "export class WizlySettingsService {",
         "    private readonly stateSubject = new BehaviorSubject<WizlySettingsState>({",
         "        themes: [],",
+        "        custom: {},",
+        "        hostOverrides: {},",
         "        themeMode: 'single',",
         "        mode: 'system',",
         "        colorScheme: this.getSystemScheme()",
@@ -2771,13 +2782,46 @@ async function setupAngularRuntimeSettings() {
         "        return this.stateSubject.value;",
         "    }",
         "",
+        "    getValue<T = unknown>(key: string, fallback?: T): T {",
+        "        const state = this.stateSubject.value;",
+        "        const host = this.getCurrentHost();",
+        "        const overrides = state.hostOverrides[host];",
+        "        const hasBase = Object.prototype.hasOwnProperty.call(state.custom, key);",
+        "        const base = hasBase ? state.custom[key] : undefined;",
+        "        if (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) {",
+        "            return (hasBase ? this.deepMergeValue(base, overrides[key]) : overrides[key]) as T;",
+        "        }",
+        "        if (hasBase) {",
+        "            return base as T;",
+        "        }",
+        "        return fallback as T;",
+        "    }",
+        "",
+        "    private isPlainObject(value: unknown): value is Record<string, unknown> {",
+        "        return !!value && typeof value === 'object' && !Array.isArray(value);",
+        "    }",
+        "",
+        "    private deepMergeValue(base: unknown, override: unknown): unknown {",
+        "        if (this.isPlainObject(base) && this.isPlainObject(override)) {",
+        "            const merged: Record<string, unknown> = { ...base };",
+        "            for (const key of Object.keys(override)) {",
+        "                merged[key] = this.deepMergeValue(base[key], override[key]);",
+        "            }",
+        "            return merged;",
+        "        }",
+        "        return override;",
+        "    }",
+        "",
         "    getSelectableThemes(): WizlyThemeChoice[] {",
         "        const state = this.stateSubject.value;",
+        "        const pool = state.themeMode === 'hostbased'",
+        "            ? state.themes.filter(t => t.host === this.getCurrentHost())",
+        "            : state.themes;",
         "        const byKey = new Map<string, WizlyThemeChoice>();",
-        "        for (const theme of state.themes) {",
+        "        for (const theme of pool) {",
         "            const key = this.getThemeSelectionKey(theme);",
         "            if (!key || byKey.has(key)) { continue; }",
-        "            const resolved = this.resolveThemeVariant(theme, state.themes, state.mode);",
+        "            const resolved = this.resolveThemeVariant(theme, pool, state.mode);",
         "            if (!resolved?.href) { continue; }",
         "            byKey.set(key, { key, name: theme.name, href: resolved.href });",
         "        }",
@@ -2801,6 +2845,8 @@ async function setupAngularRuntimeSettings() {
         "            }",
         "            const raw = (await res.json()) as unknown;",
         "            const normalized = this.normalizeSettings(raw);",
+        "            const custom = this.normalizeCustomValues(raw);",
+        "            const hostOverrides = this.normalizeHostOverrides(raw);",
         "            const prev = this.stateSubject.value;",
         "            const themeMode = normalized.themeMode;",
         "            const themes = normalized.themes ?? [];",
@@ -2812,6 +2858,8 @@ async function setupAngularRuntimeSettings() {
         "            this.stateSubject.next({",
         "                ...prev,",
         "                settings: normalized,",
+        "                custom,",
+        "                hostOverrides,",
         "                themeMode,",
         "                themes,",
         "                defaultTheme,",
@@ -2828,7 +2876,17 @@ async function setupAngularRuntimeSettings() {
         "    }",
         "",
         "    canUserSwitchTheme() {",
-        "        return this.stateSubject.value.themeMode === 'multi';",
+        "        const state = this.stateSubject.value;",
+        "        if (state.themeMode === 'multi') { return true; }",
+        "        if (state.themeMode === 'hostbased') {",
+        "            const host = this.getCurrentHost();",
+        "            return state.themes.filter(t => t.host === host).length > 1;",
+        "        }",
+        "        return false;",
+        "    }",
+        "",
+        "    private getCurrentHost(): string {",
+        "        return typeof location !== 'undefined' ? location.hostname : '';",
         "    }",
         "",
         "    canUserSwitchMode() {",
@@ -2893,8 +2951,27 @@ async function setupAngularRuntimeSettings() {
         "        this.applyThemeLink(activeThemeHref);",
         "    }",
         "",
+        "    private normalizeCustomValues(raw: unknown): WizlyValues {",
+        "        const obj = raw && typeof raw === 'object' ? (raw as any).custom : undefined;",
+        "        return obj && typeof obj === 'object' ? obj as WizlyValues : {};",
+        "    }",
+        "",
+        "    private normalizeHostOverrides(raw: unknown): Record<string, WizlyValues> {",
+        "        const obj = raw && typeof raw === 'object' ? (raw as any).hostOverrides : undefined;",
+        "        const out: Record<string, WizlyValues> = {};",
+        "        if (!obj || typeof obj !== 'object') { return out; }",
+        "        for (const host of Object.keys(obj)) {",
+        "            const entry = (obj as any)[host];",
+        "            if (entry && typeof entry === 'object') {",
+        "                out[host] = entry as WizlyValues;",
+        "            }",
+        "        }",
+        "        return out;",
+        "    }",
+        "",
         "    private normalizeSettings(raw: unknown): WizlySettings {",
-        "        const obj = raw && typeof raw === 'object' ? raw as any : {};",
+        "        const root = raw && typeof raw === 'object' ? raw as any : {};",
+        "        const obj = root.wizly && typeof root.wizly === 'object' ? root.wizly : {};",
         "        const themeMode: WizlyThemeMode = (obj.themeMode === 'single' || obj.themeMode === 'multi' || obj.themeMode === 'hostbased')",
         "            ? obj.themeMode",
         "            : 'single';",
@@ -2918,7 +2995,8 @@ async function setupAngularRuntimeSettings() {
         "            const perThemeDefaultThemePreference: WizlyMode | undefined = (t?.defaultThemePreference === 'light' || t?.defaultThemePreference === 'dark' || t?.defaultThemePreference === 'system')",
         "                ? t.defaultThemePreference",
         "                : undefined;",
-        "            themes.push({ name, href, host, mode: inferredMode, defaultThemePreference: perThemeDefaultThemePreference });",
+        "            const isDefault = t?.default === true;",
+        "            themes.push({ name, href, host, mode: inferredMode, defaultThemePreference: perThemeDefaultThemePreference, default: isDefault });",
         "        }",
         "",
         "        const deduped = new Map<string, WizlyTheme>();",
@@ -3056,10 +3134,15 @@ async function setupAngularRuntimeSettings() {
         "        }",
         "",
         "        if (!baseTheme && themeMode === 'hostbased') {",
-        "            const host = typeof location !== 'undefined' ? location.hostname : '';",
-        "            const match = themes.find(t => t.host === host);",
-        "            if (match) {",
-        "                baseTheme = match;",
+        "            const host = this.getCurrentHost();",
+        "            const hostThemes = themes.filter(t => t.host === host);",
+        "            if (hostThemes.length > 0) {",
+        "                const stored = preferredHref ?? this.readStoredThemeHref();",
+        "                const storedMatch = stored ? hostThemes.find(t => t.href === stored) : undefined;",
+        "                const hostDefault = hostThemes.find(t => t.default);",
+        "                const def = s?.defaultTheme;",
+        "                const defMatch = def ? hostThemes.find(t => t.href === def) : undefined;",
+        "                baseTheme = storedMatch ?? hostDefault ?? defMatch ?? hostThemes[0];",
         "            }",
         "        }",
         "",
@@ -3166,9 +3249,9 @@ async function setupAngularRuntimeSettings() {
             "    selector: 'wizly-theme-selector',",
             "    standalone: true,",
             "    imports: [CommonModule, MatFormFieldModule, MatSelectModule],",
-            "    template: `<mat-form-field appearance=\"fill\" style=\"width: 100%\">",
+            "    template: `<mat-form-field appearance=\"fill\" style=\"width: 100%\" *ngIf=\"canSwitch$ | async\">",
             "  <mat-label>Theme</mat-label>",
-            "  <mat-select [disabled]=\"!(canSwitch$ | async)\" [value]=\"(activeSelection$ | async) ?? ''\" (selectionChange)=\"setTheme($any($event.value))\">",
+            "  <mat-select [value]=\"(activeSelection$ | async) ?? ''\" (selectionChange)=\"setTheme($any($event.value))\">",
             "    <mat-option *ngFor=\"let t of (themes$ | async)\" [value]=\"t.key\">{{ t.name }}</mat-option>",
             "  </mat-select>",
             "</mat-form-field>`",
@@ -3177,7 +3260,7 @@ async function setupAngularRuntimeSettings() {
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));",
             "    readonly activeSelection$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));",
-            "    readonly canSwitch$ = this.settings.state$.pipe(map(s => s.themeMode === 'multi'));",
+            "    readonly canSwitch$ = this.settings.state$.pipe(map(() => this.settings.canUserSwitchTheme()));",
             "",
             "    setTheme(selection: string) {",
             "        this.settings.setTheme(selection);",
@@ -3195,9 +3278,9 @@ async function setupAngularRuntimeSettings() {
             "    selector: 'wizly-theme-selector',",
             "    standalone: true,",
             "    imports: [CommonModule],",
-            "    template: `<label style=\"display: block; font: inherit\">",
+            "    template: `<label style=\"display: block; font: inherit\" *ngIf=\"canSwitch$ | async\">",
             "  <span style=\"display: block; margin-bottom: 6px\">Theme</span>",
-            "  <select [disabled]=\"!(canSwitch$ | async)\" [value]=\"(activeSelection$ | async) ?? ''\" (change)=\"setTheme(($any($event.target).value))\" style=\"width: 100%\">",
+            "  <select [value]=\"(activeSelection$ | async) ?? ''\" (change)=\"setTheme(($any($event.target).value))\" style=\"width: 100%\">",
             "    <option *ngFor=\"let t of (themes$ | async)\" [value]=\"t.key\">{{ t.name }}</option>",
             "  </select>",
             "</label>`",
@@ -3206,7 +3289,7 @@ async function setupAngularRuntimeSettings() {
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));",
             "    readonly activeSelection$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));",
-            "    readonly canSwitch$ = this.settings.state$.pipe(map(s => s.themeMode === 'multi'));",
+            "    readonly canSwitch$ = this.settings.state$.pipe(map(() => this.settings.canUserSwitchTheme()));",
             "",
             "    setTheme(selection: string) {",
             "        this.settings.setTheme(selection);",
@@ -3596,9 +3679,10 @@ async function syncAngularRuntimeThemes() {
         return;
     }
 
-    settingsRaw.themes = Array.isArray(settingsRaw.themes) ? settingsRaw.themes : [];
+    settingsRaw.wizly = settingsRaw.wizly && typeof settingsRaw.wizly === 'object' ? settingsRaw.wizly : {};
+    settingsRaw.wizly.themes = Array.isArray(settingsRaw.wizly.themes) ? settingsRaw.wizly.themes : [];
     const byHref = new Map<string, any>();
-    for (const t of settingsRaw.themes) {
+    for (const t of settingsRaw.wizly.themes) {
         const href = typeof t?.href === 'string' ? t.href.trim() : '';
         if (!href) { continue; }
         if (!byHref.has(href)) {
@@ -3620,12 +3704,12 @@ async function syncAngularRuntimeThemes() {
         byHref.set(t.href, t.mode ? { name: t.name, href: t.href, mode: t.mode } : { name: t.name, href: t.href });
     }
 
-    settingsRaw.themes = [...byHref.values()];
+    settingsRaw.wizly.themes = [...byHref.values()];
 
-    const defaultTheme = typeof settingsRaw.defaultTheme === 'string' ? settingsRaw.defaultTheme.trim() : '';
-    const hasDefault = defaultTheme && settingsRaw.themes.some((t: any) => String(t?.href ?? '').trim() === defaultTheme);
+    const defaultTheme = typeof settingsRaw.wizly.defaultTheme === 'string' ? settingsRaw.wizly.defaultTheme.trim() : '';
+    const hasDefault = defaultTheme && settingsRaw.wizly.themes.some((t: any) => String(t?.href ?? '').trim() === defaultTheme);
     if (!hasDefault) {
-        settingsRaw.defaultTheme = String(settingsRaw.themes[0]?.href ?? '').trim();
+        settingsRaw.wizly.defaultTheme = String(settingsRaw.wizly.themes[0]?.href ?? '').trim();
     }
 
     fs.writeFileSync(settingsPathAbs, `${JSON.stringify(settingsRaw, null, 2)}\n`, 'utf8');
