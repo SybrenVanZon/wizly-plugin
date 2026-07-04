@@ -475,7 +475,10 @@ type ReleaseNotesInfo = {
     previousVersion?: string;
     relativePath: string;
     summaryMarkdown: string;
+    videoUrl?: string;
 };
+
+type ReleaseNotesTrigger = 'update' | 'manual';
 
 function escapeHtml(text: string): string {
     return text
@@ -509,6 +512,59 @@ function findReleaseNotesFilePath(context: vscode.ExtensionContext, version: str
     }
 
     return undefined;
+}
+
+function compareVersions(a: string, b: string): number {
+    const parse = (v: string) => v.replace(/-rc\d+$/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+    const pa = parse(a);
+    const pb = parse(b);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+        if (diff !== 0) { return diff; }
+    }
+    return 0;
+}
+
+function listReleaseNotesVersions(context: vscode.ExtensionContext): string[] {
+    const dir = path.join(context.extension.extensionPath, 'release-notes');
+    if (!fs.existsSync(dir)) { return []; }
+    return fs.readdirSync(dir)
+        .filter((name) => name.endsWith('.md'))
+        .map((name) => name.slice(0, -3))
+        .sort(compareVersions);
+}
+
+function extractVideoUrl(markdown: string): { videoUrl?: string; markdown: string } {
+    const lines = markdown.split('\n');
+    const pattern = /^\s*video\s*:\s*(\S+)\s*$/i;
+    let videoUrl: string | undefined;
+    const rest: string[] = [];
+    for (const line of lines) {
+        const match = line.match(pattern);
+        if (match && !videoUrl) {
+            videoUrl = match[1];
+            continue;
+        }
+        rest.push(line);
+    }
+    return { videoUrl, markdown: rest.join('\n').trim() };
+}
+
+function loadReleaseNotesInfo(context: vscode.ExtensionContext, version: string, previousVersion?: string): ReleaseNotesInfo | undefined {
+    const releaseNotesPath = findReleaseNotesFilePath(context, version);
+    if (!releaseNotesPath) { return undefined; }
+
+    const rawMarkdown = fs.readFileSync(releaseNotesPath, 'utf8').replace(/\r\n/g, '\n').trim()
+        || `# Wizly ${version}\n\nSee \`CHANGELOG.md\` for the full list of changes.`;
+    const { videoUrl, markdown } = extractVideoUrl(rawMarkdown);
+
+    return {
+        version,
+        previousVersion,
+        relativePath: path.relative(context.extension.extensionPath, releaseNotesPath).replace(/\\/g, '/'),
+        summaryMarkdown: markdown,
+        videoUrl
+    };
 }
 
 function renderInlineMarkdownToHtml(text: string): string {
@@ -625,24 +681,29 @@ async function openChangelogForVersion(context: vscode.ExtensionContext, version
     }
 }
 
-async function showReleaseNotesPanel(context: vscode.ExtensionContext, notes: ReleaseNotesInfo): Promise<void> {
-    const panel = vscode.window.createWebviewPanel(
-        'wizlyReleaseNotes',
-        `Wizly: What's New in ${notes.version}`,
-        vscode.ViewColumn.Active,
-        { enableScripts: true, retainContextWhenHidden: false }
-    );
+function renderReleaseNotesHtml(webview: vscode.Webview, notes: ReleaseNotesInfo, trigger: ReleaseNotesTrigger, nav: { enableNavigation: boolean; canPrev: boolean; canNext: boolean }): string {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const fromText = notes.previousVersion
-        ? `Wizly updated from ${escapeHtml(notes.previousVersion)} to ${escapeHtml(notes.version)}.`
-        : `Wizly updated to ${escapeHtml(notes.version)}.`;
+    const fromText = trigger === 'update'
+        ? (notes.previousVersion
+            ? `Wizly updated from ${escapeHtml(notes.previousVersion)} to ${escapeHtml(notes.version)}.`
+            : `Wizly updated to ${escapeHtml(notes.version)}.`)
+        : `Release notes for Wizly ${escapeHtml(notes.version)}.`;
     const summaryHtml = renderMarkdownExcerptToHtml(notes.summaryMarkdown);
+    const videoButtonHtml = notes.videoUrl
+        ? `<button id="videoButton" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5v-7l6.3 3.5-6.3 3.5Z"/></svg><span>Demo</span></button>`
+        : '';
+    const navHtml = nav.enableNavigation
+        ? `<div class="button-row">
+        <button id="prevButton" type="button" ${nav.canPrev ? '' : 'disabled'}>&larr; Previous</button>
+        <button id="nextButton" type="button" ${nav.canNext ? '' : 'disabled'}>Next &rarr;</button>
+      </div>`
+        : '';
 
-    panel.webview.html = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wizly Release Notes</title>
   <style>
@@ -659,9 +720,11 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, notes: Re
     .card { border: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); border-radius: 10px; padding: 18px; background: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
     .meta { color: var(--vscode-descriptionForeground); font-size: 12px; margin-top: 18px; }
     .button-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-    button { padding: 8px 14px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 6px; cursor: pointer; }
+    button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 6px; cursor: pointer; font: inherit; }
+    button:disabled { opacity: 0.5; cursor: default; }
     #openButton { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
-    #dismissButton { color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); background: var(--vscode-button-secondaryBackground, transparent); }
+    #dismissButton, #prevButton, #nextButton { color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); background: var(--vscode-button-secondaryBackground, transparent); }
+    #videoButton { color: #ffffff; background: #ff0000; border-color: #ff0000; }
   </style>
 </head>
 <body>
@@ -670,9 +733,11 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, notes: Re
     <div class="card">
       ${summaryHtml}
       <div class="button-row">
+        ${videoButtonHtml}
         <button id="openButton" type="button">Open Changelog</button>
         <button id="dismissButton" type="button">Close</button>
       </div>
+      ${navHtml}
       <div class="meta">Summary source: ${escapeHtml(notes.relativePath)}</div>
     </div>
   </div>
@@ -684,13 +749,72 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, notes: Re
     document.getElementById('dismissButton')?.addEventListener('click', () => {
       vscode.postMessage({ command: 'dismiss' });
     });
+    document.getElementById('videoButton')?.addEventListener('click', () => {
+      vscode.postMessage({ command: 'openVideo' });
+    });
+    document.getElementById('prevButton')?.addEventListener('click', () => {
+      vscode.postMessage({ command: 'prev' });
+    });
+    document.getElementById('nextButton')?.addEventListener('click', () => {
+      vscode.postMessage({ command: 'next' });
+    });
   </script>
 </body>
 </html>`;
+}
+
+async function showReleaseNotesPanel(context: vscode.ExtensionContext, initialNotes: ReleaseNotesInfo, options?: { trigger?: ReleaseNotesTrigger; enableNavigation?: boolean }): Promise<void> {
+    const trigger: ReleaseNotesTrigger = options?.trigger ?? 'update';
+    const enableNavigation = options?.enableNavigation ?? false;
+    const versions = enableNavigation ? listReleaseNotesVersions(context) : [];
+
+    let notes = initialNotes;
+    const panel = vscode.window.createWebviewPanel(
+        'wizlyReleaseNotes',
+        `Wizly: What's New in ${notes.version}`,
+        vscode.ViewColumn.Active,
+        { enableScripts: true, retainContextWhenHidden: false }
+    );
+
+    const render = () => {
+        const index = versions.indexOf(notes.version);
+        const nav = {
+            enableNavigation,
+            canPrev: enableNavigation && index > 0,
+            canNext: enableNavigation && index >= 0 && index < versions.length - 1
+        };
+        panel.title = `Wizly: What's New in ${notes.version}`;
+        panel.webview.html = renderReleaseNotesHtml(panel.webview, notes, trigger, nav);
+    };
+    render();
+
+    const navigateTo = (version: string) => {
+        const loaded = loadReleaseNotesInfo(context, version);
+        if (!loaded) { return; }
+        notes = loaded;
+        render();
+    };
 
     const messageSubscription = panel.webview.onDidReceiveMessage(async (message) => {
         if (message?.command === 'openChangelog') {
             await openChangelogForVersion(context, notes.version);
+            return;
+        }
+
+        if (message?.command === 'openVideo' && notes.videoUrl) {
+            await vscode.env.openExternal(vscode.Uri.parse(notes.videoUrl));
+            return;
+        }
+
+        if (message?.command === 'prev') {
+            const index = versions.indexOf(notes.version);
+            if (index > 0) { navigateTo(versions[index - 1]); }
+            return;
+        }
+
+        if (message?.command === 'next') {
+            const index = versions.indexOf(notes.version);
+            if (index >= 0 && index < versions.length - 1) { navigateTo(versions[index + 1]); }
             return;
         }
 
@@ -718,21 +842,30 @@ async function maybeShowReleaseNotesForExtensionUpdate(context: vscode.Extension
         await context.globalState.update(EXTENSION_VERSION_STATE_KEY, currentVersion);
         if (!previousVersion) { return; }
 
-        const releaseNotesPath = findReleaseNotesFilePath(context, currentVersion);
-        if (!releaseNotesPath) { return; }
+        const notes = loadReleaseNotesInfo(context, currentVersion, previousVersion);
+        if (!notes) { return; }
 
-        const summaryMarkdown = fs.readFileSync(releaseNotesPath, 'utf8').replace(/\r\n/g, '\n').trim()
-            || `# Wizly ${currentVersion}\n\nSee \`CHANGELOG.md\` for the full list of changes.`;
-
-        await showReleaseNotesPanel(context, {
-            version: currentVersion,
-            previousVersion,
-            relativePath: path.relative(context.extension.extensionPath, releaseNotesPath).replace(/\\/g, '/'),
-            summaryMarkdown
-        });
+        await showReleaseNotesPanel(context, notes, { trigger: 'update', enableNavigation: false });
     } catch (error) {
         getOutputChannel().appendLine(`Wizly: Failed to show release notes. ${error instanceof Error ? error.message : String(error)}`);
     }
+}
+
+async function showReleaseNotesForCurrentVersion(context: vscode.ExtensionContext): Promise<void> {
+    const currentVersionRaw = context.extension.packageJSON?.version;
+    const currentVersion = typeof currentVersionRaw === 'string' ? currentVersionRaw.trim() : '';
+    if (!currentVersion) {
+        vscode.window.showInformationMessage('Wizly: Could not determine the installed extension version.');
+        return;
+    }
+
+    const notes = loadReleaseNotesInfo(context, currentVersion);
+    if (!notes) {
+        vscode.window.showInformationMessage(`Wizly: No release notes are available for version ${currentVersion} yet.`);
+        return;
+    }
+
+    await showReleaseNotesPanel(context, notes, { trigger: 'manual', enableNavigation: true });
 }
 
 async function pickThemeColorsWithPreview(initial?: { primary?: string; secondary?: string; warn?: string; useDefaultWarn?: boolean }) {
@@ -3844,7 +3977,8 @@ export function activate(context: vscode.ExtensionContext) {
     const checkAngularSetupDisposable = vscode.commands.registerCommand('wizly.checkAngularSetup', checkAngularSetup);
     const setupAngularRuntimeSettingsDisposable = vscode.commands.registerCommand('wizly.setupAngularRuntimeSettings', setupAngularRuntimeSettings);
     const syncAngularRuntimeThemesDisposable = vscode.commands.registerCommand('wizly.syncAngularRuntimeThemes', syncAngularRuntimeThemes);
-    
+    const showReleaseNotesDisposable = vscode.commands.registerCommand('wizly.showReleaseNotes', () => showReleaseNotesForCurrentVersion(context));
+
     const exportSettingsDisposable = vscode.commands.registerCommand('wizly.exportSettings', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
@@ -4005,6 +4139,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(generateBlankThemeScssDisposable);
     context.subscriptions.push(generateThemeColorUtilitiesScssDisposable);
     context.subscriptions.push(checkAngularSetupDisposable);
+    context.subscriptions.push(showReleaseNotesDisposable);
     context.subscriptions.push(setupAngularRuntimeSettingsDisposable);
     context.subscriptions.push(syncAngularRuntimeThemesDisposable);
     context.subscriptions.push(exportSettingsDisposable);

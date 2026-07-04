@@ -89,6 +89,10 @@
         "title": "Wizly: Check Angular Setup"
       },
       {
+        "command": "wizly.showReleaseNotes",
+        "title": "Wizly: Show Release Notes"
+      },
+      {
         "command": "wizly.exportSettings",
         "title": "Wizly: Export Settings"
       },
@@ -142,6 +146,9 @@
         },
         {
           "command": "wizly.checkAngularSetup"
+        },
+        {
+          "command": "wizly.showReleaseNotes"
         },
         {
           "command": "wizly.exportSettings"

@@ -28,6 +28,10 @@ This page lists the main Wizly commands grouped by purpose.
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
 
+## General
+
+- `Wizly: Show Release Notes` — reopens the "what's new" panel for the currently installed version. Unlike the popup that appears automatically right after an update, this one lets you page back and forth (`Previous`/`Next`) through every version that has release notes, and includes a demo video link when one is available for that version.
+
 ## How To Open Them
 
 Use `Ctrl+Shift+P` in VS Code and type `Wizly`.
