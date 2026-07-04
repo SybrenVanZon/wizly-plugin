@@ -2612,6 +2612,24 @@ async function setupAngularRuntimeSettings() {
 
     const proj = projects[projectName];
     const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+    const buildOptions = getBuildOptions(proj);
+    const { abs: indexHtmlAbsForMaterial } = getProjectIndexHtmlPath(workspaceRoot, sourceRoot, buildOptions);
+    const materialIconsMarker = 'fonts.googleapis.com/icon?family=Material+Icons';
+    const materialIconsCandidateText = fs.existsSync(indexHtmlAbsForMaterial) ? fs.readFileSync(indexHtmlAbsForMaterial, 'utf8') : undefined;
+    const shouldAskMaterialIcons = hasMaterial && materialIconsCandidateText !== undefined && !materialIconsCandidateText.includes(materialIconsMarker);
+    let addMaterialIcons = false;
+    if (shouldAskMaterialIcons) {
+        const materialIconsPick = await vscode.window.showQuickPick(
+            [
+                { label: 'Add', description: 'Add the Material Icons stylesheet link to index.html.', id: 'add' },
+                { label: 'Skip', description: 'Do not add it now.', id: 'skip' }
+            ],
+            { title: 'Wizly: Material is installed and the generated mode toggle uses <mat-icon>. Add the Material Icons stylesheet to index.html?' }
+        );
+        if (!materialIconsPick) { return; }
+        addMaterialIcons = materialIconsPick.id === 'add';
+    }
+
     const settingsPaths = resolveRuntimeSettingsPaths(workspaceRoot, proj, sourceRoot);
     const settingsDirAbs = settingsPaths.settingsDirAbs;
     const settingsPathAbs = settingsPaths.settingsPathAbs;
@@ -2636,7 +2654,6 @@ async function setupAngularRuntimeSettings() {
         }
     }
 
-    const buildOptions = getBuildOptions(proj);
     const bundleThemes = (): Array<{ name: string; href: string; mode?: 'light' | 'dark' }> => {
         if (!buildOptions) { return []; }
         const styles = Array.isArray((buildOptions as any).styles) ? (buildOptions as any).styles : [];
@@ -3382,10 +3399,7 @@ async function setupAngularRuntimeSettings() {
     const appConfigAbs = path.join(appDirAbs, 'app.config.ts');
     const appModuleAbs = path.join(appDirAbs, 'app.module.ts');
     const baseScssAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'base', '_base.scss');
-    const indexHtmlRel = typeof buildOptions?.index === 'string' && buildOptions.index.trim()
-        ? buildOptions.index.trim().replace(/\\/g, '/')
-        : `${sourceRoot.replace(/\\/g, '/')}/index.html`;
-    const indexHtmlAbs = path.join(workspaceRoot, indexHtmlRel);
+    const { abs: indexHtmlAbs, rel: indexHtmlRel } = getProjectIndexHtmlPath(workspaceRoot, sourceRoot, buildOptions);
 
     const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -3489,27 +3503,19 @@ async function setupAngularRuntimeSettings() {
     };
 
     let materialIconsPatched = false;
-    if (hasMaterial && fs.existsSync(indexHtmlAbs)) {
+    if (addMaterialIcons && fs.existsSync(indexHtmlAbs)) {
         const before = fs.readFileSync(indexHtmlAbs, 'utf8');
-        const marker = 'fonts.googleapis.com/icon?family=Material+Icons';
-        if (!before.includes(marker)) {
-            const choice = await vscode.window.showInformationMessage(
-                'Wizly: Material is installed and the generated mode toggle uses <mat-icon>. Add the Material Icons stylesheet to index.html?',
-                'Add',
-                'Skip'
-            );
-            if (choice === 'Add') {
-                const linkTag = '  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">\n';
-                let after = before;
-                if (before.includes('</head>')) {
-                    after = before.replace('</head>', `${linkTag}</head>`);
-                } else {
-                    after = `${before.trimEnd()}\n${linkTag}`;
-                }
-                if (after !== before) {
-                    fs.writeFileSync(indexHtmlAbs, after, 'utf8');
-                    materialIconsPatched = true;
-                }
+        if (!before.includes(materialIconsMarker)) {
+            const linkTag = '  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">\n';
+            let after = before;
+            if (before.includes('</head>')) {
+                after = before.replace('</head>', `${linkTag}</head>`);
+            } else {
+                after = `${before.trimEnd()}\n${linkTag}`;
+            }
+            if (after !== before) {
+                fs.writeFileSync(indexHtmlAbs, after, 'utf8');
+                materialIconsPatched = true;
             }
         }
     }
