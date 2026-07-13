@@ -1404,6 +1404,7 @@ async function convertAngularProjectToScss() {
     const angularJson = readJson<any>(angularJsonPath);
 
     const hasSass = !!(packageJson?.dependencies?.sass || packageJson?.devDependencies?.sass);
+    const hasBootstrap = !!(packageJson?.dependencies?.bootstrap || packageJson?.devDependencies?.bootstrap);
 
     const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
     const getTargets = (proj: any) => (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
@@ -1567,7 +1568,30 @@ async function convertAngularProjectToScss() {
 
     ensureFile(path.join(scssDir, 'abstracts', '_tokens.scss'), `$font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;\n$color-text: #0f172a;\n$color-bg: #ffffff;\n`);
     ensureFile(path.join(scssDir, 'abstracts', '_mixins.scss'), ``);
-    ensureFile(path.join(scssDir, 'base', '_base.scss'), `@use '../abstracts/tokens' as *;\n\nhtml,\nbody {\n  height: 100%;\n}\n\n:root {\n  --wizly-body-color: #{$color-text};\n  --wizly-body-background: #{$color-bg};\n}\n\nbody {\n  margin: 0;\n  font-family: $font-family-base;\n  color: var(--wizly-body-color, #{$color-text});\n  background: var(--wizly-body-background, #{$color-bg});\n}\n\nmat-form-field {\n  width: 100%;\n}\n`);
+    const wizlyRequiredCss = [
+        '// Required by Wizly-generated templates — see wiki/CSS-Requirements.md',
+        'mgError {',
+        '  display: inline-block;',
+        '}',
+        '',
+        '.d-none {',
+        '  display: none !important;',
+        '}'
+    ];
+    if (!hasBootstrap) {
+        wizlyRequiredCss.push(
+            '',
+            '// Bootstrap utility fallback — omit if Bootstrap is already included',
+            '.d-flex {',
+            '  display: flex;',
+            '}',
+            '',
+            '.flex-row {',
+            '  flex-direction: row;',
+            '}'
+        );
+    }
+    ensureFile(path.join(scssDir, 'base', '_base.scss'), `@use '../abstracts/tokens' as *;\n\nhtml,\nbody {\n  height: 100%;\n}\n\n:root {\n  --wizly-body-color: #{$color-text};\n  --wizly-body-background: #{$color-bg};\n}\n\nbody {\n  margin: 0;\n  font-family: $font-family-base;\n  color: var(--wizly-body-color, #{$color-text});\n  background: var(--wizly-body-background, #{$color-bg});\n}\n\nmat-form-field {\n  width: 100%;\n}\n\n${wizlyRequiredCss.join('\n')}\n`);
     ensureFile(mainEntryPath, `@use './abstracts/tokens' as *;\n@use './base/base';\n`);
 
     const stylesCssPath = path.join(srcDir, 'styles.css');

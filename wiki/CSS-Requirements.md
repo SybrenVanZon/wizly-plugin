@@ -2,6 +2,8 @@
 
 This page documents the CSS that must be present in your project for Wizly-generated templates to render correctly.
 
+`Wizly: Convert Angular Project to SCSS` writes the `mgError`/`.d-none` rules (and the `.d-flex`/`.flex-row` fallback, unless Bootstrap is already a dependency) into `base/_base.scss` automatically. This page is only needed if you're not using that command, or want to see what was generated and why.
+
 ## mgError
 
 The `<mgError>` component needs to be displayed as a block-level element so it takes up the full width inside its `<mat-error>` wrapper.
