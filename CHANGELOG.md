@@ -3,7 +3,7 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
-## [0.5.0] - 2026-06-28
+## [0.5.0] - 2026-07-13
 
 ### Added
 - **`Wizly: Convert Angular Project to SCSS`**: Converts Angular workspaces from CSS to SCSS, scaffolds a `src/scss/` structure with `main.scss`, updates Angular style references, and optionally converts or removes `magic-styles.css`.
@@ -18,6 +18,8 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 ### Changed
 - **Release scope**: `0.5.0` now focuses on Angular theming and runtime foundation, keeping PWA, Magic Colors, upgrade tooling, and TypeScript-heavy flows for later releases.
 - **Single-theme activation flow**: When the first single light/dark theme bundle is generated, Wizly can now offer to activate it directly in `index.html`; if a fixed theme link already exists and another single theme is generated later, Wizly can keep, switch, or disconnect that fixed activation.
+- **New logo**: Replaced the extension icon and README logo with a simpler, code-focused mark, and updated `galleryBanner.color` to match.
+- **`Convert Angular Project to SCSS` now scaffolds required CSS**: `base/_base.scss` now includes the `mgError`/`.d-none` rules (and the `.d-flex`/`.flex-row` fallback, unless Bootstrap is already a dependency) that Wizly-generated templates need, documented in `wiki/CSS-Requirements.md`.
 
 ## [0.4.0] - 2026-06-28
 
