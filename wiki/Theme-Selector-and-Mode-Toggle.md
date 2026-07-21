@@ -8,8 +8,8 @@ It also shows how to build your own custom UI on top of the generated Wizly runt
 
 When you run `Wizly: Setup Runtime Settings (Angular)`, Wizly can scaffold:
 
-- `wizly-theme-selector.component.ts`
-- `wizly-mode-toggle.component.ts`
+- `wiz-theme-selector.component.ts`
+- `wiz-theme-mode-toggle.component.ts`
 - `wizly-material-form-field.defaults.ts` when Angular Material is installed
 
 These are not separate commands. They are optional helpers that belong to the runtime settings setup.
@@ -23,8 +23,8 @@ After `Wizly: Setup Runtime Settings (Angular)`, Wizly creates the runtime UI co
 
 The selectors are:
 
-- `<wizly-theme-selector></wizly-theme-selector>`
-- `<wizly-mode-toggle></wizly-mode-toggle>`
+- `<wiz-theme-selector></wiz-theme-selector>`
+- `<wiz-theme-mode-toggle></wiz-theme-mode-toggle>`
 
 ## What The Built-In Components Do
 
@@ -59,21 +59,21 @@ If your page or shell component is standalone, import the Wizly components there
 
 ```ts
 import { Component } from '@angular/core';
-import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
-import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
+import { WizThemeModeToggleComponent } from './wizly/wiz-theme-mode-toggle.component';
+import { WizThemeSelectorComponent } from './wizly/wiz-theme-selector.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [WizlyThemeSelectorComponent, WizlyModeToggleComponent],
+  imports: [WizThemeSelectorComponent, WizThemeModeToggleComponent],
   templateUrl: './shell.component.html'
 })
 export class ShellComponent {}
 ```
 
 ```html
-<wizly-theme-selector></wizly-theme-selector>
-<wizly-mode-toggle></wizly-mode-toggle>
+<wiz-theme-selector></wiz-theme-selector>
+<wiz-theme-mode-toggle></wiz-theme-mode-toggle>
 ```
 
 If your project uses `src/app/core/wizly/` instead, change the import path accordingly.
@@ -86,15 +86,15 @@ If your project still uses `AppModule` or another Angular module, import the sta
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
-import { WizlyModeToggleComponent } from './wizly/wizly-mode-toggle.component';
-import { WizlyThemeSelectorComponent } from './wizly/wizly-theme-selector.component';
+import { WizThemeModeToggleComponent } from './wizly/wiz-theme-mode-toggle.component';
+import { WizThemeSelectorComponent } from './wizly/wiz-theme-selector.component';
 
 @NgModule({
   declarations: [AppComponent],
   imports: [
     BrowserModule,
-    WizlyThemeSelectorComponent,
-    WizlyModeToggleComponent
+    WizThemeSelectorComponent,
+    WizThemeModeToggleComponent
   ],
   bootstrap: [AppComponent]
 })
@@ -105,7 +105,7 @@ Then place the selectors where you want them to appear, for example in your top 
 
 ## Build Your Own Custom UI
 
-You do not have to use the generated `<wizly-theme-selector>` or `<wizly-mode-toggle>` components.
+You do not have to use the generated `<wiz-theme-selector>` or `<wiz-theme-mode-toggle>` components.
 
 You can inject the generated `WizlySettingsService` and build your own dropdown, buttons, chips, menu, toolbar, or completely custom layout.
 
@@ -173,7 +173,7 @@ export class ThemeToolsComponent {
 
 `getSelectableThemes()` is already scoped to what the current visitor can actually pick from — for `themeMode: "hostbased"` it only returns the current host's themes, so it works the same way whether a host has one theme or several.
 
-`canUserSwitchTheme()` tells you whether that list has more than one real choice: `true` for `themeMode: "multi"`, and for `themeMode: "hostbased"` only when the current host itself has more than one theme. The generated `<wizly-theme-selector>` wraps its whole template in `*ngIf="canSwitch$ | async"` so the control disappears completely (not just becomes disabled) when there is nothing to switch to — for example a `hostbased` host with a single theme, or `themeMode: "single"`. Do the same in your own UI: gate the selector's container element behind `canSwitch$ | async`, as shown above, instead of only disabling the `<select>`.
+`canUserSwitchTheme()` tells you whether that list has more than one real choice: `true` for `themeMode: "multi"`, and for `themeMode: "hostbased"` only when the current host itself has more than one theme. The generated `<wiz-theme-selector>` wraps its whole template in `*ngIf="canSwitch$ | async"` so the control disappears completely (not just becomes disabled) when there is nothing to switch to — for example a `hostbased` host with a single theme, or `themeMode: "single"`. Do the same in your own UI: gate the selector's container element behind `canSwitch$ | async`, as shown above, instead of only disabling the `<select>`.
 
 ## CSS And DOM Hooks
 

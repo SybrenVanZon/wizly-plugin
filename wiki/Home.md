@@ -1,5 +1,9 @@
 # Wizly Wiki
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SybrenVanZon/wizly-plugin/main/images/wizly-text.png" alt="Wizly" width="320">
+</p>
+
 Wizly post-processes Magic xpa Web Client output so teams can standardize generated HTML with shared rules, templates, project settings, and Angular styling workflows.
 
 ## Start Here

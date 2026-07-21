@@ -681,29 +681,29 @@ async function openChangelogForVersion(context: vscode.ExtensionContext, version
     }
 }
 
-function renderReleaseNotesHtml(webview: vscode.Webview, notes: ReleaseNotesInfo, trigger: ReleaseNotesTrigger, nav: { enableNavigation: boolean; canPrev: boolean; canNext: boolean }): string {
+function renderReleaseNotesHtml(webview: vscode.Webview, notes: ReleaseNotesInfo, trigger: ReleaseNotesTrigger, nav: { enableNavigation: boolean; canPrev: boolean; canNext: boolean }, logoUri: vscode.Uri): string {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const fromText = trigger === 'update'
         ? (notes.previousVersion
             ? `Wizly updated from ${escapeHtml(notes.previousVersion)} to ${escapeHtml(notes.version)}.`
             : `Wizly updated to ${escapeHtml(notes.version)}.`)
         : `Release notes for Wizly ${escapeHtml(notes.version)}.`;
-    const summaryHtml = renderMarkdownExcerptToHtml(notes.summaryMarkdown);
+    const summaryHtml = renderMarkdownExcerptToHtml(notes.summaryMarkdown)
+        .replace(/<h1>Wizly\s+(.*?)<\/h1>\s*(?:<h2>(.*?)<\/h2>)?/, (_match, version, subtitleText) =>
+            `<div class="brand-title"><img src="${logoUri}" alt="Wizly" class="logo-text" /><div class="brand-title-text"><h1 class="version">${version}</h1>${subtitleText ? `<h1 class="subtitle">${subtitleText}</h1>` : ''}</div></div>`);
     const videoButtonHtml = notes.videoUrl
         ? `<button id="videoButton" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.5v-7l6.3 3.5-6.3 3.5Z"/></svg><span>Demo</span></button>`
         : '';
     const navHtml = nav.enableNavigation
-        ? `<div class="button-row">
-        <button id="prevButton" type="button" ${nav.canPrev ? '' : 'disabled'}>&larr; Previous</button>
-        <button id="nextButton" type="button" ${nav.canNext ? '' : 'disabled'}>Next &rarr;</button>
-      </div>`
+        ? `<button id="prevButton" type="button" ${nav.canPrev ? '' : 'disabled'}>&larr; Previous</button>
+        <button id="nextButton" type="button" ${nav.canNext ? '' : 'disabled'}>Next &rarr;</button>`
         : '';
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wizly Release Notes</title>
   <style>
@@ -712,18 +712,24 @@ function renderReleaseNotesHtml(webview: vscode.Webview, notes: ReleaseNotesInfo
     p { margin: 0 0 12px; }
     ul { margin: 0 0 16px 18px; padding: 0; }
     li { margin: 0 0 8px; }
+    li::marker { color: #8B7AE6; }
     code { font-family: var(--vscode-editor-font-family, monospace); background: var(--vscode-textCodeBlock-background, rgba(127,127,127,0.12)); padding: 2px 4px; border-radius: 4px; }
     pre { overflow-x: auto; padding: 12px; border-radius: 8px; background: var(--vscode-textCodeBlock-background, rgba(127,127,127,0.12)); }
     a { color: var(--vscode-textLink-foreground); }
     .eyebrow { color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
+    .brand-title { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); }
+    .brand-title .logo-text { height: 64px; width: auto; }
+    .brand-title-text { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; }
+    .brand-title-text h1 { margin: 0; color: var(--vscode-foreground); }
     .shell { max-width: 860px; margin: 0 auto; }
     .card { border: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); border-radius: 10px; padding: 18px; background: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
     .meta { color: var(--vscode-descriptionForeground); font-size: 12px; margin-top: 18px; }
-    .button-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .button-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); flex-wrap: wrap; }
+    .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
     button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 6px; cursor: pointer; font: inherit; }
     button:disabled { opacity: 0.5; cursor: default; }
-    #openButton { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
-    #dismissButton, #prevButton, #nextButton { color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); background: var(--vscode-button-secondaryBackground, transparent); }
+    #openButton { color: #ffffff; background: #5950A1; border-color: #5950A1; }
+    #dismissButton, #prevButton, #nextButton { color: #5950A1; background: transparent; border-color: #5950A1; }
     #videoButton { color: #ffffff; background: #ff0000; border-color: #ff0000; }
   </style>
 </head>
@@ -733,11 +739,15 @@ function renderReleaseNotesHtml(webview: vscode.Webview, notes: ReleaseNotesInfo
     <div class="card">
       ${summaryHtml}
       <div class="button-row">
-        ${videoButtonHtml}
-        <button id="openButton" type="button">Open Changelog</button>
-        <button id="dismissButton" type="button">Close</button>
+        <div class="button-group">
+          ${videoButtonHtml}
+          <button id="openButton" type="button">Open Changelog</button>
+          <button id="dismissButton" type="button">Close</button>
+        </div>
+        <div class="button-group">
+          ${navHtml}
+        </div>
       </div>
-      ${navHtml}
       <div class="meta">Summary source: ${escapeHtml(notes.relativePath)}</div>
     </div>
   </div>
@@ -769,22 +779,27 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, initialNo
     const versions = enableNavigation ? listReleaseNotesVersions(context) : [];
 
     let notes = initialNotes;
+    const imagesDir = vscode.Uri.joinPath(context.extension.extensionUri, 'images');
     const panel = vscode.window.createWebviewPanel(
         'wizlyReleaseNotes',
         `Wizly: What's New in ${notes.version}`,
         vscode.ViewColumn.Active,
-        { enableScripts: true, retainContextWhenHidden: false }
+        { enableScripts: true, retainContextWhenHidden: false, localResourceRoots: [imagesDir] }
     );
+    panel.iconPath = vscode.Uri.joinPath(imagesDir, 'icon.png');
+    const logoUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(imagesDir, 'wizly-text.png'));
+
+    const getVersionIndex = (version: string) => versions.indexOf(version.replace(/-rc\d+$/i, ''));
 
     const render = () => {
-        const index = versions.indexOf(notes.version);
+        const index = getVersionIndex(notes.version);
         const nav = {
             enableNavigation,
             canPrev: enableNavigation && index > 0,
             canNext: enableNavigation && index >= 0 && index < versions.length - 1
         };
         panel.title = `Wizly: What's New in ${notes.version}`;
-        panel.webview.html = renderReleaseNotesHtml(panel.webview, notes, trigger, nav);
+        panel.webview.html = renderReleaseNotesHtml(panel.webview, notes, trigger, nav, logoUri);
     };
     render();
 
@@ -807,13 +822,13 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, initialNo
         }
 
         if (message?.command === 'prev') {
-            const index = versions.indexOf(notes.version);
+            const index = getVersionIndex(notes.version);
             if (index > 0) { navigateTo(versions[index - 1]); }
             return;
         }
 
         if (message?.command === 'next') {
-            const index = versions.indexOf(notes.version);
+            const index = getVersionIndex(notes.version);
             if (index >= 0 && index < versions.length - 1) { navigateTo(versions[index + 1]); }
             return;
         }
@@ -3280,13 +3295,24 @@ async function setupAngularRuntimeSettings() {
         "    }",
         "",
         "    private resolveMode(settings?: WizlySettings): WizlyMode {",
-        "        const stored = this.readStoredMode();",
-        "        if (stored !== 'system') { return stored; }",
-        "",
         "        const s = settings;",
-        "        const defaultThemePreference = s?.defaultThemePreference;",
-        "        if (defaultThemePreference === 'light' || defaultThemePreference === 'dark' || defaultThemePreference === 'system') { return defaultThemePreference; }",
-        "        return 'system';",
+        "        const rawDefault = s?.defaultThemePreference;",
+        "        const configDefault: WizlyMode = (rawDefault === 'light' || rawDefault === 'dark' || rawDefault === 'system') ? rawDefault : 'system';",
+        "",
+        "        if (s) {",
+        "            let seenDefault: string | null = null;",
+        "            try { seenDefault = localStorage.getItem('wizly.seenDefaultThemePreference'); } catch { }",
+        "            if (seenDefault !== configDefault) {",
+        "                try {",
+        "                    localStorage.setItem('wizly.seenDefaultThemePreference', configDefault);",
+        "                    localStorage.removeItem('wizly.themePreference');",
+        "                } catch { }",
+        "                return configDefault;",
+        "            }",
+        "        }",
+        "",
+        "        const stored = this.readStoredMode();",
+        "        return stored !== 'system' ? stored : configDefault;",
         "    }",
         "",
         "    private resolveThemeHref(settings?: WizlySettings, mode: WizlyMode = this.stateSubject.value.mode, preferredHref?: string): string {",
@@ -3409,7 +3435,7 @@ async function setupAngularRuntimeSettings() {
         fs.writeFileSync(serviceAbs, patchedCreatedServiceText, 'utf8');
     }
 
-    const themeSelectorAbs = path.join(wizlyDirAbs, 'wizly-theme-selector.component.ts');
+    const themeSelectorAbs = path.join(wizlyDirAbs, 'wiz-theme-selector.component.ts');
     const selectorContent = hasMaterial
         ? [
             "import { CommonModule } from '@angular/common';",
@@ -3420,7 +3446,7 @@ async function setupAngularRuntimeSettings() {
             "import { WizlySettingsService } from './wizly-settings.service';",
             "",
             "@Component({",
-            "    selector: 'wizly-theme-selector',",
+            "    selector: 'wiz-theme-selector',",
             "    standalone: true,",
             "    imports: [CommonModule, MatFormFieldModule, MatSelectModule],",
             "    template: `<mat-form-field appearance=\"fill\" style=\"width: 100%\" *ngIf=\"canSwitch$ | async\">",
@@ -3430,7 +3456,7 @@ async function setupAngularRuntimeSettings() {
             "  </mat-select>",
             "</mat-form-field>`",
             "})",
-            "export class WizlyThemeSelectorComponent {",
+            "export class WizThemeSelectorComponent {",
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));",
             "    readonly activeSelection$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));",
@@ -3449,7 +3475,7 @@ async function setupAngularRuntimeSettings() {
             "import { WizlySettingsService } from './wizly-settings.service';",
             "",
             "@Component({",
-            "    selector: 'wizly-theme-selector',",
+            "    selector: 'wiz-theme-selector',",
             "    standalone: true,",
             "    imports: [CommonModule],",
             "    template: `<label style=\"display: block; font: inherit\" *ngIf=\"canSwitch$ | async\">",
@@ -3459,7 +3485,7 @@ async function setupAngularRuntimeSettings() {
             "  </select>",
             "</label>`",
             "})",
-            "export class WizlyThemeSelectorComponent {",
+            "export class WizThemeSelectorComponent {",
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly themes$ = this.settings.state$.pipe(map(() => this.settings.getSelectableThemes()));",
             "    readonly activeSelection$ = this.settings.state$.pipe(map(() => this.settings.getActiveThemeSelection()));",
@@ -3473,7 +3499,7 @@ async function setupAngularRuntimeSettings() {
         ].join('\n');
     fs.writeFileSync(themeSelectorAbs, selectorContent, 'utf8');
 
-    const modeToggleAbs = path.join(wizlyDirAbs, 'wizly-mode-toggle.component.ts');
+    const modeToggleAbs = path.join(wizlyDirAbs, 'wiz-theme-mode-toggle.component.ts');
     const modeToggleContent = hasMaterial
         ? [
             "import { CommonModule } from '@angular/common';",
@@ -3484,14 +3510,14 @@ async function setupAngularRuntimeSettings() {
             "import { WizlyMode, WizlySettingsService } from './wizly-settings.service';",
             "",
             "@Component({",
-            "    selector: 'wizly-mode-toggle',",
+            "    selector: 'wiz-theme-mode-toggle',",
             "    standalone: true,",
             "    imports: [CommonModule, MatButtonModule, MatIconModule],",
             "    template: `<button type=\"button\" mat-icon-button (click)=\"cycle()\" [attr.aria-label]=\"label$ | async\">",
             "  <mat-icon>{{ icon$ | async }}</mat-icon>",
             "</button>`",
             "})",
-            "export class WizlyModeToggleComponent {",
+            "export class WizThemeModeToggleComponent {",
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly mode$ = this.settings.state$.pipe(map(s => s.mode));",
             "    readonly icon$ = this.mode$.pipe(map(m => m === 'dark' ? 'dark_mode' : m === 'light' ? 'light_mode' : 'brightness_auto'));",
@@ -3512,7 +3538,7 @@ async function setupAngularRuntimeSettings() {
             "import { WizlyMode, WizlySettingsService } from './wizly-settings.service';",
             "",
             "@Component({",
-            "    selector: 'wizly-mode-toggle',",
+            "    selector: 'wiz-theme-mode-toggle',",
             "    standalone: true,",
             "    imports: [CommonModule],",
             "    template: `<label style=\"display: inline-flex; align-items: center; gap: 8px\">",
@@ -3524,7 +3550,7 @@ async function setupAngularRuntimeSettings() {
             "  </select>",
             "</label>`",
             "})",
-            "export class WizlyModeToggleComponent {",
+            "export class WizThemeModeToggleComponent {",
             "    private readonly settings = inject(WizlySettingsService);",
             "    readonly mode$ = this.settings.state$.pipe(map(s => s.mode));",
             "",
