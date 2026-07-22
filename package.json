@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.5.0-rc21",
+  "version": "0.5.0-rc26",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -86,7 +86,7 @@
       },
       {
         "command": "wizly.checkAngularSetup",
-        "title": "Wizly: Check Angular Setup"
+        "title": "Wizly: Check Angular Setup (Report)"
       },
       {
         "command": "wizly.showReleaseNotes",

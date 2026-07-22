@@ -20,6 +20,14 @@ function normalizePath(p: string): string {
     return p.replace(/\\/g, '/');
 }
 
+function getThemeHosts(theme: any): string[] {
+    const raw = theme?.host;
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+        .filter((h: unknown): h is string => typeof h === 'string' && h.trim().length > 0)
+        .map((h: string) => h.trim());
+}
+
 function readJsonSafe<T>(filePath: string): { value?: T; error?: string } {
     try {
         return { value: JSON.parse(fs.readFileSync(filePath, 'utf8')) as T };
@@ -122,26 +130,6 @@ function hasSettingsAsset(buildOptions: any, inputRel: string): boolean {
         return normalizePath(String((a as any).input ?? '')) === normalizePath(inputRel)
             && normalizePath(String((a as any).output ?? '')) === 'settings';
     });
-}
-
-function listFilesRecursive(root: string, predicate: (filePath: string) => boolean, skip = new Set(['node_modules', '.git', 'dist', 'out', 'build', '.vs', '.vscode'])): string[] {
-    const found: string[] = [];
-    if (!fs.existsSync(root)) { return found; }
-    const walk = (dirPath: string) => {
-        for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-            if (entry.isDirectory()) {
-                if (skip.has(entry.name)) { continue; }
-                walk(path.join(dirPath, entry.name));
-                continue;
-            }
-            const fullPath = path.join(dirPath, entry.name);
-            if (predicate(fullPath)) {
-                found.push(fullPath);
-            }
-        }
-    };
-    walk(root);
-    return found;
 }
 
 export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, packageJson: any, projectName: string): AngularSetupReport {
@@ -256,7 +244,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
                 add('warning', 'settings.json exists but angular.json does not appear to copy the settings folder to /settings.');
             }
         } else {
-            add('info', 'settings.json is placed under public/.', 'In most Angular setups, public/ files are served at the site root. This typically makes the runtime settings available at /settings/settings.json.');
+            add('success', 'settings.json is placed under public/.', 'In most Angular setups, public/ files are served at the site root. This typically makes the runtime settings available at /settings/settings.json.');
         }
 
         const parsedSettings = readJsonSafe<any>(settingsPathAbs);
@@ -313,7 +301,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
             }
 
             if (themeMode === 'hostbased') {
-                const missingHost = runtimeThemes.filter((theme: any) => !String(theme?.host ?? '').trim());
+                const missingHost = runtimeThemes.filter((theme: any) => getThemeHosts(theme).length === 0);
                 if (missingHost.length === 0) {
                     add('success', 'All hostbased runtime themes define a host.');
                 } else {
@@ -322,11 +310,11 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
 
                 const themesByHost = new Map<string, any[]>();
                 for (const theme of runtimeThemes) {
-                    const host = String(theme?.host ?? '').trim();
-                    if (!host) { continue; }
-                    const list = themesByHost.get(host) ?? [];
-                    list.push(theme);
-                    themesByHost.set(host, list);
+                    for (const host of getThemeHosts(theme)) {
+                        const list = themesByHost.get(host) ?? [];
+                        list.push(theme);
+                        themesByHost.set(host, list);
+                    }
                 }
                 const ambiguousHosts = [...themesByHost.entries()].filter(([host, list]) => {
                     if (list.length < 2) { return false; }
@@ -400,73 +388,5 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('warning', 'Theme bundles exist, but no activation path was found.', 'Use runtime settings or add a fixed theme link in index.html so one of the generated bundles becomes active.');
     }
 
-    const manifestCandidates = [
-        path.join(workspaceRoot, 'public', 'manifest.webmanifest'),
-        path.join(workspaceRoot, sourceRoot, 'manifest.webmanifest'),
-        path.join(workspaceRoot, sourceRoot, 'public', 'manifest.webmanifest')
-    ];
-    const hasManifest = manifestCandidates.some((candidate) => fs.existsSync(candidate));
-    const ngswConfigPath = path.join(workspaceRoot, 'ngsw-config.json');
-    if (hasManifest && fs.existsSync(ngswConfigPath)) {
-        add('success', 'PWA markers were found (manifest + ngsw-config.json).');
-    } else if (hasManifest || fs.existsSync(ngswConfigPath)) {
-        add('warning', 'Only part of the expected PWA setup was found.', 'Expected both a manifest.webmanifest and ngsw-config.json.');
-    } else {
-        add('info', 'PWA support is not configured.');
-    }
-
-    const sharedModuleCandidates = [
-        path.join(workspaceRoot, sourceRoot, 'app', 'shared', 'shared.module.ts'),
-        path.join(workspaceRoot, sourceRoot, 'app', 'shared', 'shared-material.module.ts')
-    ];
-    const magicModuleFiles = listFilesRecursive(workspaceRoot, (filePath) => normalizePath(filePath).endsWith('/magic.gen.lib.module.ts'));
-    if (magicModuleFiles.length > 0) {
-        const existingSharedModules = sharedModuleCandidates.filter((candidate) => fs.existsSync(candidate));
-        if (existingSharedModules.length > 0) {
-            add('success', `Shared module support appears present for ${magicModuleFiles.length} Magic module file(s).`);
-        } else {
-            add('warning', `Found ${magicModuleFiles.length} magic.gen.lib.module.ts file(s) but no shared module files in the default shared folder.`);
-        }
-    } else {
-        add('info', 'No magic.gen.lib.module.ts files were found.', 'Shared module sync may not be relevant for this project.');
-    }
-
     return { workspaceRoot, projectName, sourceRoot, findings };
-}
-
-export function renderAngularSetupReportMarkdown(report: AngularSetupReport): string {
-    const severityLabel = (severity: AngularSetupSeverity) => {
-        switch (severity) {
-            case 'error': return 'Error';
-            case 'warning': return 'Warning';
-            case 'success': return 'OK';
-            case 'info': return 'Info';
-        }
-    };
-
-    const counts = {
-        error: report.findings.filter((finding) => finding.severity === 'error').length,
-        warning: report.findings.filter((finding) => finding.severity === 'warning').length,
-        success: report.findings.filter((finding) => finding.severity === 'success').length,
-        info: report.findings.filter((finding) => finding.severity === 'info').length,
-    };
-
-    const lines: string[] = [];
-    lines.push('# Wizly Angular Setup Report');
-    lines.push('');
-    lines.push(`- Workspace: \`${normalizePath(report.workspaceRoot)}\``);
-    lines.push(`- Project: \`${report.projectName}\``);
-    lines.push(`- Source root: \`${normalizePath(report.sourceRoot)}\``);
-    lines.push(`- Summary: ${counts.error} error(s), ${counts.warning} warning(s), ${counts.success} OK item(s), ${counts.info} info item(s)`);
-    lines.push('');
-    lines.push('## Findings');
-    lines.push('');
-    for (const finding of report.findings) {
-        lines.push(`- **${severityLabel(finding.severity)}**: ${finding.title}`);
-        if (finding.details) {
-            lines.push(`  ${finding.details.replace(/\r?\n/g, '\n  ')}`);
-        }
-    }
-    lines.push('');
-    return lines.join('\n');
 }

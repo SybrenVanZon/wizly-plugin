@@ -23,7 +23,7 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 - `Wizly: Generate Theme Color Utilities (SCSS)`
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
-- `Wizly: Check Angular Setup`
+- `Wizly: Check Angular Setup (Report)`
 
 ## Recommended Order
 
@@ -32,7 +32,7 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 3. Generate theme color utilities if you want reusable global classes.
 4. Set up runtime settings.
 5. Sync runtime themes after adding or renaming theme bundles.
-6. Run `Wizly: Check Angular Setup` to validate the whole flow.
+6. Run `Wizly: Check Angular Setup (Report)` to validate the whole flow.
 
 ## Supporting Pages
 

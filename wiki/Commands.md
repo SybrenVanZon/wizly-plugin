@@ -24,7 +24,7 @@ This page lists the main Wizly commands grouped by purpose.
 - `Wizly: Generate Angular Material Theme (SCSS)`
 - `Wizly: Generate Theme Bundle (Blank SCSS)`
 - `Wizly: Generate Theme Color Utilities (SCSS)`
-- `Wizly: Check Angular Setup`
+- `Wizly: Check Angular Setup (Report)`
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
 

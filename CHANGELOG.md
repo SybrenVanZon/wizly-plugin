@@ -12,7 +12,7 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **`Wizly: Generate Theme Color Utilities (SCSS)`**: Generates Material-aware utility classes for themed background, text, border, and fill usage and wires them into `src/scss/main.scss`.
 - **`Wizly: Setup Runtime Settings (Angular)`**: Scaffolds runtime-loaded `settings.json`, Angular startup wiring, and optional theme/mode UI helpers for runtime theme activation.
 - **`Wizly: Sync Runtime Themes (Angular)`**: Syncs `inject: false` theme bundles from `angular.json` into `settings.json`.
-- **`Wizly: Check Angular Setup`**: Opens a markdown report that verifies the Wizly Angular theming/runtime setup across SCSS, theme bundles, runtime settings, and related project markers.
+- **`Wizly: Check Angular Setup (Report)`**: Opens a report that verifies the Wizly Angular theming/runtime setup across SCSS, theme bundles, runtime settings, and related project markers.
 - **Angular theming wiki**: Adds focused documentation under `wiki/` for SCSS conversion, theme generation, blank bundles, and runtime settings.
 
 ### Changed

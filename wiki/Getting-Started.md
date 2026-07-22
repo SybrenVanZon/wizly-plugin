@@ -81,7 +81,7 @@ See [Runtime Settings](./Runtime-Settings.md).
 
 After the SCSS, theme, and runtime flow is in place, run:
 
-- `Wizly: Check Angular Setup`
+- `Wizly: Check Angular Setup (Report)`
 
 This gives you a quick report of whether the expected SCSS, theme, and runtime markers look consistent.
 

@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
-import { analyzeAngularSetup, renderAngularSetupReportMarkdown } from './angular-check';
+import { analyzeAngularSetup, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
 import * as ts from 'typescript';
@@ -842,6 +842,131 @@ async function showReleaseNotesPanel(context: vscode.ExtensionContext, initialNo
         messageSubscription.dispose();
     });
 
+    context.subscriptions.push(panel);
+}
+
+const ANGULAR_SETUP_SEVERITY_META: Record<AngularSetupSeverity, { label: string; color: string; icon: string }> = {
+    success: {
+        label: 'OK',
+        color: '#3fb950',
+        icon: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#3fb950"/><path d="M4.5 8.3l2.2 2.2 4.8-4.9" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    },
+    warning: {
+        label: 'Warning',
+        color: '#d9822b',
+        icon: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#d9822b"/><line x1="8" y1="4" x2="8" y2="8.2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.3" r="1" fill="#fff"/></svg>'
+    },
+    error: {
+        label: 'Error',
+        color: '#e5484d',
+        icon: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#e5484d"/><path d="M5.3 5.3l5.4 5.4M10.7 5.3l-5.4 5.4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>'
+    },
+    info: {
+        label: 'Info',
+        color: '#8B7AE6',
+        icon: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#8B7AE6"/><line x1="8" y1="7.8" x2="8" y2="12" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.3" r="1" fill="#fff"/></svg>'
+    }
+};
+
+function renderAngularSetupFindingDetailsHtml(details: string): string {
+    return details
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map(line => renderInlineMarkdownToHtml(line))
+        .join('<br />');
+}
+
+function renderAngularSetupReportHtml(webview: vscode.Webview, report: AngularSetupReport, logoUri: vscode.Uri): string {
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const counts: Record<AngularSetupSeverity, number> = { error: 0, warning: 0, success: 0, info: 0 };
+    for (const finding of report.findings) { counts[finding.severity]++; }
+
+    const badgeHtml = (severity: AngularSetupSeverity, count: number) => {
+        const meta = ANGULAR_SETUP_SEVERITY_META[severity];
+        const plural = count !== 1 && (severity === 'error' || severity === 'warning') ? 's' : '';
+        return `<span class="badge" style="color: ${meta.color}">${meta.icon}<span>${count} ${meta.label}${plural}</span></span>`;
+    };
+
+    const findingHtml = (finding: AngularSetupFinding) => {
+        const meta = ANGULAR_SETUP_SEVERITY_META[finding.severity];
+        const detailsHtml = finding.details
+            ? `<div class="finding-details">${renderAngularSetupFindingDetailsHtml(finding.details)}</div>`
+            : '';
+        return `<div class="finding">
+      <span class="finding-icon" style="color: ${meta.color}" title="${meta.label}">${meta.icon}</span>
+      <div class="finding-body">
+        <div class="finding-title">${renderInlineMarkdownToHtml(finding.title)}</div>
+        ${detailsHtml}
+      </div>
+    </div>`;
+    };
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource};">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wizly Angular Setup Report</title>
+  <style>
+    body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 20px; line-height: 1.55; }
+    code { font-family: var(--vscode-editor-font-family, monospace); background: var(--vscode-textCodeBlock-background, rgba(127,127,127,0.12)); padding: 2px 4px; border-radius: 4px; }
+    .shell { max-width: 860px; margin: 0 auto; }
+    .card { border: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); border-radius: 10px; padding: 18px; background: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
+    .brand-title { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); }
+    .brand-title .logo-text { height: 64px; width: auto; }
+    .brand-title-text { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; }
+    .brand-title-text h1 { margin: 0; }
+    .brand-title-text .subtitle { color: #8B7AE6; font-weight: 600; }
+    .meta { color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
+    .badges { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .findings { display: flex; flex-direction: column; gap: 4px; }
+    .finding { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.12)); }
+    .finding:last-child { border-bottom: none; }
+    .finding-icon { flex-shrink: 0; margin-top: 2px; }
+    .finding-body { min-width: 0; }
+    .finding-title { }
+    .finding-details { color: var(--vscode-descriptionForeground); font-size: 13px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="brand-title">
+        <img src="${logoUri}" alt="Wizly" class="logo-text" />
+        <div class="brand-title-text">
+          <h1>Angular Setup</h1>
+          <span class="subtitle">${escapeHtml(report.projectName)}</span>
+        </div>
+      </div>
+      <div class="meta">Workspace: <code>${escapeHtml(report.workspaceRoot)}</code> &middot; Source root: <code>${escapeHtml(report.sourceRoot)}</code></div>
+      <div class="badges">
+        ${badgeHtml('error', counts.error)}
+        ${badgeHtml('warning', counts.warning)}
+        ${badgeHtml('success', counts.success)}
+        ${badgeHtml('info', counts.info)}
+      </div>
+      <div class="findings">
+        ${report.findings.map(findingHtml).join('\n')}
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function showAngularSetupReportPanel(context: vscode.ExtensionContext, report: AngularSetupReport): Promise<void> {
+    const imagesDir = vscode.Uri.joinPath(context.extension.extensionUri, 'images');
+    const panel = vscode.window.createWebviewPanel(
+        'wizlyAngularSetupReport',
+        'Wizly: Angular Setup Report',
+        vscode.ViewColumn.Active,
+        { enableScripts: true, retainContextWhenHidden: false, localResourceRoots: [imagesDir] }
+    );
+    panel.iconPath = vscode.Uri.joinPath(imagesDir, 'icon.png');
+    const logoUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(imagesDir, 'wizly-text.png'));
+    panel.webview.html = renderAngularSetupReportHtml(panel.webview, report, logoUri);
     context.subscriptions.push(panel);
 }
 
@@ -3931,7 +4056,7 @@ async function syncAngularRuntimeThemes() {
     });
 }
 
-async function checkAngularSetup() {
+async function checkAngularSetup(context: vscode.ExtensionContext) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
         vscode.window.showErrorMessage('Wizly: Please open a folder first.');
@@ -4024,9 +4149,7 @@ async function checkAngularSetup() {
     }
 
     const report = analyzeAngularSetup(workspaceRoot, angularJson, packageJson, projectName);
-    const markdown = renderAngularSetupReportMarkdown(report);
-    const doc = await vscode.workspace.openTextDocument({ content: markdown, language: 'markdown' });
-    await vscode.window.showTextDocument(doc, { preview: false });
+    await showAngularSetupReportPanel(context, report);
 
     const errorCount = report.findings.filter((finding) => finding.severity === 'error').length;
     const warningCount = report.findings.filter((finding) => finding.severity === 'warning').length;
@@ -4045,7 +4168,7 @@ export function activate(context: vscode.ExtensionContext) {
     const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
     const generateBlankThemeScssDisposable = vscode.commands.registerCommand('wizly.generateBlankThemeScss', generateBlankThemeScss);
     const generateThemeColorUtilitiesScssDisposable = vscode.commands.registerCommand('wizly.generateThemeColorUtilitiesScss', generateThemeColorUtilitiesScss);
-    const checkAngularSetupDisposable = vscode.commands.registerCommand('wizly.checkAngularSetup', checkAngularSetup);
+    const checkAngularSetupDisposable = vscode.commands.registerCommand('wizly.checkAngularSetup', () => checkAngularSetup(context));
     const setupAngularRuntimeSettingsDisposable = vscode.commands.registerCommand('wizly.setupAngularRuntimeSettings', setupAngularRuntimeSettings);
     const syncAngularRuntimeThemesDisposable = vscode.commands.registerCommand('wizly.syncAngularRuntimeThemes', syncAngularRuntimeThemes);
     const showReleaseNotesDisposable = vscode.commands.registerCommand('wizly.showReleaseNotes', () => showReleaseNotesForCurrentVersion(context));

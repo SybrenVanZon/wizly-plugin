@@ -32,4 +32,4 @@ Wizly includes a focused set of Angular workspace commands for SCSS conversion, 
 3. `Wizly: Generate Theme Color Utilities (SCSS)` if you want reusable global palette classes
 4. `Wizly: Setup Runtime Settings (Angular)`
 5. `Wizly: Sync Runtime Themes (Angular)`
-6. `Wizly: Check Angular Setup` when you want a health check of the completed setup
+6. `Wizly: Check Angular Setup (Report)` when you want a health check of the completed setup

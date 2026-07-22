@@ -82,7 +82,7 @@ export const wizlyMatFormFieldDefaults: MatFormFieldDefaultOptions = {
 };
 ```
 
-`Wizly: Check Angular Setup` verifies that this file exists and is wired into your providers whenever Angular Material is present.
+`Wizly: Check Angular Setup (Report)` verifies that this file exists and is wired into your providers whenever Angular Material is present.
 
 ## Minimal `settings.json`
 
@@ -208,7 +208,7 @@ The top-level `wizly.defaultTheme` is a single href, shared across all hosts —
 }
 ```
 
-Resolution order per host is: the visitor's previously stored choice (`localStorage`, if it still belongs to that host) → the theme marked `"default": true` for that host → `wizly.defaultTheme` if it happens to belong to that host → the first theme listed for that host. `Wizly: Check Angular Setup` warns when a host has more than one theme but no explicit default, since that means the outcome silently depends on array order.
+Resolution order per host is: the visitor's previously stored choice (`localStorage`, if it still belongs to that host) → the theme marked `"default": true` for that host → `wizly.defaultTheme` if it happens to belong to that host → the first theme listed for that host. `Wizly: Check Angular Setup (Report)` warns when a host has more than one theme but no explicit default, since that means the outcome silently depends on array order.
 
 ## `defaultThemePreference`
 
