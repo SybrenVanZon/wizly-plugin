@@ -163,6 +163,12 @@ Switching between modes is a matter of editing `wizly.themeMode` and the surroun
 
 In this setup, the app checks the current host name and loads the matching theme. If no host matches, it falls back to `defaultTheme`. Going back from `hostbased` to `single`/`multi` is safe — the leftover `host` fields on each theme are simply ignored when `themeMode` is not `hostbased`.
 
+`host` also accepts an array, so one theme entry can serve several hosts without duplicating it per host:
+
+```json
+{ "name": "Shared", "href": "shared.css", "host": ["a.example.com", "b.example.com"] }
+```
+
 ### `hostbased` With Multiple Themes Per Host
 
 A host can have more than one theme. The theme selector then becomes interactive automatically, but only shows and switches between the themes for the current host — visitors on one host never see another host's themes in the dropdown:

@@ -8,8 +8,8 @@ It also shows how to build your own custom UI on top of the generated Wizly runt
 
 When you run `Wizly: Setup Runtime Settings (Angular)`, Wizly can scaffold:
 
-- `wiz-theme-selector.component.ts`
-- `wiz-theme-mode-toggle.component.ts`
+- `components/wizly-theme-selector.component.ts`
+- `components/wizly-theme-mode-toggle.component.ts`
 - `wizly-material-form-field.defaults.ts` when Angular Material is installed
 
 These are not separate commands. They are optional helpers that belong to the runtime settings setup.
@@ -18,8 +18,8 @@ These are not separate commands. They are optional helpers that belong to the ru
 
 After `Wizly: Setup Runtime Settings (Angular)`, Wizly creates the runtime UI components in one of these folders:
 
-- `src/app/wizly/`
-- `src/app/core/wizly/` when your project already uses a `core/` folder
+- `src/app/wizly/components/`
+- `src/app/core/wizly/components/` when your project already uses a `core/` folder
 
 The selectors are:
 
@@ -59,13 +59,13 @@ If your page or shell component is standalone, import the Wizly components there
 
 ```ts
 import { Component } from '@angular/core';
-import { WizThemeModeToggleComponent } from './wizly/wiz-theme-mode-toggle.component';
-import { WizThemeSelectorComponent } from './wizly/wiz-theme-selector.component';
+import { WizlyThemeModeToggleComponent } from './wizly/components/wizly-theme-mode-toggle.component';
+import { WizlyThemeSelectorComponent } from './wizly/components/wizly-theme-selector.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [WizThemeSelectorComponent, WizThemeModeToggleComponent],
+  imports: [WizlyThemeSelectorComponent, WizlyThemeModeToggleComponent],
   templateUrl: './shell.component.html'
 })
 export class ShellComponent {}
@@ -86,15 +86,15 @@ If your project still uses `AppModule` or another Angular module, import the sta
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
-import { WizThemeModeToggleComponent } from './wizly/wiz-theme-mode-toggle.component';
-import { WizThemeSelectorComponent } from './wizly/wiz-theme-selector.component';
+import { WizlyThemeModeToggleComponent } from './wizly/components/wizly-theme-mode-toggle.component';
+import { WizlyThemeSelectorComponent } from './wizly/components/wizly-theme-selector.component';
 
 @NgModule({
   declarations: [AppComponent],
   imports: [
     BrowserModule,
-    WizThemeSelectorComponent,
-    WizThemeModeToggleComponent
+    WizlyThemeSelectorComponent,
+    WizlyThemeModeToggleComponent
   ],
   bootstrap: [AppComponent]
 })
