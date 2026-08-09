@@ -1,4 +1,4 @@
-# Required CSS
+﻿# Required CSS
 
 This page documents the CSS that must be present in your project for Wizly-generated templates to render correctly.
 
@@ -61,3 +61,5 @@ Add the Material Icons font to your `index.html` so icon names render correctly:
 ```html
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 ```
+
+If you run `Wizly: Setup Runtime Settings (Angular)` and your project already has Angular Material installed, Wizly can ask to add this stylesheet for you when it scaffolds the Material-based mode toggle.

@@ -51,7 +51,25 @@ module.exports = {
 };
 ```
 
-See the [README](../README.md#%EF%B8%8F-configuration) for a full overview of all available settings.
+### Full Settings Reference
+
+The following settings can be configured in VS Code (`settings.json` or the Settings UI under **Wizly**):
+
+| Setting | Default | Description |
+|---|---|---|
+| `wizly.autoTransformOnCreate` | `false` | Automatically transform new `.html` files on creation |
+| `wizly.autoTransformToast` | `true` | Show a notification after an automatic transform |
+| `wizly.transformTag.enable` | `true` | Insert a "Changed by Wizly" comment at the top of transformed files |
+| `wizly.transformTag.dateFormat` | `"YYYY-MM-DD"` | Date format used in the transform tag |
+| `wizly.transformTag.timeFormat` | `"HH:mm"` | Time format used in the transform tag |
+| `wizly.transformTag.template` | `"Changed by Wizly on {date} at {time}"` | Template for the transform tag comment |
+| `wizly.zoomIcon` | `"search"` | Material icon name used for zoom buttons (e.g. `"search"`, `"more_horiz"`, `"open_in_new"`) |
+| `wizly.removeEmptyLinesAfterPrettier` | `false` | Strip empty lines introduced by Prettier between block elements |
+| `wizly.smartTabMatcher` | `false` | Extract `tab_content` divs and place their content inside `mat-tab` elements (required for Angular Material tab animations) |
+| `wizly.smartLabelMatcher.enabled` | `false` | Enable smart label matching |
+| `wizly.smartLabelMatcher.labelPrefix` | `"L_"` | Prefix(es) for label magic attributes — string or array of strings |
+| `wizly.smartLabelMatcher.controlPrefix` | `["V_", "P_"]` | Prefix(es) for control magic attributes — string or array of strings |
+| `wizly.customSmartMatchers` | `[]` | Optional user-defined extractors using regex named capture groups (must include `magic`), with optional `matchOn` mapping and `remove`. See [docs/smart-matcher-capture-groups.md](smart-matcher-capture-groups.md). |
 
 ---
 
@@ -98,3 +116,13 @@ After a Wizly update, the built-in templates, rules, or settings may have change
 All three commands open VS Code's built-in diff editor so you can copy individual changes rather than overwriting everything. Your own customizations are never touched automatically.
 
 See [docs/patching.md](patching.md) for full details.
+
+---
+
+## 7. Known Limitations
+
+- Tested with Magic xpa **4.12.1**. Other versions may produce different HTML output that requires rule adjustments.
+- Designed for the **Material Design** rendering engine only. It does **not** work with SmartUX.
+- Regex is not well-suited for deeply nested or recursive HTML structures. Prefer narrow, targeted patterns and consider splitting complex transforms into multiple rules.
+
+Rules execute in order (top to bottom). Later rules run on the output of earlier rules, so order matters. Place broader patterns first and more specific ones after to get the desired result.

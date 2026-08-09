@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -26,7 +26,7 @@
   ],
   "icon": "images/icon.png",
   "galleryBanner": {
-    "color": "#0F172A",
+    "color": "#2A245F",
     "theme": "dark"
   },
   "pricing": "Free",
@@ -61,6 +61,38 @@
         "title": "Wizly: Transform All Uncommitted Files"
       },
       {
+        "command": "wizly.convertAngularProjectToScss",
+        "title": "Wizly: Convert Angular Project to SCSS"
+      },
+      {
+        "command": "wizly.generateAngularMaterialThemeScss",
+        "title": "Wizly: Generate Angular Material Theme (SCSS)"
+      },
+      {
+        "command": "wizly.generateBlankThemeScss",
+        "title": "Wizly: Generate Theme Bundle (Blank SCSS)"
+      },
+      {
+        "command": "wizly.generateThemeColorUtilitiesScss",
+        "title": "Wizly: Generate Theme Color Utilities (SCSS)"
+      },
+      {
+        "command": "wizly.setupAngularRuntimeSettings",
+        "title": "Wizly: Setup Runtime Settings (Angular)"
+      },
+      {
+        "command": "wizly.syncAngularRuntimeThemes",
+        "title": "Wizly: Sync Runtime Themes (Angular)"
+      },
+      {
+        "command": "wizly.checkAngularSetup",
+        "title": "Wizly: Check Angular Setup (Report)"
+      },
+      {
+        "command": "wizly.showReleaseNotes",
+        "title": "Wizly: Show Release Notes"
+      },
+      {
         "command": "wizly.exportSettings",
         "title": "Wizly: Export Settings"
       },
@@ -93,6 +125,30 @@
         },
         {
           "command": "wizly.transformUncommittedFiles"
+        },
+        {
+          "command": "wizly.convertAngularProjectToScss"
+        },
+        {
+          "command": "wizly.generateAngularMaterialThemeScss"
+        },
+        {
+          "command": "wizly.generateBlankThemeScss"
+        },
+        {
+          "command": "wizly.generateThemeColorUtilitiesScss"
+        },
+        {
+          "command": "wizly.setupAngularRuntimeSettings"
+        },
+        {
+          "command": "wizly.syncAngularRuntimeThemes"
+        },
+        {
+          "command": "wizly.checkAngularSetup"
+        },
+        {
+          "command": "wizly.showReleaseNotes"
         },
         {
           "command": "wizly.exportSettings"

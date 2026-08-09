@@ -69,3 +69,18 @@ module.exports = {
 ```
 
 Rules reference templates relative to `.vswizly/templates/` first, then the extension's bundled `templates/`.
+
+## Brand Colors
+
+Use these when styling anything Wizly-branded (webviews, buttons, badges) instead of guessing from the logo:
+
+| Use | Hex |
+| --- | --- |
+| Background Dark | `#241C57` |
+| Background Mid | `#2E276A` |
+| Shadow | `#433893` |
+| Primary | `#5950A1` |
+| Highlight | `#6559A6` |
+| Secondary Accent | `#8B7AE6` |
+| Sparkles / Accent | `#C9B7FF` |
+| White | `#FFFFFF` |
