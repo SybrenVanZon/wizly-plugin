@@ -1,0 +1,54 @@
+name: Publish Wiki
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'wiki/**'
+      - 'README.md'
+      - '.github/workflows/wiki.yml'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate wiki token
+        env:
+          WIKI_TOKEN: ${{ secrets.WIZLY_WIKI_TOKEN }}
+        run: |
+          if [ -z "$WIKI_TOKEN" ]; then
+            echo "Missing secret WIZLY_WIKI_TOKEN." >&2
+            echo "Create a fine-grained token with write access to the repository contents and add it as WIZLY_WIKI_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Clone wiki repository
+        env:
+          WIKI_TOKEN: ${{ secrets.WIZLY_WIKI_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${WIKI_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki-dist
+
+      - name: Sync wiki pages
+        run: |
+          find wiki-dist -maxdepth 1 -type f -name '*.md' -delete
+          cp wiki/*.md wiki-dist/
+
+      - name: Commit and push
+        run: |
+          cd wiki-dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No wiki changes to publish."
+            exit 0
+          fi
+
+          git commit -m "docs: publish wiki"
+          git push origin HEAD
