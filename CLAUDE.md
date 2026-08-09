@@ -76,6 +76,7 @@ Use these when styling anything Wizly-branded (webviews, buttons, badges) instea
 
 | Use | Hex |
 | --- | --- |
+| Logo Background (Marketplace banner / video backdrop) | `#100c3d` |
 | Background Dark | `#241C57` |
 | Background Mid | `#2E276A` |
 | Shadow | `#433893` |
