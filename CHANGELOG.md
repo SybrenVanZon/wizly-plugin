@@ -3,6 +3,14 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.5.1] - 2026-08-09
+
+### Added
+- **Demo video in release notes**: The release-notes popup now links to a short demo walking through the 0.5.0 Angular theming and runtime flow.
+
+### Changed
+- **Marketplace banner color**: Updated `galleryBanner.color` to `#100c3d` to match the logo background used across channels (Marketplace and the demo video). Documented as a separate "Logo Background" brand color.
+
 ## [0.5.0] - 2026-07-13
 
 ### Added
