@@ -10,6 +10,7 @@
   - [Runtime Settings](./Runtime-Settings.md)
   - [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md)
   - [Theme Color Utilities](./Theme-Color-Utilities.md)
+  - [Magic Colors](./Magic-Colors.md)
 
 ## Reference
 

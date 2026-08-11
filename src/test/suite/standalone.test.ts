@@ -40,6 +40,7 @@ Module.prototype.require = function(request: string) {
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
+import { parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 
 // Parse regex strings like '/pattern/flags' into RegExp objects, recursively
 function parseRegexFields(obj: any): any {
@@ -78,6 +79,58 @@ function mergeSettings(defaults: any, partial: any): any {
 }
 
 suite('Wizly Utils Test Suite', () => {
+	test('Magic colors: parses RGB and system colors from the color file', () => {
+		const parsed = parseMagicColorFile([
+			"Window's Default,FFFFFFF7,FFFFFFFA,6,0",
+			'white_green,00FFFFFF,0000FF00,0,0',
+			'PurpleTransparent,00FF0080,00FFFFFF,1,0'
+		].join('\n'));
+
+		assert.strictEqual(parsed.length, 3);
+		assert.strictEqual(parsed[0].foreground.kind, 'system');
+		assert.strictEqual(parsed[0].foreground.systemName, 'WindowText');
+		assert.strictEqual(parsed[0].foreground.scssValue, 'CanvasText');
+		assert.strictEqual(parsed[0].background.kind, 'system');
+		assert.strictEqual(parsed[0].background.scssValue, 'Canvas');
+
+		assert.strictEqual(parsed[1].foreground.kind, 'rgb');
+		assert.strictEqual(parsed[1].foreground.scssValue, '#ffffff');
+		assert.strictEqual(parsed[1].background.scssValue, '#00ff00');
+
+		assert.strictEqual(parsed[2].transparentBackground, true);
+		assert.strictEqual(parsed[2].foreground.scssValue, '#ff0080');
+	});
+
+	test('Magic colors: falls back for non-hex values and unknown system colors', () => {
+		const transparent = parseMagicColorValue('not-a-color');
+		assert.strictEqual(transparent.scssValue, 'transparent');
+
+		const unknownSystem = parseMagicColorValue('FFFFFF00');
+		assert.strictEqual(unknownSystem.kind, 'system');
+		assert.strictEqual(unknownSystem.scssValue, 'Canvas');
+		assert.strictEqual(unknownSystem.systemIndex, 255);
+	});
+
+	test('Magic colors: renders vars and utility classes with transparent background handling', () => {
+		const parsed = parseMagicColorFile([
+			'ButtonTextRed,00C8C8C8,00C08000,0,0',
+			'PurpleTransparent,00FF0080,00FFFFFF,1,0'
+		].join('\n'));
+
+		const varsScss = renderMagicColorVarsScss(parsed);
+		const utilitiesScss = renderMagicColorUtilitiesScss(parsed);
+
+		assert.ok(varsScss.includes('$magic-color-1-foreground: #c8c8c8;'));
+		assert.ok(varsScss.includes('$magic-color-2-background: transparent;'));
+		assert.ok(varsScss.includes('// Background 00FFFFFF skipped because flag1 indicates transparency.'));
+
+		assert.ok(utilitiesScss.includes('.magic-color-1 {'));
+		assert.ok(utilitiesScss.includes('background-color: magic.$magic-color-1-background;'));
+		assert.ok(utilitiesScss.includes('.magic-color-2 {'));
+		assert.ok(utilitiesScss.includes('color: magic.$magic-color-2-foreground;'));
+		assert.ok(!utilitiesScss.includes('background-color: magic.$magic-color-2-background;'));
+	});
+
 	test('resolveControlName: Standard prefix', () => {
 		const settings = {
 			transformTag: { enable: false, dateFormat: '', timeFormat: '' },

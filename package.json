@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -77,6 +77,10 @@
         "title": "Wizly: Generate Theme Color Utilities (SCSS)"
       },
       {
+        "command": "wizly.importMagicColorFileScss",
+        "title": "Wizly: Import Magic Color File (SCSS)"
+      },
+      {
         "command": "wizly.setupAngularRuntimeSettings",
         "title": "Wizly: Setup Runtime Settings (Angular)"
       },
@@ -137,6 +141,9 @@
         },
         {
           "command": "wizly.generateThemeColorUtilitiesScss"
+        },
+        {
+          "command": "wizly.importMagicColorFileScss"
         },
         {
           "command": "wizly.setupAngularRuntimeSettings"

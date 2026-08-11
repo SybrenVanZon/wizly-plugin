@@ -3,6 +3,11 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.6.0] - 2026-08-10
+
+### Added
+- **`Wizly: Import Magic Color File (SCSS)`**: Imports a Magic color file (`.eng`) and generates `_magic-colors.scss` (SCSS variables) and `_magic-color-utilities.scss` (`magic-color-*` utility classes), wiring the utilities import into `main.scss`. Builds on the SCSS/theming foundation from 0.5.0. Transparent backgrounds and unknown system colors are handled gracefully.
+
 ## [0.5.1] - 2026-08-09
 
 ### Added
