@@ -173,4 +173,5 @@ That means you do not need to skip the first default colors just because they ar
 
 - [Convert to SCSS](./Convert-to-SCSS.md)
 - [Theme Color Utilities](./Theme-Color-Utilities.md)
+- [Check Angular Setup](./Check-Angular-Setup.md)
 - [Angular](./Angular.md)

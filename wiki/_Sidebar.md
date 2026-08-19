@@ -16,6 +16,7 @@
 
 - [Commands](./Commands.md)
 - [Angular](./Angular.md)
+- [Check Angular Setup](./Check-Angular-Setup.md)
 - [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md)
 - [SCSS Structure](./SCSS-Structure.md)
 - [CSS Requirements](./CSS-Requirements.md)
