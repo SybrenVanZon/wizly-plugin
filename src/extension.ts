@@ -9,6 +9,7 @@ import { patchTemplates, patchRules, patchSettings } from './patcher';
 import { analyzeAngularSetup, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
+import { parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
 import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -2651,6 +2652,166 @@ async function generateBlankThemeScss() {
     });
 }
 
+async function importMagicColorFileScss() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const pickedFiles = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        openLabel: 'Import Magic color file',
+        title: 'Wizly: Choose Magic color file',
+        filters: {
+            'Magic Color Files (*.eng)': ['eng'],
+            'All Files': ['*']
+        }
+    });
+    if (!pickedFiles || pickedFiles.length === 0) { return; }
+
+    const colorFilePath = pickedFiles[0].fsPath;
+    const colorFileContent = fs.readFileSync(colorFilePath, 'utf8');
+    const colorEntries = parseMagicColorFile(colorFileContent);
+    if (colorEntries.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No valid Magic color rows were found in the selected file.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    const toDisplayPath = (candidate: { folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }) => {
+        const rel = path.relative(candidate.folder.uri.fsPath, candidate.angularJsonUri.fsPath);
+        return `${candidate.folder.name}: ${rel}`;
+    };
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: toDisplayPath(c),
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
+    const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
+    const hasSass = typeof deps['sass'] === 'string'
+        || typeof devDeps['sass'] === 'string'
+        || fs.existsSync(path.join(workspaceRoot, 'node_modules', 'sass', 'package.json'));
+    if (!hasSass) {
+        vscode.window.showErrorMessage('Wizly: Sass (sass) was not found in this workspace. Install sass or run "Wizly: Convert Angular Project to SCSS" first.');
+        return;
+    }
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+        const build = targets?.build;
+        const builder = build?.builder ?? build?.executor;
+        return typeof builder === 'string' && (builder.includes(':application') || builder.includes(':browser') || builder.includes('application') || builder.includes('browser'));
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project for the imported Magic colors' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const proj = projects[projectName];
+    const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+    const mainScssPath = path.join(workspaceRoot, sourceRoot, 'scss', 'main.scss');
+    if (!fs.existsSync(mainScssPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find ${path.relative(workspaceRoot, mainScssPath)}. Run "Wizly: Convert Angular Project to SCSS" first.`);
+        return;
+    }
+
+    const varsDir = path.join(workspaceRoot, sourceRoot, 'scss', 'vars');
+    const varsPath = path.join(varsDir, '_magic-colors.scss');
+    const utilitiesDir = path.join(workspaceRoot, sourceRoot, 'scss', 'base');
+    const utilitiesPath = path.join(utilitiesDir, '_magic-color-utilities.scss');
+    const varsRelPath = path.relative(workspaceRoot, varsPath).replace(/\\/g, '/');
+    const utilitiesRelPath = path.relative(workspaceRoot, utilitiesPath).replace(/\\/g, '/');
+
+    const existingOutputs = [varsPath, utilitiesPath].filter((filePath) => fs.existsSync(filePath));
+    if (existingOutputs.length > 0) {
+        const overwrite = await vscode.window.showWarningMessage(
+            `Wizly: ${existingOutputs.map((filePath) => path.relative(workspaceRoot, filePath).replace(/\\/g, '/')).join(', ')} already exist. Overwrite?`,
+            'Overwrite',
+            'Cancel'
+        );
+        if (overwrite !== 'Overwrite') { return; }
+    }
+
+    if (!fs.existsSync(varsDir)) {
+        fs.mkdirSync(varsDir, { recursive: true });
+    }
+    if (!fs.existsSync(utilitiesDir)) {
+        fs.mkdirSync(utilitiesDir, { recursive: true });
+    }
+
+    fs.writeFileSync(varsPath, renderMagicColorVarsScss(colorEntries), 'utf8');
+    fs.writeFileSync(utilitiesPath, renderMagicColorUtilitiesScss(colorEntries), 'utf8');
+
+    const mainBefore = fs.readFileSync(mainScssPath, 'utf8');
+    if (!mainBefore.includes(`./base/magic-color-utilities`) && !mainBefore.includes(`base/magic-color-utilities`)) {
+        fs.writeFileSync(mainScssPath, `${mainBefore.trimEnd()}\n@use './base/magic-color-utilities';\n`, 'utf8');
+    }
+
+    const doc = await vscode.workspace.openTextDocument(utilitiesPath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    showCommandSuccess(`Wizly: Imported ${colorEntries.length} Magic colors.`, {
+        created: [varsRelPath, utilitiesRelPath, toWorkspaceRelativePath(workspaceRoot, mainScssPath)],
+        nextStep: 'Use magic-color-* classes directly or bind a Magic custom property value to a class in Angular.'
+    });
+}
+
 async function generateThemeColorUtilitiesScss() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -4168,6 +4329,7 @@ export function activate(context: vscode.ExtensionContext) {
     const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
     const generateBlankThemeScssDisposable = vscode.commands.registerCommand('wizly.generateBlankThemeScss', generateBlankThemeScss);
     const generateThemeColorUtilitiesScssDisposable = vscode.commands.registerCommand('wizly.generateThemeColorUtilitiesScss', generateThemeColorUtilitiesScss);
+    const importMagicColorFileScssDisposable = vscode.commands.registerCommand('wizly.importMagicColorFileScss', importMagicColorFileScss);
     const checkAngularSetupDisposable = vscode.commands.registerCommand('wizly.checkAngularSetup', () => checkAngularSetup(context));
     const setupAngularRuntimeSettingsDisposable = vscode.commands.registerCommand('wizly.setupAngularRuntimeSettings', setupAngularRuntimeSettings);
     const syncAngularRuntimeThemesDisposable = vscode.commands.registerCommand('wizly.syncAngularRuntimeThemes', syncAngularRuntimeThemes);
@@ -4332,6 +4494,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(generateAngularMaterialThemeScssDisposable);
     context.subscriptions.push(generateBlankThemeScssDisposable);
     context.subscriptions.push(generateThemeColorUtilitiesScssDisposable);
+    context.subscriptions.push(importMagicColorFileScssDisposable);
     context.subscriptions.push(checkAngularSetupDisposable);
     context.subscriptions.push(showReleaseNotesDisposable);
     context.subscriptions.push(setupAngularRuntimeSettingsDisposable);

@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { analyzeMagicDependencies, collectMagicDependencyContext } from './magic-dependency-check';
+
 export type AngularSetupSeverity = 'error' | 'warning' | 'info' | 'success';
 
 export type AngularSetupFinding = {
@@ -36,20 +38,20 @@ function readJsonSafe<T>(filePath: string): { value?: T; error?: string } {
     }
 }
 
-function hasSassDependency(packageJson: any, workspaceRoot: string): boolean {
-    const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
-    const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
-    return typeof deps['sass'] === 'string'
-        || typeof devDeps['sass'] === 'string'
-        || fs.existsSync(path.join(workspaceRoot, 'node_modules', 'sass', 'package.json'));
-}
+export type DependencyPresence = {
+    /** Listed in `dependencies` or `devDependencies`. */
+    declared: boolean;
+    /** Present in `node_modules`, which can also mean it only resolves transitively. */
+    installed: boolean;
+};
 
-function hasMaterialDependency(packageJson: any, workspaceRoot: string): boolean {
+function getDependencyPresence(packageJson: any, workspaceRoot: string, packageName: string): DependencyPresence {
     const deps = packageJson?.dependencies && typeof packageJson.dependencies === 'object' ? packageJson.dependencies : {};
     const devDeps = packageJson?.devDependencies && typeof packageJson.devDependencies === 'object' ? packageJson.devDependencies : {};
-    return typeof deps['@angular/material'] === 'string'
-        || typeof devDeps['@angular/material'] === 'string'
-        || fs.existsSync(path.join(workspaceRoot, 'node_modules', '@angular', 'material', 'package.json'));
+    return {
+        declared: typeof deps[packageName] === 'string' || typeof devDeps[packageName] === 'string',
+        installed: fs.existsSync(path.join(workspaceRoot, 'node_modules', ...packageName.split('/'), 'package.json'))
+    };
 }
 
 function getTargets(proj: any) {
@@ -151,8 +153,15 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         return { workspaceRoot, projectName, sourceRoot, findings };
     }
 
-    if (hasSassDependency(packageJson, workspaceRoot)) {
-        add('success', 'Sass is installed.');
+    const sass = getDependencyPresence(packageJson, workspaceRoot, 'sass');
+    if (sass.declared) {
+        add('success', 'Sass is declared in package.json.');
+    } else if (sass.installed) {
+        add(
+            'warning',
+            'Sass is present in node_modules but not declared in package.json.',
+            'It is most likely a transitive dependency of `@angular-devkit/build-angular`. Add `sass` to `devDependencies` (or run `Wizly: Convert Angular Project to SCSS`) so your build does not depend on another package keeping it installed.'
+        );
     } else {
         add('error', 'Sass is missing.', 'Install `sass` or run `Wizly: Convert Angular Project to SCSS` first.');
     }
@@ -181,9 +190,16 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('warning', `${mainScssRel} is not configured in angular.json styles.`);
     }
 
-    const hasMaterial = hasMaterialDependency(packageJson, workspaceRoot);
-    if (hasMaterial) {
-        add('success', '@angular/material is installed.');
+    const material = getDependencyPresence(packageJson, workspaceRoot, '@angular/material');
+    const hasMaterial = material.declared || material.installed;
+    if (material.declared) {
+        add('success', '@angular/material is declared in package.json.');
+    } else if (material.installed) {
+        add(
+            'warning',
+            '@angular/material is present in node_modules but not declared in package.json.',
+            'Wizly Material themes and utilities compile against it. Add `@angular/material` to `dependencies` so it cannot disappear on the next install.'
+        );
     } else {
         add('info', '@angular/material is not installed.', 'That is fine unless you want Angular Material themes or Material-based Wizly UI helpers.');
     }
@@ -387,6 +403,9 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
     if (themeBundles.length > 0 && !settingsPathAbs && !fixedThemeLink) {
         add('warning', 'Theme bundles exist, but no activation path was found.', 'Use runtime settings or add a fixed theme link in index.html so one of the generated bundles becomes active.');
     }
+
+    const magicContext = collectMagicDependencyContext(workspaceRoot, sourceRoot);
+    findings.push(...analyzeMagicDependencies(packageJson, magicContext));
 
     return { workspaceRoot, projectName, sourceRoot, findings };
 }
