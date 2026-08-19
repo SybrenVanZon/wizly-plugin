@@ -3,10 +3,14 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
-## [0.6.0] - 2026-08-10
+## [0.6.0] - 2026-08-17
 
 ### Added
 - **`Wizly: Import Magic Color File (SCSS)`**: Imports a Magic color file (`.eng`) and generates `_magic-colors.scss` (SCSS variables) and `_magic-color-utilities.scss` (`magic-color-*` utility classes), wiring the utilities import into `main.scss`. Builds on the SCSS/theming foundation from 0.5.0. Transparent backgrounds and unknown system colors are handled gracefully.
+- **Magic dependency findings in `Wizly: Check Angular Setup (Report)`**: The existing report now also checks how `@magic-xpa/*` is declared. The rules are version independent, so they keep working for future Magic releases: (1) all `@magic-xpa/*` packages on the same version (error), (2) no `^` or `~` on any `@magic-xpa/*` entry (warning), (3) `@magic-xpa/cli` in `devDependencies` only (warning), (4) every `@magic-xpa/*` package imported by project source is declared in `package.json` (warning), (5) the installed `@angular/core` satisfies the `peerDependencies` range of the installed `@magic-xpa/angular` (error). Report-only: the check states the finding and the fix but does not edit `package.json`. It also states that Magic-generated files carry no version stamp, so the report cannot tell which Magic Studio version generated the code.
+
+### Changed
+- **`Check Angular Setup` separates "declared" from "installed"**: `sass` and `@angular/material` are now reported as declared in `package.json` versus only present in `node_modules`. A project whose `.scss` files were renamed by hand previously got a "Sass is installed" success while it actually depended on a transitive `sass` from `@angular-devkit/build-angular`; that case is now a warning.
 
 ## [0.5.1] - 2026-08-09
 
