@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { analyzeMagicDependencies, collectMagicDependencyContext } from './magic-dependency-check';
+
 export type AngularSetupSeverity = 'error' | 'warning' | 'info' | 'success';
 
 export type AngularSetupFinding = {
@@ -401,6 +403,9 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
     if (themeBundles.length > 0 && !settingsPathAbs && !fixedThemeLink) {
         add('warning', 'Theme bundles exist, but no activation path was found.', 'Use runtime settings or add a fixed theme link in index.html so one of the generated bundles becomes active.');
     }
+
+    const magicContext = collectMagicDependencyContext(workspaceRoot, sourceRoot);
+    findings.push(...analyzeMagicDependencies(packageJson, magicContext));
 
     return { workspaceRoot, projectName, sourceRoot, findings };
 }
