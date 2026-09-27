@@ -41,8 +41,8 @@ Module.prototype.require = function(request: string) {
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
-import { parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup } from '../../angular-check';
+import { magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import {
     analyzeMagicDependencies,
     collectMagicDependencyContext,
@@ -133,17 +133,20 @@ suite('Wizly Utils Test Suite', () => {
 		].join('\n'));
 
 		const varsScss = renderMagicColorVarsScss(parsed);
-		const utilitiesScss = renderMagicColorUtilitiesScss(parsed);
+		const utilitiesScss = renderMagicColorUtilitiesScss();
 
-		assert.ok(varsScss.includes('$magic-color-1-foreground: #c8c8c8;'));
-		assert.ok(varsScss.includes('$magic-color-2-background: transparent;'));
+		assert.ok(varsScss.includes('$colors: ('));
+		assert.ok(varsScss.includes('  // 1: ButtonTextRed\n  1: (\n    name: "ButtonTextRed",\n    foreground: #c8c8c8,\n    background: #0080c0,\n    transparent: false,'));
+		assert.ok(varsScss.includes('  2: (\n    name: "PurpleTransparent",\n    foreground: #8000ff,\n    background: transparent,\n    transparent: true,'));
 		assert.ok(varsScss.includes('// Background 00FFFFFF skipped because flag1 indicates transparency.'));
+		assert.ok(varsScss.includes('@function fg($nr) {'));
+		assert.ok(varsScss.includes('@function bg($nr) {'));
+		assert.ok(!varsScss.includes('$magic-color-1-'));
 
-		assert.ok(utilitiesScss.includes('.magic-color-1 {'));
-		assert.ok(utilitiesScss.includes('background-color: magic.$magic-color-1-background;'));
-		assert.ok(utilitiesScss.includes('.magic-color-2 {'));
-		assert.ok(utilitiesScss.includes('color: magic.$magic-color-2-foreground;'));
-		assert.ok(!utilitiesScss.includes('background-color: magic.$magic-color-2-background;'));
+		// The utilities file does not depend on the color file; it loops over the map.
+		assert.ok(utilitiesScss.includes(`@each $nr, $c in ${magicColorUtilitiesMarker} {`));
+		assert.ok(utilitiesScss.includes('.magic-color-#{$nr} {'));
+		assert.ok(utilitiesScss.includes('@if not map.get($c, transparent) {'));
 	});
 
 	test('resolveControlName: Standard prefix', () => {

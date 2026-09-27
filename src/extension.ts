@@ -9,7 +9,7 @@ import { patchTemplates, patchRules, patchSettings } from './patcher';
 import { analyzeAngularSetup, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
-import { parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
+import { magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
 import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -2779,7 +2779,11 @@ async function importMagicColorFileScss() {
     const varsRelPath = path.relative(workspaceRoot, varsPath).replace(/\\/g, '/');
     const utilitiesRelPath = path.relative(workspaceRoot, utilitiesPath).replace(/\\/g, '/');
 
-    const existingOutputs = [varsPath, utilitiesPath].filter((filePath) => fs.existsSync(filePath));
+    // The utilities file is static and loops over the map in the vars file, so a current one is kept as-is.
+    // Only a missing file or one in the older per-entry format is (re)written.
+    const writeUtilities = !fs.existsSync(utilitiesPath)
+        || !fs.readFileSync(utilitiesPath, 'utf8').includes(magicColorUtilitiesMarker);
+    const existingOutputs = [varsPath, ...(writeUtilities ? [utilitiesPath] : [])].filter((filePath) => fs.existsSync(filePath));
     if (existingOutputs.length > 0) {
         const overwrite = await vscode.window.showWarningMessage(
             `Wizly: ${existingOutputs.map((filePath) => path.relative(workspaceRoot, filePath).replace(/\\/g, '/')).join(', ')} already exist. Overwrite?`,
@@ -2797,18 +2801,20 @@ async function importMagicColorFileScss() {
     }
 
     fs.writeFileSync(varsPath, renderMagicColorVarsScss(colorEntries), 'utf8');
-    fs.writeFileSync(utilitiesPath, renderMagicColorUtilitiesScss(colorEntries), 'utf8');
+    if (writeUtilities) {
+        fs.writeFileSync(utilitiesPath, renderMagicColorUtilitiesScss(), 'utf8');
+    }
 
     const mainBefore = fs.readFileSync(mainScssPath, 'utf8');
     if (!mainBefore.includes(`./base/magic-color-utilities`) && !mainBefore.includes(`base/magic-color-utilities`)) {
         fs.writeFileSync(mainScssPath, `${mainBefore.trimEnd()}\n@use './base/magic-color-utilities';\n`, 'utf8');
     }
 
-    const doc = await vscode.workspace.openTextDocument(utilitiesPath);
+    const doc = await vscode.workspace.openTextDocument(varsPath);
     await vscode.window.showTextDocument(doc, { preview: false });
     showCommandSuccess(`Wizly: Imported ${colorEntries.length} Magic colors.`, {
-        created: [varsRelPath, utilitiesRelPath, toWorkspaceRelativePath(workspaceRoot, mainScssPath)],
-        nextStep: 'Use magic-color-* classes directly or bind a Magic custom property value to a class in Angular.'
+        created: [varsRelPath, ...(writeUtilities ? [utilitiesRelPath] : []), toWorkspaceRelativePath(workspaceRoot, mainScssPath)],
+        nextStep: 'Use magic-color-* classes directly, bind a Magic custom property value to a class in Angular, or use magic.fg(n) / magic.bg(n) in component SCSS.'
     });
 }
 

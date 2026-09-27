@@ -60,6 +60,8 @@ The command reads a Magic `.eng` color file and creates:
 
 It also adds `@use './base/magic-color-utilities';` to `src/scss/main.scss` when that import is not there yet.
 
+The colors live in one place: the `$colors` map in `_magic-colors.scss`. The utilities file does not list the colors itself. It loops over that map. So when you import a new color file, Wizly only rewrites `_magic-colors.scss`. Your own changes in `_magic-color-utilities.scss` stay.
+
 ## How Numbering Works
 
 In Magic, the color setting works with a number, not with a color name.
@@ -102,20 +104,73 @@ PurpleTransparent,00FF0080,00FFFFFF,1,0
 
 ## Example Output
 
-The generated utilities file will contain classes like:
+The generated `_magic-colors.scss` holds one map entry per row:
 
 ```scss
+$colors: (
+  // 5: white_green
+  5: (
+    name: "white_green",
+    foreground: #ffffff,
+    background: #00ff00,
+    transparent: false,
+    source-foreground: "00FFFFFF",
+    source-background: "0000FF00",
+  ),
+  // 7: PurpleTransparent
+  // Background 00FFFFFF skipped because flag1 indicates transparency.
+  7: (
+    name: "PurpleTransparent",
+    foreground: #8000ff,
+    background: transparent,
+    transparent: true,
+    ...
+  ),
+);
+```
+
+The utilities file turns that map into classes:
+
+```scss
+@each $nr, $c in magic.$colors {
+  .magic-color-#{$nr} {
+    color: map.get($c, foreground);
+    @if not map.get($c, transparent) {
+      background-color: map.get($c, background);
+    }
+  }
+}
+```
+
+This compiles to:
+
+```css
 .magic-color-5 {
-  color: magic.$magic-color-5-foreground;
-  background-color: magic.$magic-color-5-background;
+  color: #ffffff;
+  background-color: #00ff00;
 }
 
 .magic-color-7 {
-  color: magic.$magic-color-7-foreground;
+  color: #8000ff;
 }
 ```
 
 In this example, `magic-color-7` only sets the text color because the Magic row is marked as transparent.
+
+## Using A Magic Color In Component SCSS
+
+You can also use a Magic color directly in your own SCSS with `magic.fg(n)` and `magic.bg(n)`:
+
+```scss
+@use 'vars/magic-colors' as magic;
+
+.warning-banner {
+  color: magic.fg(6);
+  border-color: magic.bg(6);
+}
+```
+
+If the number does not exist in the imported color file, the Sass build stops with a clear error.
 
 ## Using Custom Properties In Angular
 
