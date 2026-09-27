@@ -5,7 +5,20 @@ import { analyzeMagicDependencies, collectMagicDependencyContext } from './magic
 
 export type AngularSetupSeverity = 'error' | 'warning' | 'info' | 'success';
 
+// Report chapters, in the order they are shown.
+export const ANGULAR_SETUP_SECTIONS = [
+    { id: 'project', title: 'Angular project' },
+    { id: 'dependencies', title: 'Sass and Angular Material' },
+    { id: 'scss', title: 'SCSS structure' },
+    { id: 'themes', title: 'Themes and color utilities' },
+    { id: 'runtime', title: 'Runtime settings' },
+    { id: 'magic', title: 'Magic dependencies' },
+] as const;
+
+export type AngularSetupSection = typeof ANGULAR_SETUP_SECTIONS[number]['id'];
+
 export type AngularSetupFinding = {
+    section: AngularSetupSection;
     severity: AngularSetupSeverity;
     title: string;
     details?: string;
@@ -136,7 +149,8 @@ function hasSettingsAsset(buildOptions: any, inputRel: string): boolean {
 
 export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, packageJson: any, projectName: string): AngularSetupReport {
     const findings: AngularSetupFinding[] = [];
-    const add = (severity: AngularSetupSeverity, title: string, details?: string) => findings.push({ severity, title, details });
+    let section: AngularSetupSection = 'project';
+    const add = (severity: AngularSetupSeverity, title: string, details?: string) => findings.push({ section, severity, title, details });
 
     const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
     const proj = projects[projectName];
@@ -153,6 +167,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         return { workspaceRoot, projectName, sourceRoot, findings };
     }
 
+    section = 'dependencies';
     const sass = getDependencyPresence(packageJson, workspaceRoot, 'sass');
     if (sass.declared) {
         add('success', 'Sass is declared in package.json.');
@@ -166,6 +181,21 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('error', 'Sass is missing.', 'Install `sass` or run `Wizly: Convert Angular Project to SCSS` first.');
     }
 
+    const material = getDependencyPresence(packageJson, workspaceRoot, '@angular/material');
+    const hasMaterial = material.declared || material.installed;
+    if (material.declared) {
+        add('success', '@angular/material is declared in package.json.');
+    } else if (material.installed) {
+        add(
+            'warning',
+            '@angular/material is present in node_modules but not declared in package.json.',
+            'Wizly Material themes and utilities compile against it. Add `@angular/material` to `dependencies` so it cannot disappear on the next install.'
+        );
+    } else {
+        add('info', '@angular/material is not installed.', 'That is fine unless you want Angular Material themes or Material-based Wizly UI helpers.');
+    }
+
+    section = 'scss';
     const mainScssRel = `${normalizePath(sourceRoot)}/scss/main.scss`;
     const mainScssAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'main.scss');
     if (fs.existsSync(mainScssAbs)) {
@@ -190,20 +220,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('warning', `${mainScssRel} is not configured in angular.json styles.`);
     }
 
-    const material = getDependencyPresence(packageJson, workspaceRoot, '@angular/material');
-    const hasMaterial = material.declared || material.installed;
-    if (material.declared) {
-        add('success', '@angular/material is declared in package.json.');
-    } else if (material.installed) {
-        add(
-            'warning',
-            '@angular/material is present in node_modules but not declared in package.json.',
-            'Wizly Material themes and utilities compile against it. Add `@angular/material` to `dependencies` so it cannot disappear on the next install.'
-        );
-    } else {
-        add('info', '@angular/material is not installed.', 'That is fine unless you want Angular Material themes or Material-based Wizly UI helpers.');
-    }
-
+    section = 'themes';
     const themeBundles = getThemeBundles(buildOptions);
     if (themeBundles.length > 0) {
         add('success', `Found ${themeBundles.length} theme bundle(s) in angular.json.`, themeBundles.map((bundle) => `${bundle.name} -> ${bundle.href}`).join('\n'));
@@ -246,6 +263,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
         add('success', 'Magic color SCSS files are present.');
     }
 
+    section = 'runtime';
     const projectRootRel = typeof proj?.root === 'string' ? proj.root : '';
     const publicSettingsAbs = path.join(workspaceRoot, projectRootRel, 'public', 'settings', 'settings.json');
     const assetsSettingsAbs = path.join(workspaceRoot, sourceRoot, 'assets', 'settings', 'settings.json');

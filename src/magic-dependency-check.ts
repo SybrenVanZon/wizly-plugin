@@ -265,7 +265,7 @@ export function collectMagicDependencyContext(workspaceRoot: string, sourceRoot:
  */
 export function analyzeMagicDependencies(packageJson: any, context: MagicDependencyContext): AngularSetupFinding[] {
     const findings: AngularSetupFinding[] = [];
-    const add = (severity: AngularSetupSeverity, title: string, details?: string) => findings.push({ severity, title, details });
+    const add = (severity: AngularSetupSeverity, title: string, details?: string) => findings.push({ section: 'magic', severity, title, details });
 
     const entries = collectMagicDependencyEntries(packageJson);
     if (entries.length === 0) {

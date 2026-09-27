@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
-import { analyzeAngularSetup, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
+import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
 import { magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
@@ -879,14 +879,22 @@ function renderAngularSetupFindingDetailsHtml(details: string): string {
 
 function renderAngularSetupReportHtml(webview: vscode.Webview, report: AngularSetupReport, logoUri: vscode.Uri): string {
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const counts: Record<AngularSetupSeverity, number> = { error: 0, warning: 0, success: 0, info: 0 };
-    for (const finding of report.findings) { counts[finding.severity]++; }
+    const severityOrder: AngularSetupSeverity[] = ['error', 'warning', 'success', 'info'];
+    const countFindings = (findings: AngularSetupFinding[]) => {
+        const counts: Record<AngularSetupSeverity, number> = { error: 0, warning: 0, success: 0, info: 0 };
+        for (const finding of findings) { counts[finding.severity]++; }
+        return counts;
+    };
 
     const badgeHtml = (severity: AngularSetupSeverity, count: number) => {
         const meta = ANGULAR_SETUP_SEVERITY_META[severity];
         const plural = count !== 1 && (severity === 'error' || severity === 'warning') ? 's' : '';
         return `<span class="badge" style="color: ${meta.color}">${meta.icon}<span>${count} ${meta.label}${plural}</span></span>`;
     };
+
+    // The totals show every severity; a chapter only shows the severities it has, so a clean chapter stays short.
+    const totals = countFindings(report.findings);
+    const totalBadgesHtml = severityOrder.map((severity) => badgeHtml(severity, totals[severity])).join('\n        ');
 
     const findingHtml = (finding: AngularSetupFinding) => {
         const meta = ANGULAR_SETUP_SEVERITY_META[finding.severity];
@@ -901,6 +909,27 @@ function renderAngularSetupReportHtml(webview: vscode.Webview, report: AngularSe
       </div>
     </div>`;
     };
+
+    const sectionsHtml = ANGULAR_SETUP_SECTIONS
+        .map((section) => ({ title: section.title, findings: report.findings.filter((finding) => finding.section === section.id) }))
+        .filter((section) => section.findings.length > 0)
+        .map((section, index) => {
+            const counts = countFindings(section.findings);
+            const badges = severityOrder
+                .filter((severity) => counts[severity] > 0)
+                .map((severity) => badgeHtml(severity, counts[severity]))
+                .join('');
+            return `<section class="section">
+        <div class="section-header">
+          <h2>${index + 1}. ${escapeHtml(section.title)}</h2>
+          <div class="badges section-badges">${badges}</div>
+        </div>
+        <div class="findings">
+          ${section.findings.map(findingHtml).join('\n')}
+        </div>
+      </section>`;
+        })
+        .join('\n');
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -922,6 +951,10 @@ function renderAngularSetupReportHtml(webview: vscode.Webview, report: AngularSe
     .meta { color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
     .badges { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .section + .section { margin-top: 24px; }
+    .section-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.2)); }
+    .section-header h2 { margin: 0; font-size: 15px; }
+    .section-badges { margin-bottom: 0; gap: 12px; font-size: 12px; }
     .findings { display: flex; flex-direction: column; gap: 4px; }
     .finding { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,0.12)); }
     .finding:last-child { border-bottom: none; }
@@ -943,14 +976,9 @@ function renderAngularSetupReportHtml(webview: vscode.Webview, report: AngularSe
       </div>
       <div class="meta">Workspace: <code>${escapeHtml(report.workspaceRoot)}</code> &middot; Source root: <code>${escapeHtml(report.sourceRoot)}</code></div>
       <div class="badges">
-        ${badgeHtml('error', counts.error)}
-        ${badgeHtml('warning', counts.warning)}
-        ${badgeHtml('success', counts.success)}
-        ${badgeHtml('info', counts.info)}
+        ${totalBadgesHtml}
       </div>
-      <div class="findings">
-        ${report.findings.map(findingHtml).join('\n')}
-      </div>
+      ${sectionsHtml}
     </div>
   </div>
 </body>

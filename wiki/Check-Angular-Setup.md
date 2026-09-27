@@ -4,20 +4,22 @@
 
 ## What The Report Covers
 
-The report is one list of findings with a severity:
+Every finding has a severity:
 
 - **Error** — something is broken or will break.
 - **Warning** — it works today, but it depends on luck or on another package.
 - **Info** — context, or a check that could not run.
 - **Success** — this part looks correct.
 
-The findings are grouped by theme in the list:
+The report is split into chapters. The top of the report shows the totals, and every chapter heading shows the counts for that chapter only, so you can see at a glance where the errors and warnings are:
 
-1. Sass and Angular Material availability
-2. The Wizly SCSS structure (`src/scss/main.scss` and how it is wired into `angular.json`)
-3. Theme bundles, color utilities, and how a theme becomes active
-4. Runtime settings (`settings.json`, the settings service, Material form-field defaults)
-5. Magic dependency findings (see below)
+1. **Sass and Angular Material** — whether they are declared or only installed
+2. **SCSS structure** — `src/scss/main.scss` and how it is wired into `angular.json`
+3. **Themes and color utilities** — theme bundles, Material and Magic color utilities
+4. **Runtime settings** — `settings.json`, the settings service, Material form-field defaults, and how a theme becomes active
+5. **Magic dependencies** — see below
+
+A chapter without findings is left out. If the Angular project itself cannot be read from `angular.json`, the report shows only that error.
 
 ## Declared Or Only Installed
 

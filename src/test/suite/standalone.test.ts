@@ -41,8 +41,8 @@ Module.prototype.require = function(request: string) {
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
-import { analyzeAngularSetup } from '../../angular-check';
 import { magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
+import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {
     analyzeMagicDependencies,
     collectMagicDependencyContext,
@@ -353,6 +353,17 @@ suite('Wizly Magic Dependency Check', () => {
             const declaredTitles = declared.findings.map((finding) => finding.title);
             assert.ok(declaredTitles.includes('Sass is declared in package.json.'));
             assert.ok(declaredTitles.includes('@angular/material is declared in package.json.'));
+
+            // Every finding belongs to a report chapter, and the chapters come out in the order they are shown.
+            const sectionOf = (title: string) => declared.findings.find((finding) => finding.title === title)?.section;
+            assert.strictEqual(sectionOf('Sass is declared in package.json.'), 'dependencies');
+            assert.strictEqual(sectionOf('@angular/material is declared in package.json.'), 'dependencies');
+            assert.strictEqual(sectionOf('src/scss/main.scss is not configured in angular.json styles.'), 'scss');
+            assert.ok(declared.findings.some((finding) => finding.section === 'magic'));
+            const sectionOrder = ANGULAR_SETUP_SECTIONS.map((section) => section.id as string);
+            const indexes = declared.findings.map((finding) => sectionOrder.indexOf(finding.section));
+            assert.ok(indexes.every((value) => value >= 0));
+            assert.deepStrictEqual(indexes, [...indexes].sort((a, b) => a - b));
         } finally {
             fs.rmSync(projectRoot, { recursive: true, force: true });
         }
