@@ -331,7 +331,7 @@ export function analyzeMagicDependencies(packageJson: any, context: MagicDepende
         add(
             'warning',
             '`@magic-xpa/cli` is declared in both `dependencies` and `devDependencies`.',
-            'Which entry wins depends on the package manager. Keep the `devDependencies` entry and remove the one in `dependencies`.'
+            'npm uses the `devDependencies` entry, so the one in `dependencies` has no effect. If someone later removes the `devDependencies` entry instead, the other one takes over, and a caret there installs the newest Magic release. Keep the `devDependencies` entry, pinned exactly, and remove the one in `dependencies`.'
         );
     } else if (cliInDependencies) {
         add(
@@ -391,7 +391,7 @@ export function analyzeMagicDependencies(packageJson: any, context: MagicDepende
     add(
         'info',
         'These checks only read package.json and node_modules.',
-        'Magic-generated files carry no version stamp, so this report cannot tell which Magic Studio version generated the code in this project. Changing `@magic-xpa/*` versions without regenerating from the matching Studio version stays your own risk.'
+        'Magic Studio writes package.json only once, when the project is created. After a Studio upgrade it never updates the `@magic-xpa/*` versions, so you have to do that yourself. The version your installed Studio expects is in `WebClient\\Scripts\\npmVersion.json` in the Magic install folder. The generated files carry no version stamp, so this report cannot tell which Studio version your code comes from.'
     );
 
     return findings;

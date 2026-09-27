@@ -46,7 +46,17 @@ Pin the exact version. A caret looks harmless but crosses Magic releases that re
 
 ### 3. `@magic-xpa/cli` in `devDependencies` only — warning
 
-The CLI is a build-time tool. Magic's own generated `package.json` has listed it twice — with a caret in `dependencies` and an exact pin in `devDependencies`. npm happens to resolve that to the exact dev pin, but another package manager, or removing the dev entry, can give you a different version.
+The CLI is a build-time tool. Magic's own generated `package.json` lists it twice: with a caret in `dependencies` and an exact pin in `devDependencies`. So a project straight out of Magic Studio already gets this warning.
+
+Tested with npm 10.9.3 on `"^4.1201.0"` in `dependencies` and `"4.1201.0"` in `devDependencies`:
+
+| Situation | What npm installs |
+| --- | --- |
+| Both entries | `4.1201.0` — npm uses the `devDependencies` entry |
+| Production install (`npm ci --omit=dev`) | nothing — the CLI is skipped, even though it is listed in `dependencies` |
+| The `devDependencies` entry removed | `4.1202.0` — the caret now picks the newest release, which expects Angular 21 |
+
+So the entry in `dependencies` does nothing today, until someone tidies up the wrong entry. Keep the exact pin in `devDependencies` and remove the other one.
 
 ### 4. Imported Magic packages must be declared — warning
 
@@ -75,7 +85,8 @@ With an exact pin, `4.1201.0` stays `4.1201.0`.
 ## What This Report Does Not Do
 
 - It does not change `package.json`. Every Magic dependency finding is report-only in this version. Writing pins back, moving `@magic-xpa/cli`, and proposing a target Magic version are planned for `Wizly: Upgrade Assistant`.
-- It cannot see which Magic Studio version generated your code. The generated files carry no version stamp, so the check only knows what `package.json` and `node_modules` say. Changing `@magic-xpa/*` versions without regenerating from the matching Studio version stays your own risk.
+- It cannot see which Magic Studio version generated your code. The generated files carry no version stamp, so the check only knows what `package.json` and `node_modules` say.
+- It does not keep your versions in step with Studio. Magic Studio writes `package.json` only once, when the project is created. After a Studio upgrade the new generated code expects newer `@magic-xpa/*` packages, but Studio never updates `package.json`. You update the versions yourself. The version your installed Studio expects is in `WebClient\Scripts\npmVersion.json` in the Magic install folder, for example `C:\MSE\Magic xpa 4.12\WebClient\Scripts\npmVersion.json`.
 - It cannot check the Angular peer rule without `node_modules`. Run `npm install` first, otherwise that finding reports that it could not run.
 
 ## Fixing The Common Findings
