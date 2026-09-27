@@ -107,7 +107,13 @@ suite('Wizly Utils Test Suite', () => {
 		assert.strictEqual(parsed[1].background.scssValue, '#00ff00');
 
 		assert.strictEqual(parsed[2].transparentBackground, true);
-		assert.strictEqual(parsed[2].foreground.scssValue, '#ff0080');
+		assert.strictEqual(parsed[2].foreground.scssValue, '#8000ff');
+	});
+
+	test('Magic colors: reads RGB values in Windows COLORREF byte order (00BBGGRR)', () => {
+		assert.strictEqual(parseMagicColorValue('000000FF').scssValue, '#ff0000');
+		assert.strictEqual(parseMagicColorValue('00FF0000').scssValue, '#0000ff');
+		assert.strictEqual(parseMagicColorValue('00FF0080').scssValue, '#8000ff');
 	});
 
 	test('Magic colors: falls back for non-hex values and unknown system colors', () => {

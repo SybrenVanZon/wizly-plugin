@@ -83,7 +83,7 @@ Wizly therefore keeps the file order as the class number:
 
 Wizly handles two common value types from a Magic color file:
 
-- normal color values such as `00FF0080`, which are converted to regular CSS colors like `#ff0080`
+- normal color values such as `00FF0080`, which are converted to regular CSS colors like `#8000ff`. Magic stores these as a Windows color value in the order `00BBGGRR` (blue, green, red), so Wizly reverses that order for CSS. `00FF0080` means blue `FF`, green `00`, red `80`, which is `rgb(128, 0, 255)`.
 - Magic system color values such as `FFFFFFF7`, which are treated as Windows system colors and mapped to CSS system colors or close fallback values
 
 If the first flag column is `1`, Wizly treats the background as transparent and does not generate a `background-color` rule for that class.

@@ -78,9 +78,13 @@ export function parseMagicColorValue(rawValue: string): MagicColorValue {
         };
     }
 
+    // Magic stores colors as a Windows COLORREF (00BBGGRR), so the byte order is reversed for CSS (#rrggbb).
+    const blue = raw.slice(2, 4);
+    const green = raw.slice(4, 6);
+    const red = raw.slice(6, 8);
     return {
         original: raw,
-        scssValue: `#${raw.slice(-6).toLowerCase()}`,
+        scssValue: `#${red}${green}${blue}`.toLowerCase(),
         kind: 'rgb',
     };
 }
