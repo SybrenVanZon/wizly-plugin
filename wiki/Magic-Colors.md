@@ -73,7 +73,7 @@ It also adds `@use './base/magic-color-utilities';` to `src/scss/main.scss` when
 
 The colors live in one place: the `$colors` map in `_magic-colors.scss`. The utilities file does not list the colors itself. It loops over that map. So when you import a new color file, Wizly only rewrites `_magic-colors.scss`. Your own changes in `_magic-color-utilities.scss` stay.
 
-If `_magic-colors.scss` already exists, Wizly asks before it overwrites it. A utilities file from an older Wizly version is replaced once by the new format: one with a class per color instead of the loop, or one that still loads the map from the old `vars/` folder (0.6.0 release candidates). Wizly asks first for that file too. An old `src/scss/vars/_magic-colors.scss` is not removed; you can delete it.
+If `_magic-colors.scss` already exists, Wizly asks before it overwrites it. A utilities file in an older format is replaced once by the new format. Wizly asks first for that file too.
 
 ## How Numbering Works
 
