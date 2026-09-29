@@ -51,6 +51,17 @@ This means that if you convert a project from Online or RIA to Web Client, you c
 
 - `Wizly: Import Magic Color File (SCSS)`
 
+## Before You Start
+
+The command needs an SCSS setup. It stops with a message when:
+
+- `sass` is not in the workspace
+- `src/scss/main.scss` does not exist
+
+Run `Wizly: Convert Angular Project to SCSS` first. See [Convert to SCSS](./Convert-to-SCSS.md).
+
+When the workspace has more than one `angular.json` or application project, Wizly asks which one to use.
+
 ## What The Command Creates
 
 The command reads a Magic `.eng` color file and creates:
@@ -61,6 +72,8 @@ The command reads a Magic `.eng` color file and creates:
 It also adds `@use './base/magic-color-utilities';` to `src/scss/main.scss` when that import is not there yet.
 
 The colors live in one place: the `$colors` map in `_magic-colors.scss`. The utilities file does not list the colors itself. It loops over that map. So when you import a new color file, Wizly only rewrites `_magic-colors.scss`. Your own changes in `_magic-color-utilities.scss` stay.
+
+If `_magic-colors.scss` already exists, Wizly asks before it overwrites it. A utilities file from an older Wizly version (one class per color, without the loop) is replaced once by the new format; Wizly asks first for that file too.
 
 ## How Numbering Works
 
@@ -132,6 +145,9 @@ $colors: (
 The utilities file turns that map into classes:
 
 ```scss
+@use 'sass:map';
+@use '../vars/magic-colors' as magic;
+
 @each $nr, $c in magic.$colors {
   .magic-color-#{$nr} {
     color: map.get($c, foreground);
@@ -169,6 +185,8 @@ You can also use a Magic color directly in your own SCSS with `magic.fg(n)` and 
   border-color: magic.bg(6);
 }
 ```
+
+This works from any component, because `Wizly: Convert Angular Project to SCSS` adds `src/scss` to the Sass include paths in `angular.json`.
 
 If the number does not exist in the imported color file, the Sass build stops with a clear error.
 

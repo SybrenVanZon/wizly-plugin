@@ -133,3 +133,4 @@ This is especially useful when:
 - [Themes](./Themes.md)
 - [Convert to SCSS](./Convert-to-SCSS.md)
 - [SCSS Structure](./SCSS-Structure.md)
+- [Magic Colors](./Magic-Colors.md)

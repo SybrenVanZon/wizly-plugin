@@ -58,6 +58,17 @@ Each fixture file/folder name becomes a test case. Folder-based tests allow per-
 
 esbuild bundles `src/extension.ts` → `dist/extension.js`. The dependencies `vscode`, `prettier`, and `ejs` are marked external (not bundled). TypeScript compiles to `out/` for test execution.
 
+## Wiki
+
+User documentation lives in [`wiki/`](wiki/). [`.github/workflows/wiki.yml`](.github/workflows/wiki.yml) syncs it to the GitHub wiki on every push to `main` that touches `wiki/**` or `README.md`. `docs/` is the older reference for rules, templates and helpers.
+
+When a feature adds or changes a wiki page:
+- Link a new page from `_Sidebar.md`, `Home.md`, `Angular.md` (for Angular features), `Getting-Started.md` and the related pages' "Related Pages" lists, not only the sidebar. Add the command to `Commands.md` with a link to its page.
+- Add the version's "Focus" block to `Home.md` and the page link to the README "Documentation" list.
+- Check every claim against the code: output paths, prerequisites and error messages, overwrite prompts, and scan limits. Generated SCSS examples must match the renderer output, including `@use` lines.
+- New SCSS output folders (for example `src/scss/vars/` from the Magic color import) must also be listed in `SCSS-Structure.md`.
+- Use relative links (`./Page-Name.md`) inside `wiki/`, and full wiki URLs in `README.md`.
+
 ## Project Config Format
 
 Users configure the extension via `.vswizly/wizly.config.js` in their workspace:
