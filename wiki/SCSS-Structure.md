@@ -63,6 +63,8 @@ Notes:
 - `src/scss/themes/`: theme definitions and overrides.
 - `src/scss/vendors/`: third-party styles treated as external.
 
+`Wizly: Import Magic Color File (SCSS)` also adds `src/scss/abstracts/_magic-colors.scss` (the color map and `fg()`/`bg()` functions) and `src/scss/base/_magic-color-utilities.scss`. See [Magic Colors](./Magic-Colors.md).
+
 ## Magic Styles
 
 When the converter detects `magic-styles.css`, you can choose:

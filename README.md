@@ -31,6 +31,8 @@ Detailed documentation lives in the GitHub Wiki:
 - Runtime settings: [Runtime Settings](https://github.com/SybrenVanZon/wizly-plugin/wiki/Runtime-Settings)
 - Convert to SCSS: [Convert to SCSS](https://github.com/SybrenVanZon/wizly-plugin/wiki/Convert-to-SCSS)
 - Theme color utilities: [Theme Color Utilities](https://github.com/SybrenVanZon/wizly-plugin/wiki/Theme-Color-Utilities)
+- Magic colors: [Magic Colors](https://github.com/SybrenVanZon/wizly-plugin/wiki/Magic-Colors)
+- Setup report: [Check Angular Setup](https://github.com/SybrenVanZon/wizly-plugin/wiki/Check-Angular-Setup)
 
 Repository docs in `docs/` remain available as source/reference documentation for rule fields, templates, and helper functions.
 

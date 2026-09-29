@@ -258,7 +258,7 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
     }
 
     const magicUtilitiesAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'base', '_magic-color-utilities.scss');
-    const magicVarsAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'vars', '_magic-colors.scss');
+    const magicVarsAbs = path.join(workspaceRoot, sourceRoot, 'scss', 'abstracts', '_magic-colors.scss');
     if (fs.existsSync(magicUtilitiesAbs) || fs.existsSync(magicVarsAbs)) {
         add('success', 'Magic color SCSS files are present.');
     }

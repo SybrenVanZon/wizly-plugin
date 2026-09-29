@@ -57,6 +57,8 @@ Why this is useful:
 
 See [Themes](./Themes.md).
 
+Do you already use a Magic `.eng` color file? Run `Wizly: Import Magic Color File (SCSS)` to keep using the same Magic color numbers as CSS classes. See [Magic Colors](./Magic-Colors.md).
+
 If you only want one fixed theme without runtime switching, Wizly can now offer to activate the first generated single light/dark theme in `index.html`. If you skip that, you can still activate it later by linking the CSS manually or by using runtime settings with `themeMode: "single"`.
 
 ### 5. Add Runtime Settings If Theme Switching Or Per-Environment Settings Matter
@@ -130,4 +132,6 @@ This keeps your project customizations intact while still letting you adopt impr
 - [Themes](./Themes.md)
 - [Runtime Settings](./Runtime-Settings.md)
 - [Theme Color Utilities](./Theme-Color-Utilities.md)
+- [Magic Colors](./Magic-Colors.md)
+- [Check Angular Setup](./Check-Angular-Setup.md)
 - [Angular](./Angular.md)

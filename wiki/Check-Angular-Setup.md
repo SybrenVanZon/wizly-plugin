@@ -36,6 +36,8 @@ Magic xpa packages pin each other exactly. `@magic-xpa/utils` is an exact peer o
 
 Wizly does not check for one specific Magic version. A hardcoded target version would be out of date on the day it ships. Instead the report checks five rules that stay correct for every future Magic release.
 
+A project without any `@magic-xpa/*` entry in `package.json` skips these rules. If your code does import Magic packages in that case, you get a warning.
+
 ### 1. All `@magic-xpa/*` packages on the same version — error
 
 Every `@magic-xpa/*` entry in `dependencies` and `devDependencies` must be on the same version. Wizly lists the entries it found so you can see which one is out of line.
@@ -60,7 +62,7 @@ So the entry in `dependencies` does nothing today, until someone tidies up the w
 
 ### 4. Imported Magic packages must be declared — warning
 
-Wizly scans your source root for `@magic-xpa/*` imports and compares that with your `package.json`. `utils`, `engine` and `angular-material-core` are the usual ones that are missing: Magic's generated code imports them directly but does not always declare them. They resolve today because another Magic package pulls them in.
+Wizly scans the `.ts` and `.html` files in your source root (at most 2000 files) for `@magic-xpa/*` imports and compares that with your `package.json`. `utils`, `engine` and `angular-material-core` are the usual ones that are missing: Magic's generated code imports them directly but does not always declare them. They resolve today because another Magic package pulls them in.
 
 ### 5. Angular must satisfy what Magic peers on — error
 
