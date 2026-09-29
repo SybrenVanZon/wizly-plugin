@@ -83,7 +83,7 @@ After the SCSS, theme, and runtime flow is in place, run:
 
 - `Wizly: Check Angular Setup (Report)`
 
-This gives you a quick report of whether the expected SCSS, theme, and runtime markers look consistent.
+This gives you a quick report of whether the expected SCSS, theme, and runtime markers look consistent. The same report also checks how your `@magic-xpa/*` packages are declared. See [Check Angular Setup](./Check-Angular-Setup.md).
 
 ### 7. Roll Out to More Files
 

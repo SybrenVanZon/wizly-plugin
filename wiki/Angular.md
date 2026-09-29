@@ -13,11 +13,12 @@ Wizly includes a focused set of Angular workspace commands for SCSS conversion, 
 
 - [SCSS Structure](./SCSS-Structure.md)
 - [CSS Requirements](./CSS-Requirements.md)
+- [Check Angular Setup](./Check-Angular-Setup.md)
 - [Commands](./Commands.md)
 
 ## Available Angular Helpers
 
-- Check whether SCSS, theme bundles, runtime settings, and related Angular configuration look consistent
+- Check whether SCSS, theme bundles, runtime settings, Magic dependencies, and related Angular configuration look consistent
 - Convert a workspace from CSS to SCSS
 - Scaffold Angular Material theme files
 - Scaffold blank theme bundles
@@ -32,4 +33,4 @@ Wizly includes a focused set of Angular workspace commands for SCSS conversion, 
 3. `Wizly: Generate Theme Color Utilities (SCSS)` if you want reusable global palette classes
 4. `Wizly: Setup Runtime Settings (Angular)`
 5. `Wizly: Sync Runtime Themes (Angular)`
-6. `Wizly: Check Angular Setup (Report)` when you want a health check of the completed setup
+6. `Wizly: Check Angular Setup (Report)` when you want a health check of the completed setup, including your `@magic-xpa/*` dependencies

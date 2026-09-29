@@ -24,7 +24,8 @@ This page lists the main Wizly commands grouped by purpose.
 - `Wizly: Generate Angular Material Theme (SCSS)`
 - `Wizly: Generate Theme Bundle (Blank SCSS)`
 - `Wizly: Generate Theme Color Utilities (SCSS)`
-- `Wizly: Check Angular Setup (Report)`
+- `Wizly: Import Magic Color File (SCSS)`
+- `Wizly: Check Angular Setup (Report)` — see [Check Angular Setup](./Check-Angular-Setup.md) for what the report verifies, including the Magic dependency findings
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
 
@@ -42,3 +43,4 @@ Use `Ctrl+Shift+P` in VS Code and type `Wizly`.
 - [Angular](./Angular.md)
 - [Themes](./Themes.md)
 - [Runtime Settings](./Runtime-Settings.md)
+- [Check Angular Setup](./Check-Angular-Setup.md)
