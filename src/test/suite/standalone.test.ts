@@ -41,7 +41,7 @@ Module.prototype.require = function(request: string) {
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
-import { magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
+import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {
     analyzeMagicDependencies,
@@ -145,6 +145,8 @@ suite('Wizly Utils Test Suite', () => {
 
 		// The utilities file does not depend on the color file; it loops over the map.
 		assert.ok(utilitiesScss.includes(`@each $nr, $c in ${magicColorUtilitiesMarker} {`));
+		assert.ok(utilitiesScss.includes(`@use '${magicColorsUsePath}' as magic;`));
+		assert.ok(!utilitiesScss.includes('vars/'));
 		assert.ok(utilitiesScss.includes('.magic-color-#{$nr} {'));
 		assert.ok(utilitiesScss.includes('@if not map.get($c, transparent) {'));
 	});

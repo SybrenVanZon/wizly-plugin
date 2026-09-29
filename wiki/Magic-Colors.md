@@ -66,14 +66,14 @@ When the workspace has more than one `angular.json` or application project, Wizl
 
 The command reads a Magic `.eng` color file and creates:
 
-- `src/scss/vars/_magic-colors.scss`
+- `src/scss/abstracts/_magic-colors.scss`
 - `src/scss/base/_magic-color-utilities.scss`
 
 It also adds `@use './base/magic-color-utilities';` to `src/scss/main.scss` when that import is not there yet.
 
 The colors live in one place: the `$colors` map in `_magic-colors.scss`. The utilities file does not list the colors itself. It loops over that map. So when you import a new color file, Wizly only rewrites `_magic-colors.scss`. Your own changes in `_magic-color-utilities.scss` stay.
 
-If `_magic-colors.scss` already exists, Wizly asks before it overwrites it. A utilities file from an older Wizly version (one class per color, without the loop) is replaced once by the new format; Wizly asks first for that file too.
+If `_magic-colors.scss` already exists, Wizly asks before it overwrites it. A utilities file from an older Wizly version is replaced once by the new format: one with a class per color instead of the loop, or one that still loads the map from the old `vars/` folder (0.6.0 release candidates). Wizly asks first for that file too. An old `src/scss/vars/_magic-colors.scss` is not removed; you can delete it.
 
 ## How Numbering Works
 
@@ -146,7 +146,7 @@ The utilities file turns that map into classes:
 
 ```scss
 @use 'sass:map';
-@use '../vars/magic-colors' as magic;
+@use '../abstracts/magic-colors' as magic;
 
 @each $nr, $c in magic.$colors {
   .magic-color-#{$nr} {
@@ -178,7 +178,7 @@ In this example, `magic-color-7` only sets the text color because the Magic row 
 You can also use a Magic color directly in your own SCSS with `magic.fg(n)` and `magic.bg(n)`:
 
 ```scss
-@use 'vars/magic-colors' as magic;
+@use 'abstracts/magic-colors' as magic;
 
 .warning-banner {
   color: magic.fg(6);

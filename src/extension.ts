@@ -9,7 +9,7 @@ import { patchTemplates, patchRules, patchSettings } from './patcher';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
-import { magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
+import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
 import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -2800,7 +2800,7 @@ async function importMagicColorFileScss() {
         return;
     }
 
-    const varsDir = path.join(workspaceRoot, sourceRoot, 'scss', 'vars');
+    const varsDir = path.join(workspaceRoot, sourceRoot, 'scss', 'abstracts');
     const varsPath = path.join(varsDir, '_magic-colors.scss');
     const utilitiesDir = path.join(workspaceRoot, sourceRoot, 'scss', 'base');
     const utilitiesPath = path.join(utilitiesDir, '_magic-color-utilities.scss');
@@ -2808,9 +2808,11 @@ async function importMagicColorFileScss() {
     const utilitiesRelPath = path.relative(workspaceRoot, utilitiesPath).replace(/\\/g, '/');
 
     // The utilities file is static and loops over the map in the vars file, so a current one is kept as-is.
-    // Only a missing file or one in the older per-entry format is (re)written.
-    const writeUtilities = !fs.existsSync(utilitiesPath)
-        || !fs.readFileSync(utilitiesPath, 'utf8').includes(magicColorUtilitiesMarker);
+    // Only a missing file, one in the older per-entry format, or one that still points at the old vars/ folder is (re)written.
+    const existingUtilities = fs.existsSync(utilitiesPath) ? fs.readFileSync(utilitiesPath, 'utf8') : undefined;
+    const writeUtilities = existingUtilities === undefined
+        || !existingUtilities.includes(magicColorUtilitiesMarker)
+        || !existingUtilities.includes(magicColorsUsePath);
     const existingOutputs = [varsPath, ...(writeUtilities ? [utilitiesPath] : [])].filter((filePath) => fs.existsSync(filePath));
     if (existingOutputs.length > 0) {
         const overwrite = await vscode.window.showWarningMessage(

@@ -58,6 +58,15 @@ Each fixture file/folder name becomes a test case. Folder-based tests allow per-
 
 esbuild bundles `src/extension.ts` → `dist/extension.js`. The dependencies `vscode`, `prettier`, and `ejs` are marked external (not bundled). TypeScript compiles to `out/` for test execution.
 
+## SCSS Structure (7-1)
+
+Every SCSS file Wizly generates follows the [7-1 architecture](https://sass-guidelin.es/#architecture) under `<sourceRoot>/scss/`, with `main.scss` as the only entry point. `Wizly: Convert Angular Project to SCSS` creates these folders: `abstracts`, `base`, `components`, `layout`, `pages`, `themes`, `vendors`.
+
+- Sass tools with no CSS output (variables, maps, functions, mixins) go in `abstracts/`.
+- Global classes and utilities that do produce CSS go in `base/`.
+- Theme bundles go in `themes/`, third-party styles go in `vendors/`.
+- Do not add new top-level folders. `main.scss` only composes partials through `@use`.
+
 ## Wiki
 
 User documentation lives in [`wiki/`](wiki/). [`.github/workflows/wiki.yml`](.github/workflows/wiki.yml) syncs it to the GitHub wiki on every push to `main` that touches `wiki/**` or `README.md`. `docs/` is the older reference for rules, templates and helpers.
@@ -66,7 +75,7 @@ When a feature adds or changes a wiki page:
 - Link a new page from `_Sidebar.md`, `Home.md`, `Angular.md` (for Angular features), `Getting-Started.md` and the related pages' "Related Pages" lists, not only the sidebar. Add the command to `Commands.md` with a link to its page.
 - Add the version's "Focus" block to `Home.md` and the page link to the README "Documentation" list.
 - Check every claim against the code: output paths, prerequisites and error messages, overwrite prompts, and scan limits. Generated SCSS examples must match the renderer output, including `@use` lines.
-- New SCSS output folders (for example `src/scss/vars/` from the Magic color import) must also be listed in `SCSS-Structure.md`.
+- Any SCSS file a command generates must be listed in `SCSS-Structure.md` under its 7-1 folder.
 - Use relative links (`./Page-Name.md`) inside `wiki/`, and full wiki URLs in `README.md`.
 
 ## Project Config Format
