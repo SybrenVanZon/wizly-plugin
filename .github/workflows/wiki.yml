@@ -38,6 +38,11 @@ jobs:
           find wiki-dist -maxdepth 1 -type f -name '*.md' -delete
           cp wiki/*.md wiki-dist/
 
+      - name: Rewrite page links for GitHub Wiki
+        # ./Page-Name.md works in the repo, but the wiki serves it as a raw file.
+        run: |
+          sed -i -E 's#\]\(\./([A-Za-z0-9_-]+)\.md(\#[^)]*)?\)#](\1\2)#g' wiki-dist/*.md
+
       - name: Commit and push
         run: |
           cd wiki-dist

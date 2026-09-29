@@ -76,7 +76,7 @@ When a feature adds or changes a wiki page:
 - Add the version's "Focus" block to `Home.md` and the page link to the README "Documentation" list.
 - Check every claim against the code: output paths, prerequisites and error messages, overwrite prompts, and scan limits. Generated SCSS examples must match the renderer output, including `@use` lines.
 - Any SCSS file a command generates must be listed in `SCSS-Structure.md` under its 7-1 folder.
-- Use relative links (`./Page-Name.md`) inside `wiki/`, and full wiki URLs in `README.md`.
+- Use relative links (`./Page-Name.md`, optionally with `#anchor`) inside `wiki/`, and full wiki URLs in `README.md`. The wiki workflow strips `./` and `.md` on publish, so keep exactly this form.
 
 ## Project Config Format
 
