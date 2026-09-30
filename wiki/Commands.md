@@ -28,6 +28,8 @@ This page lists the main Wizly commands grouped by purpose.
 - `Wizly: Check Angular Setup (Report)` — see [Check Angular Setup](./Check-Angular-Setup.md) for what the report verifies, including the Magic dependency findings
 - `Wizly: Setup Runtime Settings (Angular)`
 - `Wizly: Sync Runtime Themes (Angular)`
+- `Wizly: Convert Angular Project to PWA` — see [PWA](./PWA.md)
+- `Wizly: Generate PWA Icons & Favicon (from Active Image)` — see [PWA](./PWA.md)
 
 ## General
 
@@ -45,3 +47,4 @@ Use `Ctrl+Shift+P` in VS Code and type `Wizly`.
 - [Runtime Settings](./Runtime-Settings.md)
 - [Check Angular Setup](./Check-Angular-Setup.md)
 - [Magic Colors](./Magic-Colors.md)
+- [PWA](./PWA.md)

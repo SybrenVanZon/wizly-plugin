@@ -50,6 +50,17 @@ import {
     satisfiesRange,
     MagicDependencyContext
 } from '../../magic-dependency-check';
+import {
+    buildIco,
+    getAngularMajorVersion,
+    parseManifestIconTargets,
+    relaxDefaultPwaInitialBudgets,
+    renderPwaUpdateService,
+    resizeRgbaBilinear,
+    resolveFaviconPath,
+    resolveManifestIconPath,
+    wirePwaUpdateServiceIntoAppComponent
+} from '../../pwa';
 
 // Parse regex strings like '/pattern/flags' into RegExp objects, recursively
 function parseRegexFields(obj: any): any {
@@ -398,6 +409,240 @@ suite('Wizly Magic Dependency Check', () => {
             assert.strictEqual(context.installedAngularCoreVersion, '19.1.3');
             assert.strictEqual(context.installedMagicAngularVersion, '4.1201.0');
             assert.strictEqual(context.magicAngularAngularCorePeerRange, '^19.1.3');
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+});
+
+suite('Wizly PWA', () => {
+    test('relaxDefaultPwaInitialBudgets: raises only the untouched Angular default in production configs', () => {
+        const angularJson = {
+            projects: {
+                app: {
+                    architect: {
+                        build: {
+                            configurations: {
+                                production: {
+                                    budgets: [
+                                        { type: 'initial', maximumWarning: '500kB', maximumError: '1MB' },
+                                        { type: 'anyComponentStyle', maximumWarning: '4kB', maximumError: '8kB' }
+                                    ]
+                                },
+                                staging: { budgets: [{ type: 'initial', maximumWarning: '2mb', maximumError: '4mb' }] },
+                                development: { budgets: [{ type: 'initial', maximumWarning: '500kb', maximumError: '1mb' }] }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const scopes = relaxDefaultPwaInitialBudgets(angularJson, 'app');
+
+        const configs = angularJson.projects.app.architect.build.configurations;
+        assert.deepStrictEqual(scopes, ['build.configurations.production']);
+        assert.deepStrictEqual(configs.production.budgets[0], { type: 'initial', maximumWarning: '3mb', maximumError: '5mb' });
+        assert.strictEqual(configs.production.budgets[1].maximumWarning, '4kB');
+        assert.strictEqual(configs.staging.budgets[0].maximumWarning, '2mb');
+        assert.strictEqual(configs.development.budgets[0].maximumWarning, '500kb');
+        assert.deepStrictEqual(relaxDefaultPwaInitialBudgets(angularJson, 'missing'), []);
+    });
+
+    test('parseManifestIconTargets: keeps local square icons, sorted and without duplicates', () => {
+        const targets = parseManifestIconTargets({
+            icons: [
+                { src: 'icons/icon-512x512.png', sizes: '512x512' },
+                { src: 'icons/icon-72x72.png', sizes: '72x72' },
+                { src: 'icons/icon-72x72.png', sizes: '72x72' },
+                { src: 'icons/multi.png', sizes: '96x96 128x128' },
+                { src: 'icons/wide.png', sizes: '192x96' },
+                { src: 'https://cdn.example.com/icon.png', sizes: '192x192' },
+                { src: 'data:image/png;base64,AAAA', sizes: '192x192' },
+                { src: 'icons/any.svg', sizes: 'any' },
+                { sizes: '144x144' }
+            ]
+        });
+
+        assert.deepStrictEqual(targets, [
+            { size: 72, src: 'icons/icon-72x72.png' },
+            { size: 96, src: 'icons/multi.png' },
+            { size: 128, src: 'icons/multi.png' },
+            { size: 512, src: 'icons/icon-512x512.png' }
+        ]);
+        assert.deepStrictEqual(parseManifestIconTargets({}), []);
+    });
+
+    test('resolveManifestIconPath and resolveFaviconPath: follow public/ when the project uses it', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-paths-'));
+        try {
+            fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+            const legacyManifest = path.join(projectRoot, 'src', 'manifest.webmanifest');
+
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', legacyManifest, 'assets/icons/icon-72x72.png'), path.join(projectRoot, 'src', 'assets', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', legacyManifest, 'icons/icon-72x72.png'), path.join(projectRoot, 'src', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'src', 'favicon.ico'));
+
+            fs.mkdirSync(path.join(projectRoot, 'public'), { recursive: true });
+            const publicManifest = path.join(projectRoot, 'public', 'manifest.webmanifest');
+
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', publicManifest, '/icons/icon-72x72.png'), path.join(projectRoot, 'public', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'public', 'favicon.ico'));
+
+            // Without a favicon, the Angular version decides over whether public/ exists.
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 17), path.join(projectRoot, 'src', 'favicon.ico'));
+            fs.rmSync(path.join(projectRoot, 'public'), { recursive: true, force: true });
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 18), path.join(projectRoot, 'public', 'favicon.ico'));
+
+            // An existing favicon keeps its place, whatever the Angular version.
+            fs.writeFileSync(path.join(projectRoot, 'src', 'favicon.ico'), '', 'utf8');
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 19), path.join(projectRoot, 'src', 'favicon.ico'));
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    test('getAngularMajorVersion: prefers the installed @angular/core over the package.json range', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-angular-'));
+        try {
+            assert.strictEqual(getAngularMajorVersion(projectRoot), undefined);
+
+            fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ dependencies: { '@angular/core': '^17.3.0' } }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 17);
+            assert.strictEqual(getAngularMajorVersion(projectRoot, { devDependencies: { '@angular/core': '~19.2.0' } }), 19);
+
+            const coreDir = path.join(projectRoot, 'node_modules', '@angular', 'core');
+            fs.mkdirSync(coreDir, { recursive: true });
+            fs.writeFileSync(path.join(coreDir, 'package.json'), JSON.stringify({ name: '@angular/core', version: '19.2.14' }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 19);
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    test('resizeRgbaBilinear and buildIco: produce a valid icon directory', () => {
+        const src = Buffer.alloc(64 * 64 * 4);
+        for (let i = 0; i < src.length; i += 4) {
+            src[i] = 200; src[i + 1] = 100; src[i + 2] = 50; src[i + 3] = 255;
+        }
+        const resized = resizeRgbaBilinear(src, 64, 64, 16, 16);
+        assert.strictEqual(resized.length, 16 * 16 * 4);
+        assert.deepStrictEqual([...resized.subarray(0, 4)], [200, 100, 50, 255]);
+
+        const pngA = Buffer.from([1, 2, 3]);
+        const pngB = Buffer.from([4, 5, 6, 7, 8]);
+        const ico = buildIco([{ size: 16, png: pngA }, { size: 256, png: pngB }]);
+
+        assert.strictEqual(ico.readUInt16LE(2), 1);
+        assert.strictEqual(ico.readUInt16LE(4), 2);
+        assert.strictEqual(ico.readUInt8(6), 16);
+        assert.strictEqual(ico.readUInt8(6 + 16), 0, '256 px is stored as 0 in the ICO directory');
+        assert.strictEqual(ico.readUInt32LE(6 + 8), pngA.length);
+        assert.strictEqual(ico.readUInt32LE(6 + 12), 6 + 16 * 2);
+        assert.strictEqual(ico.readUInt32LE(6 + 16 + 12), 6 + 16 * 2 + pngA.length);
+        assert.strictEqual(ico.length, 6 + 16 * 2 + pngA.length + pngB.length);
+    });
+
+    test('renderPwaUpdateService: uses MatDialog only when Angular Material is available', () => {
+        const withMaterial = renderPwaUpdateService(true);
+        const withoutMaterial = renderPwaUpdateService(false);
+
+        assert.ok(withMaterial.includes("from '@angular/material/dialog'"));
+        assert.ok(withMaterial.includes('export class PwaUpdateDialogComponent'));
+        assert.ok(!withoutMaterial.includes('@angular/material'));
+        for (const text of [withMaterial, withoutMaterial]) {
+            assert.ok(text.includes('export class PwaUpdateService'));
+            assert.ok(text.includes("filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY')"));
+            assert.ok(text.includes('await this.swUpdate.activateUpdate();'));
+        }
+    });
+
+    test('wirePwaUpdateServiceIntoAppComponent: injects the service once and calls init()', () => {
+        const withoutConstructor = [
+            "import { Component } from '@angular/core';",
+            "import { RouterOutlet } from '@angular/router';",
+            '',
+            '@Component({',
+            "    selector: 'app-root',",
+            "    templateUrl: './app.component.html'",
+            '})',
+            'export class AppComponent {',
+            "    title = 'demo';",
+            '}',
+            ''
+        ].join('\n');
+
+        const first = wirePwaUpdateServiceIntoAppComponent(withoutConstructor);
+        assert.strictEqual(first.wired, true);
+        assert.strictEqual(first.text, [
+            "import { Component, inject } from '@angular/core';",
+            "import { RouterOutlet } from '@angular/router';",
+            "import { PwaUpdateService } from './pwa-update.service';",
+            '',
+            '@Component({',
+            "    selector: 'app-root',",
+            "    templateUrl: './app.component.html'",
+            '})',
+            'export class AppComponent {',
+            '    private readonly pwaUpdateService = inject(PwaUpdateService);',
+            '',
+            '    constructor() {',
+            '        this.pwaUpdateService.init();',
+            '    }',
+            '',
+            "    title = 'demo';",
+            '}',
+            ''
+        ].join('\n'));
+
+        const second = wirePwaUpdateServiceIntoAppComponent(first.text);
+        assert.strictEqual(second.text, first.text, 'running it twice changes nothing');
+
+        const withConstructor = [
+            "import { Component, inject } from '@angular/core';",
+            'export class AppComponent {',
+            '    constructor(private readonly zone: NgZone) {',
+            '        this.start();',
+            '    }',
+            '}'
+        ].join('\n');
+        const wiredCtor = wirePwaUpdateServiceIntoAppComponent(withConstructor).text;
+        assert.strictEqual(wiredCtor, [
+            "import { Component, inject } from '@angular/core';",
+            "import { PwaUpdateService } from './pwa-update.service';",
+            'export class AppComponent {',
+            '    private readonly pwaUpdateService = inject(PwaUpdateService);',
+            '',
+            '    constructor(private readonly zone: NgZone) {',
+            '        this.pwaUpdateService.init();',
+            '        this.start();',
+            '    }',
+            '}'
+        ].join('\n'));
+
+        const notApp = wirePwaUpdateServiceIntoAppComponent('export class ShellComponent {}\n');
+        assert.deepStrictEqual(notApp, { text: 'export class ShellComponent {}\n', wired: false });
+    });
+
+    test('analyzeAngularSetup: reports the PWA markers in their own chapter', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-check-'));
+        try {
+            fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+            const angularJson = {
+                projects: { app: { sourceRoot: 'src', architect: { build: { options: { styles: [], assets: [] } } } } }
+            };
+            const pwaFindings = () => analyzeAngularSetup(projectRoot, angularJson, { dependencies: {} }, 'app').findings
+                .filter((finding) => finding.section === 'pwa')
+                .map((finding) => `${finding.severity}: ${finding.title}`);
+
+            assert.deepStrictEqual(pwaFindings(), ['info: PWA support is not configured.']);
+
+            fs.mkdirSync(path.join(projectRoot, 'public'), { recursive: true });
+            fs.writeFileSync(path.join(projectRoot, 'public', 'manifest.webmanifest'), '{}', 'utf8');
+            assert.deepStrictEqual(pwaFindings(), ['warning: Only part of the expected PWA setup was found.']);
+
+            fs.writeFileSync(path.join(projectRoot, 'ngsw-config.json'), '{}', 'utf8');
+            assert.deepStrictEqual(pwaFindings(), ['success: PWA markers were found (manifest.webmanifest + ngsw-config.json).']);
         } finally {
             fs.rmSync(projectRoot, { recursive: true, force: true });
         }

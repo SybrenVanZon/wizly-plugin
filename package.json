@@ -2,7 +2,7 @@
   "name": "wizly",
   "displayName": "Wizly",
   "description": "Automatically post-process Magic xpa Web Client generated HTML to improve quality and optionally switch to other UI frameworks via regex — no manual edits.",
-  "version": "0.6.0",
+  "version": "0.7.0-rc1",
   "publisher": "sybrenvanzon",
   "license": "MIT",
   "repository": {
@@ -63,6 +63,14 @@
       {
         "command": "wizly.convertAngularProjectToScss",
         "title": "Wizly: Convert Angular Project to SCSS"
+      },
+      {
+        "command": "wizly.convertAngularProjectToPwa",
+        "title": "Wizly: Convert Angular Project to PWA"
+      },
+      {
+        "command": "wizly.generatePwaIconsFromImage",
+        "title": "Wizly: Generate PWA Icons & Favicon (from Active Image)"
       },
       {
         "command": "wizly.generateAngularMaterialThemeScss",
@@ -132,6 +140,12 @@
         },
         {
           "command": "wizly.convertAngularProjectToScss"
+        },
+        {
+          "command": "wizly.convertAngularProjectToPwa"
+        },
+        {
+          "command": "wizly.generatePwaIconsFromImage"
         },
         {
           "command": "wizly.generateAngularMaterialThemeScss"
@@ -407,12 +421,14 @@
   },
   "dependencies": {
     "ejs": "^4.0.1",
+    "pngjs": "^7.0.0",
     "prettier": "^3.6.2"
   },
   "devDependencies": {
     "@types/ejs": "^3.1.5",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/pngjs": "^6.0.5",
     "@types/vscode": "^1.109.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",

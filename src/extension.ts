@@ -1,8 +1,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import * as fs from 'fs';
+import { PNG } from 'pngjs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
@@ -10,6 +11,7 @@ import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, Angul
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
+import { buildIco, findPwaManifestPath, getAngularMajorVersion, parseManifestIconTargets, PWA_FAVICON_SIZES, PWA_MANIFEST_FILE, PWA_NGSW_CONFIG_FILE, relaxDefaultPwaInitialBudgets, renderPwaUpdateService, resizeRgbaBilinear, resolveFaviconPath, resolveManifestIconPath, wirePwaUpdateServiceIntoAppComponent } from './pwa';
 import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -2147,6 +2149,434 @@ async function convertAngularProjectToScss() {
         created: [path.relative(workspaceRoot, mainEntryPath).replace(/\\/g, '/')],
         nextStep: 'Restart ng serve, then continue with theme generation or the next styling step.'
     });
+}
+
+async function convertAngularProjectToPwa() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('Wizly: Please open a folder first.');
+        return;
+    }
+
+    const excludeGlob = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.vs/**,**/.vscode/**}';
+    const candidates: Array<{ folder: vscode.WorkspaceFolder; angularJsonUri: vscode.Uri }> = [];
+
+    for (const folder of workspaceFolders) {
+        const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/angular.json'), excludeGlob);
+        for (const angularJsonUri of found) {
+            candidates.push({ folder, angularJsonUri });
+        }
+    }
+
+    if (candidates.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No angular.json found in the workspace.');
+        return;
+    }
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            candidates.map((c, i) => ({
+                label: `${c.folder.name}: ${path.relative(c.folder.uri.fsPath, c.angularJsonUri.fsPath)}`,
+                description: path.dirname(c.angularJsonUri.fsPath),
+                index: i
+            })),
+            { title: 'Wizly: Choose Angular workspace (angular.json)' }
+        );
+        if (!picked) { return; }
+        chosen = candidates[picked.index];
+    }
+
+    const workspaceRoot = path.dirname(chosen.angularJsonUri.fsPath);
+    const angularJsonPath = chosen.angularJsonUri.fsPath;
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        vscode.window.showErrorMessage(`Wizly: Could not find package.json next to angular.json (${packageJsonPath}).`);
+        return;
+    }
+
+    const readJson = <T>(filePath: string): T => JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    const writeJson = (filePath: string, value: any) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    const angularJson = readJson<any>(angularJsonPath);
+    const packageJson = readJson<any>(packageJsonPath);
+
+    const projects = angularJson?.projects && typeof angularJson.projects === 'object' ? angularJson.projects : {};
+    const defaultProjectName = typeof angularJson?.defaultProject === 'string' ? angularJson.defaultProject : undefined;
+
+    const isAppProject = (proj: any) => {
+        if (!proj || typeof proj !== 'object') { return false; }
+        if (proj.projectType === 'application') { return true; }
+        const targets = (proj?.targets && typeof proj.targets === 'object') ? proj.targets : proj?.architect;
+        const builder = targets?.build?.builder ?? targets?.build?.executor;
+        return typeof builder === 'string' && builder.includes('application');
+    };
+
+    const appProjectNames = Object.keys(projects).filter(name => isAppProject(projects[name]));
+    if (appProjectNames.length === 0) {
+        vscode.window.showErrorMessage('Wizly: No Angular application projects found in angular.json.');
+        return;
+    }
+
+    let projectName = defaultProjectName && appProjectNames.includes(defaultProjectName) ? defaultProjectName : appProjectNames[0];
+    if (appProjectNames.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+            appProjectNames.map(name => ({
+                label: name,
+                description: name === defaultProjectName ? 'defaultProject' : undefined
+            })),
+            { title: 'Wizly: Choose Angular project to enable PWA for' }
+        );
+        if (!picked) { return; }
+        projectName = picked.label;
+    }
+
+    const proj = projects[projectName];
+    const sourceRoot = typeof proj?.sourceRoot === 'string' ? proj.sourceRoot : 'src';
+    const ngswConfigPath = path.join(workspaceRoot, PWA_NGSW_CONFIG_FILE);
+    const hasServiceWorkerDep = !!(packageJson?.dependencies?.['@angular/service-worker'] || packageJson?.devDependencies?.['@angular/service-worker']);
+    if (hasServiceWorkerDep || fs.existsSync(ngswConfigPath) || findPwaManifestPath(workspaceRoot, sourceRoot)) {
+        vscode.window.showErrorMessage('Wizly: This Angular workspace already appears to have PWA support configured.');
+        return;
+    }
+
+    if (!fs.existsSync(path.join(workspaceRoot, '.git'))) {
+        const proceed = await vscode.window.showWarningMessage(
+            'Wizly: This folder does not appear to be a Git repository (.git not found). This conversion changes many files and cannot be automatically undone. Do you want to continue?',
+            { modal: true },
+            'Yes',
+            'No'
+        );
+        if (proceed !== 'Yes') { return; }
+    }
+
+    const hasFile = (name: string) => fs.existsSync(path.join(workspaceRoot, name));
+    const pkgManager = hasFile('pnpm-lock.yaml') ? 'pnpm'
+        : hasFile('yarn.lock') ? 'yarn'
+            : 'npm';
+
+    const getInstalledVersion = (name: string): string | undefined => {
+        const packageLockPath = path.join(workspaceRoot, 'package-lock.json');
+        if (fs.existsSync(packageLockPath)) {
+            try {
+                const lock = readJson<any>(packageLockPath);
+                const version = lock?.packages?.[`node_modules/${name}`]?.version ?? lock?.dependencies?.[name]?.version;
+                if (typeof version === 'string') { return version; }
+            } catch {
+                // Fall back to node_modules.
+            }
+        }
+        const pkgJsonPath = path.join(workspaceRoot, 'node_modules', ...name.split('/'), 'package.json');
+        if (!fs.existsSync(pkgJsonPath)) { return undefined; }
+        try {
+            const version = readJson<any>(pkgJsonPath)?.version;
+            return typeof version === 'string' ? version : undefined;
+        } catch {
+            return undefined;
+        }
+    };
+
+    const angularCoreVersion = getInstalledVersion('@angular/core');
+    if (!angularCoreVersion) {
+        vscode.window.showErrorMessage('Wizly: Could not determine the installed @angular/core version (package-lock.json or node_modules). Run npm install first, then try again.');
+        return;
+    }
+
+    // @angular/service-worker is released with @angular/core, @angular/pwa with the Angular CLI.
+    // Their patch versions can differ, so each package is pinned to its own side.
+    const angularCliVersion = getInstalledVersion('@angular/cli') ?? angularCoreVersion;
+    const pwaSpecifier = `@angular/pwa@${angularCliVersion}`;
+
+    const angularCoreSpecifier = typeof packageJson?.dependencies?.['@angular/core'] === 'string'
+        ? (packageJson.dependencies['@angular/core'] as string)
+        : typeof packageJson?.devDependencies?.['@angular/core'] === 'string'
+            ? (packageJson.devDependencies['@angular/core'] as string)
+            : undefined;
+
+    // Keeps @angular/service-worker on the same specifier style as @angular/core (for example ^19.2.0).
+    const setServiceWorkerSpecifierInPackageJson = (specifier: string) => {
+        const pkg = readJson<any>(packageJsonPath);
+        const deps = pkg.dependencies && typeof pkg.dependencies === 'object' ? pkg.dependencies : {};
+        const devDeps = pkg.devDependencies && typeof pkg.devDependencies === 'object' ? pkg.devDependencies : {};
+        if (typeof deps['@angular/service-worker'] === 'string') {
+            deps['@angular/service-worker'] = specifier;
+        } else if (typeof devDeps['@angular/service-worker'] === 'string') {
+            devDeps['@angular/service-worker'] = specifier;
+        } else if (typeof deps['@angular/core'] !== 'string' && typeof devDeps['@angular/core'] === 'string') {
+            devDeps['@angular/service-worker'] = specifier;
+        } else {
+            deps['@angular/service-worker'] = specifier;
+        }
+        pkg.dependencies = deps;
+        pkg.devDependencies = devDeps;
+        writeJson(packageJsonPath, pkg);
+    };
+
+    const ngAddCmd = pkgManager === 'pnpm'
+        ? `pnpm exec ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`
+        : pkgManager === 'yarn'
+            ? `yarn ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`
+            : `npx ng add ${pwaSpecifier} --project "${projectName}" --skip-confirmation`;
+
+    // Installing the service worker first, pinned to @angular/core, avoids npm ERESOLVE during ng add.
+    const preInstallServiceWorkerCmd = pkgManager === 'pnpm'
+        ? `pnpm add @angular/service-worker@${angularCoreVersion} --save-exact`
+        : pkgManager === 'yarn'
+            ? `yarn add @angular/service-worker@${angularCoreVersion} --exact`
+            : `npm install @angular/service-worker@${angularCoreVersion} --save --save-exact`;
+
+    const channel = getOutputChannel();
+    channel.show(true);
+    channel.appendLine(`Wizly: Enabling PWA for Angular project "${projectName}"...`);
+
+    const run = (command: string) => new Promise<void>((resolve, reject) => {
+        channel.appendLine(`Wizly: Running: ${command}`);
+        const child = spawn(command, [], { cwd: workspaceRoot, shell: true, env: process.env });
+        child.stdout.on('data', (d) => channel.append(String(d)));
+        child.stderr.on('data', (d) => channel.append(String(d)));
+        child.on('error', reject);
+        child.on('close', (code) => {
+            if (code === 0) { resolve(); }
+            else { reject(new Error(`"${command}" failed with exit code ${code}`)); }
+        });
+    });
+
+    try {
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Wizly: Convert Angular Project to PWA (${projectName})`,
+                cancellable: false
+            },
+            async () => {
+                await run(preInstallServiceWorkerCmd);
+                await run(ngAddCmd);
+
+                if (angularCoreSpecifier) {
+                    setServiceWorkerSpecifierInPackageJson(angularCoreSpecifier);
+                }
+
+                const refreshedAngularJson = readJson<any>(angularJsonPath);
+                const updatedBudgetScopes = relaxDefaultPwaInitialBudgets(refreshedAngularJson, projectName);
+                if (updatedBudgetScopes.length > 0) {
+                    writeJson(angularJsonPath, refreshedAngularJson);
+                    channel.appendLine(`Wizly: Raised the default Angular initial budget from 500kb/1mb to 3mb/5mb for Magic-sized production bundles (${updatedBudgetScopes.join(', ')}).`);
+                }
+            }
+        );
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to enable PWA. ${err instanceof Error ? err.message : String(err)}. Check the Wizly output for details.`);
+        return;
+    }
+
+    const addUpdateHandling = await vscode.window.showQuickPick(
+        [
+            {
+                label: 'Yes (add update prompt service)',
+                description: 'Creates src/app/pwa-update.service.ts and wires it into AppComponent to prompt on new versions.',
+                id: 'yes'
+            },
+            {
+                label: 'No',
+                description: 'Only enable PWA via Angular CLI.',
+                id: 'no'
+            }
+        ],
+        { title: 'Wizly: Add PWA update handling (check + prompt + reload)?' }
+    );
+
+    const addPwaUpdateHandling = async (): Promise<string | undefined> => {
+        const appDir = path.join(workspaceRoot, sourceRoot, 'app');
+        if (!fs.existsSync(appDir)) {
+            vscode.window.showWarningMessage(`Wizly: Could not find ${path.relative(workspaceRoot, appDir)}. Skipping update handling scaffolding.`);
+            return undefined;
+        }
+
+        const servicePath = path.join(appDir, 'pwa-update.service.ts');
+        if (!fs.existsSync(servicePath)) {
+            const hasMaterial = typeof packageJson?.dependencies?.['@angular/material'] === 'string'
+                || typeof packageJson?.devDependencies?.['@angular/material'] === 'string'
+                || fs.existsSync(path.join(workspaceRoot, 'node_modules', '@angular', 'material', 'package.json'));
+            fs.writeFileSync(servicePath, renderPwaUpdateService(hasMaterial), 'utf8');
+        }
+
+        const sourceRootAbs = path.join(workspaceRoot, sourceRoot) + path.sep;
+        const appComponentPath = (await vscode.workspace.findFiles('**/app.component.ts', excludeGlob))
+            .map(u => u.fsPath)
+            .filter(p => p.startsWith(sourceRootAbs))
+            .sort((a, b) => a.length - b.length)[0];
+        if (!appComponentPath || !fs.existsSync(appComponentPath)) {
+            vscode.window.showWarningMessage('Wizly: Could not find app.component.ts to wire update handling. Created pwa-update.service.ts only.');
+            return servicePath;
+        }
+
+        const before = fs.readFileSync(appComponentPath, 'utf8');
+        const { text: after, wired } = wirePwaUpdateServiceIntoAppComponent(before);
+        if (!wired) {
+            vscode.window.showWarningMessage('Wizly: Could not safely wire update handling into AppComponent. Created pwa-update.service.ts only.');
+            return servicePath;
+        }
+        if (after !== before) {
+            fs.writeFileSync(appComponentPath, after, 'utf8');
+        }
+        return appComponentPath;
+    };
+
+    const updateHandlingDocToOpen = addUpdateHandling?.id === 'yes'
+        ? await addPwaUpdateHandling()
+        : undefined;
+    const manifestPath = findPwaManifestPath(workspaceRoot, sourceRoot);
+
+    const docToOpen = updateHandlingDocToOpen
+        ?? manifestPath
+        ?? (fs.existsSync(ngswConfigPath) ? ngswConfigPath : undefined);
+    if (docToOpen) {
+        const doc = await vscode.workspace.openTextDocument(docToOpen);
+        await vscode.window.showTextDocument(doc, { preview: false });
+    }
+
+    const createdPaths = [angularJsonPath, manifestPath, fs.existsSync(ngswConfigPath) ? ngswConfigPath : undefined]
+        .filter((p): p is string => !!p)
+        .map(p => path.relative(workspaceRoot, p).replace(/\\/g, '/'));
+    showCommandSuccess(`Wizly: Enabled PWA support for "${projectName}".`, {
+        created: createdPaths,
+        nextStep: 'Generate icons if needed and test the service worker in a production-style HTTPS run.'
+    });
+}
+
+async function generatePwaIconsFromActiveImage() {
+    const getActiveFileUri = (): vscode.Uri | undefined => {
+        const uri = vscode.window.activeTextEditor?.document?.uri;
+        if (uri && uri.scheme === 'file') { return uri; }
+        // A PNG opens in the image preview, which is a tab without a text editor.
+        const input: any = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+        const tabUri: vscode.Uri | undefined = input?.uri;
+        if (tabUri && tabUri.scheme === 'file') { return tabUri; }
+        return undefined;
+    };
+
+    const activeUri = getActiveFileUri();
+    if (!activeUri) {
+        vscode.window.showErrorMessage('Wizly: Open the source icon image first, then run this command.');
+        return;
+    }
+
+    const sourcePath = activeUri.fsPath;
+    if (path.extname(sourcePath).toLowerCase() !== '.png') {
+        vscode.window.showErrorMessage('Wizly: The active file must be a .png image.');
+        return;
+    }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeUri);
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('Wizly: The active image must be inside an open workspace folder.');
+        return;
+    }
+
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const sourceRoot = 'src';
+    const manifestPath = findPwaManifestPath(workspaceRoot, sourceRoot);
+    const ngswConfigPath = path.join(workspaceRoot, PWA_NGSW_CONFIG_FILE);
+    if (!manifestPath || !fs.existsSync(ngswConfigPath)) {
+        vscode.window.showErrorMessage(`Wizly: This workspace does not appear to be a PWA (${PWA_MANIFEST_FILE} or ${PWA_NGSW_CONFIG_FILE} not found). Run "Wizly: Convert Angular Project to PWA" first.`);
+        return;
+    }
+
+    let manifest: any;
+    try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to read ${manifestPath}: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+    }
+
+    const iconTargets = parseManifestIconTargets(manifest);
+    if (iconTargets.length === 0) {
+        vscode.window.showErrorMessage(`Wizly: No local square icon targets found in ${PWA_MANIFEST_FILE} (icons[].src + icons[].sizes).`);
+        return;
+    }
+
+    let srcPng: PNG;
+    try {
+        srcPng = PNG.sync.read(fs.readFileSync(sourcePath));
+    } catch (err) {
+        vscode.window.showErrorMessage(`Wizly: Failed to read PNG: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+    }
+
+    const maxIconSize = Math.max(...iconTargets.map(t => t.size), ...PWA_FAVICON_SIZES);
+    if (srcPng.width < maxIconSize || srcPng.height < maxIconSize) {
+        vscode.window.showErrorMessage(`Wizly: The active image is too small (${srcPng.width}x${srcPng.height}). It must be at least ${maxIconSize}x${maxIconSize}.`);
+        return;
+    }
+
+    const writeMode = await vscode.window.showQuickPick(
+        [
+            {
+                label: 'Overwrite existing files',
+                description: 'Regenerates icon files even if they already exist.',
+                id: 'overwrite'
+            },
+            {
+                label: 'Skip existing files',
+                description: 'Only creates missing icon files.',
+                id: 'skip'
+            }
+        ],
+        { title: 'Wizly: Generate PWA icons and favicon' }
+    );
+    if (!writeMode) { return; }
+
+    const overwrite = writeMode.id === 'overwrite';
+    const renderPng = (size: number): Buffer => {
+        const png = new PNG({ width: size, height: size });
+        png.data = resizeRgbaBilinear(srcPng.data, srcPng.width, srcPng.height, size, size);
+        return PNG.sync.write(png);
+    };
+
+    let written = 0;
+    let skipped = 0;
+    const warnings: string[] = [];
+
+    for (const target of iconTargets) {
+        const destAbs = resolveManifestIconPath(workspaceRoot, sourceRoot, manifestPath, target.src);
+        if (!overwrite && fs.existsSync(destAbs)) {
+            skipped++;
+            continue;
+        }
+        try {
+            fs.mkdirSync(path.dirname(destAbs), { recursive: true });
+            fs.writeFileSync(destAbs, renderPng(target.size));
+            written++;
+        } catch (err) {
+            warnings.push(`${path.relative(workspaceRoot, destAbs)}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    const faviconAbs = resolveFaviconPath(workspaceRoot, sourceRoot, getAngularMajorVersion(workspaceRoot));
+    if (overwrite || !fs.existsSync(faviconAbs)) {
+        try {
+            fs.writeFileSync(faviconAbs, buildIco(PWA_FAVICON_SIZES.map(size => ({ size, png: renderPng(size) }))));
+            written++;
+        } catch (err) {
+            warnings.push(`${path.relative(workspaceRoot, faviconAbs)}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    } else {
+        skipped++;
+    }
+
+    if (warnings.length > 0) {
+        const channel = getOutputChannel();
+        channel.show(true);
+        channel.appendLine('Wizly: PWA icon generation warnings:');
+        for (const w of warnings) { channel.appendLine(`- ${w}`); }
+    }
+
+    const message = `Wizly: Generated PWA icons from ${path.basename(sourcePath)}. Written: ${written}, skipped: ${skipped}.`;
+    if (warnings.length > 0) {
+        vscode.window.showWarningMessage(message);
+    } else {
+        vscode.window.showInformationMessage(message);
+    }
 }
 
 async function generateAngularMaterialThemeScss() {
@@ -4362,6 +4792,8 @@ export function activate(context: vscode.ExtensionContext) {
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
     const transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);
     const convertAngularProjectToScssDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToScss', convertAngularProjectToScss);
+    const convertAngularProjectToPwaDisposable = vscode.commands.registerCommand('wizly.convertAngularProjectToPwa', convertAngularProjectToPwa);
+    const generatePwaIconsFromImageDisposable = vscode.commands.registerCommand('wizly.generatePwaIconsFromImage', generatePwaIconsFromActiveImage);
     const generateAngularMaterialThemeScssDisposable = vscode.commands.registerCommand('wizly.generateAngularMaterialThemeScss', generateAngularMaterialThemeScss);
     const generateBlankThemeScssDisposable = vscode.commands.registerCommand('wizly.generateBlankThemeScss', generateBlankThemeScss);
     const generateThemeColorUtilitiesScssDisposable = vscode.commands.registerCommand('wizly.generateThemeColorUtilitiesScss', generateThemeColorUtilitiesScss);
@@ -4527,6 +4959,8 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(transformDisposable);
     context.subscriptions.push(transformUncommittedDisposable);
     context.subscriptions.push(convertAngularProjectToScssDisposable);
+    context.subscriptions.push(convertAngularProjectToPwaDisposable);
+    context.subscriptions.push(generatePwaIconsFromImageDisposable);
     context.subscriptions.push(generateAngularMaterialThemeScssDisposable);
     context.subscriptions.push(generateBlankThemeScssDisposable);
     context.subscriptions.push(generateThemeColorUtilitiesScssDisposable);
