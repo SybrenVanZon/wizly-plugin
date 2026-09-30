@@ -124,7 +124,7 @@ What the command does:
 
 - it reads `icons[].src` and `icons[].sizes` from the manifest. Only local, square icons are generated. URLs and `data:` icons are skipped.
 - it writes each icon to the path in the manifest, next to the manifest. For a manifest in `public/`, that is `public/icons/`.
-- it writes `favicon.ico` with 16, 32 and 48 pixel images. An existing `favicon.ico` in `public/` or `src/` keeps its place. Otherwise Wizly uses `public/` when that folder exists.
+- it writes `favicon.ico` with 16, 32 and 48 pixel images. An existing `favicon.ico` in `public/` or `src/` keeps its place. Without one, the Angular version decides: Angular 18 and newer use `public/`, older versions use `src/`. When the version cannot be read from `node_modules` or `package.json`, Wizly uses `public/` if that folder exists.
 - it asks whether to overwrite existing files or only create missing ones
 
 Use a square source image. A non-square image is stretched to a square.

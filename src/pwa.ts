@@ -105,12 +105,45 @@ export function resolveManifestIconPath(workspaceRoot: string, sourceRoot: strin
     return path.join(srcRoot, normalized);
 }
 
-// Angular 18+ serves favicon.ico from public/, older projects from the source root. An existing file wins.
-export function resolveFaviconPath(workspaceRoot: string, sourceRoot: string): string {
+// `ng new` puts static files such as favicon.ico in public/ since Angular 18.
+export const ANGULAR_PUBLIC_FOLDER_MAJOR = 18;
+
+// The installed @angular/core wins; without node_modules the first number of the package.json range is used.
+export function getAngularMajorVersion(workspaceRoot: string, packageJson?: any): number | undefined {
+    const parseMajor = (value: unknown): number | undefined => {
+        const m = typeof value === 'string' ? value.match(/(\d+)/) : null;
+        return m ? Number(m[1]) : undefined;
+    };
+
+    try {
+        const installed = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'node_modules', '@angular', 'core', 'package.json'), 'utf8'));
+        const major = parseMajor(installed?.version);
+        if (major !== undefined) { return major; }
+    } catch {
+        // Not installed, fall back to package.json.
+    }
+
+    let pkg = packageJson;
+    if (!pkg) {
+        try {
+            pkg = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8'));
+        } catch {
+            return undefined;
+        }
+    }
+    return parseMajor(pkg?.dependencies?.['@angular/core'] ?? pkg?.devDependencies?.['@angular/core']);
+}
+
+// An existing favicon.ico keeps its place, so a project upgraded from before Angular 18 keeps it in the
+// source root. Without one, the Angular version decides, and public/ existing is the fallback.
+export function resolveFaviconPath(workspaceRoot: string, sourceRoot: string, angularMajor?: number): string {
     const publicFavicon = path.join(workspaceRoot, 'public', 'favicon.ico');
     const sourceFavicon = path.join(workspaceRoot, sourceRoot, 'favicon.ico');
     if (fs.existsSync(publicFavicon)) { return publicFavicon; }
     if (fs.existsSync(sourceFavicon)) { return sourceFavicon; }
+    if (angularMajor !== undefined) {
+        return angularMajor >= ANGULAR_PUBLIC_FOLDER_MAJOR ? publicFavicon : sourceFavicon;
+    }
     return fs.existsSync(path.join(workspaceRoot, 'public')) ? publicFavicon : sourceFavicon;
 }
 

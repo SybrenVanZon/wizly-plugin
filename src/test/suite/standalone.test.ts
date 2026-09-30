@@ -52,6 +52,7 @@ import {
 } from '../../magic-dependency-check';
 import {
     buildIco,
+    getAngularMajorVersion,
     parseManifestIconTargets,
     relaxDefaultPwaInitialBudgets,
     renderPwaUpdateService,
@@ -488,9 +489,32 @@ suite('Wizly PWA', () => {
             assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', publicManifest, '/icons/icon-72x72.png'), path.join(projectRoot, 'public', 'icons', 'icon-72x72.png'));
             assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'public', 'favicon.ico'));
 
-            // An existing favicon keeps its place, even when public/ exists.
+            // Without a favicon, the Angular version decides over whether public/ exists.
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 17), path.join(projectRoot, 'src', 'favicon.ico'));
+            fs.rmSync(path.join(projectRoot, 'public'), { recursive: true, force: true });
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 18), path.join(projectRoot, 'public', 'favicon.ico'));
+
+            // An existing favicon keeps its place, whatever the Angular version.
             fs.writeFileSync(path.join(projectRoot, 'src', 'favicon.ico'), '', 'utf8');
-            assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'src', 'favicon.ico'));
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 19), path.join(projectRoot, 'src', 'favicon.ico'));
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    test('getAngularMajorVersion: prefers the installed @angular/core over the package.json range', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-angular-'));
+        try {
+            assert.strictEqual(getAngularMajorVersion(projectRoot), undefined);
+
+            fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ dependencies: { '@angular/core': '^17.3.0' } }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 17);
+            assert.strictEqual(getAngularMajorVersion(projectRoot, { devDependencies: { '@angular/core': '~19.2.0' } }), 19);
+
+            const coreDir = path.join(projectRoot, 'node_modules', '@angular', 'core');
+            fs.mkdirSync(coreDir, { recursive: true });
+            fs.writeFileSync(path.join(coreDir, 'package.json'), JSON.stringify({ name: '@angular/core', version: '19.2.14' }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 19);
         } finally {
             fs.rmSync(projectRoot, { recursive: true, force: true });
         }

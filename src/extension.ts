@@ -11,7 +11,7 @@ import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, Angul
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from './magic-colors';
-import { buildIco, findPwaManifestPath, parseManifestIconTargets, PWA_FAVICON_SIZES, PWA_MANIFEST_FILE, PWA_NGSW_CONFIG_FILE, relaxDefaultPwaInitialBudgets, renderPwaUpdateService, resizeRgbaBilinear, resolveFaviconPath, resolveManifestIconPath, wirePwaUpdateServiceIntoAppComponent } from './pwa';
+import { buildIco, findPwaManifestPath, getAngularMajorVersion, parseManifestIconTargets, PWA_FAVICON_SIZES, PWA_MANIFEST_FILE, PWA_NGSW_CONFIG_FILE, relaxDefaultPwaInitialBudgets, renderPwaUpdateService, resizeRgbaBilinear, resolveFaviconPath, resolveManifestIconPath, wirePwaUpdateServiceIntoAppComponent } from './pwa';
 import * as ts from 'typescript';
 
 let outputChannel: vscode.OutputChannel | null = null;
@@ -2552,7 +2552,7 @@ async function generatePwaIconsFromActiveImage() {
         }
     }
 
-    const faviconAbs = resolveFaviconPath(workspaceRoot, sourceRoot);
+    const faviconAbs = resolveFaviconPath(workspaceRoot, sourceRoot, getAngularMajorVersion(workspaceRoot));
     if (overwrite || !fs.existsSync(faviconAbs)) {
         try {
             fs.writeFileSync(faviconAbs, buildIco(PWA_FAVICON_SIZES.map(size => ({ size, png: renderPng(size) }))));
