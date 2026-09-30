@@ -14,7 +14,14 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 - [Runtime Settings](./Runtime-Settings.md)
 - [Theme Color Utilities](./Theme-Color-Utilities.md)
 - [Magic Colors](./Magic-Colors.md)
+- [PWA](./PWA.md)
 - [Angular](./Angular.md)
+
+## 0.7.0 Focus
+
+- `Wizly: Convert Angular Project to PWA` — see [PWA](./PWA.md)
+- `Wizly: Generate PWA Icons & Favicon (from Active Image)` — see [PWA](./PWA.md)
+- `Wizly: Check Angular Setup (Report)` now also has a PWA chapter — see [Check Angular Setup](./Check-Angular-Setup.md)
 
 ## 0.6.0 Focus
 
@@ -38,7 +45,8 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 3. Generate theme color utilities if you want reusable global classes. Import your Magic color file if you want to keep using Magic color numbers.
 4. Set up runtime settings.
 5. Sync runtime themes after adding or renaming theme bundles.
-6. Run `Wizly: Check Angular Setup (Report)` to validate the whole flow.
+6. Convert the project to a PWA and generate its icons, if you want an installable app.
+7. Run `Wizly: Check Angular Setup (Report)` to validate the whole flow.
 
 ## Supporting Pages
 

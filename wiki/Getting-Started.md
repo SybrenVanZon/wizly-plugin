@@ -79,15 +79,32 @@ Why this is useful:
 
 See [Runtime Settings](./Runtime-Settings.md).
 
-### 6. Verify The Angular Setup
+### 6. Add PWA Support If Users Should Install The App
+
+If users should launch the application from an icon, or you want static files cached in the browser, turn the project into a Progressive Web App.
+
+Typical commands:
+
+- `Wizly: Convert Angular Project to PWA`
+- `Wizly: Generate PWA Icons & Favicon (from Active Image)`
+
+Why this is useful:
+
+- Users can install the application and start it from the desktop or start screen.
+- Static files are cached locally, so the app can start faster and sends fewer requests to the server.
+- An optional update prompt lets users choose when to switch to a new version.
+
+See [PWA](./PWA.md).
+
+### 7. Verify The Angular Setup
 
 After the SCSS, theme, and runtime flow is in place, run:
 
 - `Wizly: Check Angular Setup (Report)`
 
-This gives you a quick report of whether the expected SCSS, theme, and runtime markers look consistent. The same report also checks how your `@magic-xpa/*` packages are declared. See [Check Angular Setup](./Check-Angular-Setup.md).
+This gives you a quick report of whether the expected SCSS, theme, runtime and PWA markers look consistent. The same report also checks how your `@magic-xpa/*` packages are declared. See [Check Angular Setup](./Check-Angular-Setup.md).
 
-### 7. Roll Out to More Files
+### 8. Roll Out to More Files
 
 When the structure looks good, run:
 
@@ -95,7 +112,7 @@ When the structure looks good, run:
 
 This is a safe way to broaden adoption without immediately touching every generated file in the project.
 
-### 8. Export Settings for Team-Wide Defaults
+### 9. Export Settings for Team-Wide Defaults
 
 Only after the functional flow feels right, export the project config:
 
@@ -108,7 +125,7 @@ Useful starting points:
 - `smartLabelMatcher.enabled`
 - `autoTransformOnCreate`
 
-### 9. Export Templates Only If You Need Different Markup
+### 10. Export Templates Only If You Need Different Markup
 
 Run:
 
@@ -116,7 +133,7 @@ Run:
 
 Do this when the built-in output is close, but not exactly what your project needs.
 
-### 10. Use Patch Commands After Upgrades
+### 11. Use Patch Commands After Upgrades
 
 After updating Wizly, compare your exported files with the latest built-in defaults:
 
@@ -133,5 +150,6 @@ This keeps your project customizations intact while still letting you adopt impr
 - [Runtime Settings](./Runtime-Settings.md)
 - [Theme Color Utilities](./Theme-Color-Utilities.md)
 - [Magic Colors](./Magic-Colors.md)
+- [PWA](./PWA.md)
 - [Check Angular Setup](./Check-Angular-Setup.md)
 - [Angular](./Angular.md)
