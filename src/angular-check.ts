@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { analyzeMagicDependencies, collectMagicDependencyContext } from './magic-dependency-check';
+import { findPwaManifestPath, PWA_MANIFEST_FILE, PWA_NGSW_CONFIG_FILE } from './pwa';
 
 export type AngularSetupSeverity = 'error' | 'warning' | 'info' | 'success';
 
@@ -12,6 +13,7 @@ export const ANGULAR_SETUP_SECTIONS = [
     { id: 'scss', title: 'SCSS structure' },
     { id: 'themes', title: 'Themes and color utilities' },
     { id: 'runtime', title: 'Runtime settings' },
+    { id: 'pwa', title: 'PWA' },
     { id: 'magic', title: 'Magic dependencies' },
 ] as const;
 
@@ -420,6 +422,17 @@ export function analyzeAngularSetup(workspaceRoot: string, angularJson: any, pac
 
     if (themeBundles.length > 0 && !settingsPathAbs && !fixedThemeLink) {
         add('warning', 'Theme bundles exist, but no activation path was found.', 'Use runtime settings or add a fixed theme link in index.html so one of the generated bundles becomes active.');
+    }
+
+    section = 'pwa';
+    const hasManifest = !!findPwaManifestPath(workspaceRoot, sourceRoot);
+    const hasNgswConfig = fs.existsSync(path.join(workspaceRoot, PWA_NGSW_CONFIG_FILE));
+    if (hasManifest && hasNgswConfig) {
+        add('success', `PWA markers were found (${PWA_MANIFEST_FILE} + ${PWA_NGSW_CONFIG_FILE}).`);
+    } else if (hasManifest || hasNgswConfig) {
+        add('warning', 'Only part of the expected PWA setup was found.', `Expected both a ${PWA_MANIFEST_FILE} and ${PWA_NGSW_CONFIG_FILE}.`);
+    } else {
+        add('info', 'PWA support is not configured.', 'That is fine unless you want an installable app. Run `Wizly: Convert Angular Project to PWA` to add it.');
     }
 
     const magicContext = collectMagicDependencyContext(workspaceRoot, sourceRoot);
