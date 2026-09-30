@@ -3,6 +3,15 @@
 All notable changes in this project are documented in this file.
 This project follows the conventions of Keep a Changelog and Semantic Versioning.
 
+## [0.7.0] - 2026-09-30
+
+### Added
+- **`Wizly: Convert Angular Project to PWA`**: Enables Angular PWA support for the selected application project. Pre-installs `@angular/service-worker` pinned to the installed `@angular/core` (avoids npm `ERESOLVE`), runs `ng add @angular/pwa` on the installed Angular CLI version with npm, pnpm or yarn, and then aligns the `@angular/service-worker` specifier with `@angular/core`. Raises Angular's untouched default `initial` budget (`500kb`/`1mb`) to `3mb`/`5mb` in `build.options` and production configurations, because Magic-sized bundles exceed it; custom budgets are left alone. Stops when the project already looks like a PWA, and asks before continuing outside a Git repository.
+- **Optional PWA update prompt**: After the conversion, Wizly can create `src/app/pwa-update.service.ts` and wire it into `AppComponent`. The service checks for a new version every 10 minutes and asks the user to reload, with a `MatDialog` when Angular Material is installed and `confirm()` otherwise. `init()` accepts `mode: 'silent'`, `checkIntervalMs` and a custom `prompt`.
+- **`Wizly: Generate PWA Icons & Favicon (from Active Image)`**: Generates every local, square icon listed in `manifest.webmanifest` from the active PNG, plus a `favicon.ico` with 16/32/48 px images. Existing files can be overwritten or skipped.
+- **PWA chapter in `Wizly: Check Angular Setup (Report)`**: Reports whether both `manifest.webmanifest` and `ngsw-config.json` are present.
+- **PWA wiki page**: Covers both commands, the update prompt, caching Magic's `Prepare for Deployment` XML files, the recommended build order, testing, and self-hosting the Material Icons font for offline use.
+
 ## [0.6.0] - 2026-08-17
 
 ### Added
