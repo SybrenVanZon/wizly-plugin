@@ -69,7 +69,7 @@ The CLI resolves settings the way VS Code does, from the same files:
 3. Your VS Code user settings — `wizly.*` entries in plain VS Code's `settings.json`
 4. The defaults declared by the extension
 
-Every run reports which of these it used (`settings:` in the text output, `settingsSources` in `--json`).
+Every run reports which of these it used (`settings:` in the text output, `settingsSources` in `--json`), and where the rules came from: your project's `wizly.rules.js`, the legacy `.vswizly.js`, or the built-in defaults (`rules:` in the text output, `rules` in `--json`).
 
 **Put anything the whole team relies on in `.wizly/wizly.config.js`.** It is the only source that is the same on every machine and in CI. Personal VS Code settings are read for convenience, but the CLI cannot tell which editor flavour or profile you use, and CI never has them.
 

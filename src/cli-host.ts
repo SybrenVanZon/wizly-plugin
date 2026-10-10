@@ -3,9 +3,13 @@ import * as os from 'os';
 import * as path from 'path';
 import type { Host } from './host';
 
-/** Where a `wizly.*` setting can come from outside the editor, most specific first. */
+/**
+ * Where a `wizly.*` setting can come from outside the editor, most specific first. `project` is
+ * the project config file (`.wizly/wizly.config.js`), which `config.ts` reads and which overrides
+ * everything below it.
+ */
 export interface SettingsSource {
-    kind: 'workspace' | 'user' | 'defaults';
+    kind: 'project' | 'workspace' | 'user' | 'defaults';
     path: string;
     /** `false` when the file was looked for and not used — missing, skipped, or unreadable. */
     used: boolean;

@@ -1,10 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getModes, refreshModes } from './config';
+import { getCachedSettings, getModes, refreshModes } from './config';
 import { createCliHost, Message, SettingsSource } from './cli-host';
 import { filesForRules, filesUnder, uncommittedFiles } from './file-selection';
 import { host, setHost } from './host';
-import { configDirFor } from './project-config';
+import { configDirFor, LEGACY_CONFIG_FILE } from './project-config';
 import { transformText } from './transformer';
 
 /**
@@ -313,6 +313,8 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
         }
 
         const files = filesForRules([...candidates], getModes()).sort();
+        const project = projectSources(root);
+        const settingsSources = [project.settings, ...sources];
         const results: FileResult[] = [];
         for (const file of files) {
             const rel = path.relative(root, file).replace(/\\/g, '/');
@@ -342,7 +344,8 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
                 root,
                 configDir: configDirFor(root),
                 check,
-                settingsSources: sources,
+                settingsSources,
+                rules: project.rules,
                 problems,
                 files: results,
                 summary: { files: results.length, changed, unchanged: results.length - changed - results.filter((r) => r.status === 'error').length, errors },
@@ -361,13 +364,45 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
                 }
             }
             io.out(`${results.length} files, ${changed} ${check ? 'would change' : 'changed'}, ${errors} errors`);
-            io.out(`settings: ${sources.filter((s) => s.used).map((s) => s.kind).join(' > ') || 'defaults'}, config folder: ${path.relative(root, configDirFor(root)) || '.'}`);
+            const rel = (p: string) => path.relative(root, p).replace(/\\/g, '/') || '.';
+            io.out(`settings: ${settingsSources.filter((s) => s.used).map((s) => s.kind).join(' > ')}`);
+            io.out(`rules: ${project.rules.source === 'built-in' ? 'built-in' : rel(project.rules.path)}, config folder: ${rel(configDirFor(root))}`);
         }
         return code;
     } finally {
         setHost(previous);
         refreshModes();
     }
+}
+
+/**
+ * What `config.ts` took from the project itself, in the order it looks: the config folder's
+ * `wizly.config.js` and `wizly.rules.js`, else the legacy root `.vswizly.js`. Settings count as
+ * used only when `config.ts` actually loaded some, so a file that sets nothing is not reported as
+ * a source. Call after `getModes()`, which is what loads them.
+ */
+function projectSources(root: string): {
+    settings: SettingsSource;
+    rules: { source: 'project' | 'legacy' | 'built-in'; path: string };
+} {
+    const dir = configDirFor(root);
+    const configFile = path.join(dir, 'wizly.config.js');
+    const rulesFile = path.join(dir, 'wizly.rules.js');
+    const legacyFile = path.join(root, LEGACY_CONFIG_FILE);
+    const settingsFile = fs.existsSync(configFile) ? configFile : legacyFile;
+    const loaded = getCachedSettings() !== null;
+    const settings: SettingsSource = {
+        kind: 'project',
+        path: settingsFile,
+        used: loaded,
+        note: loaded ? 'overrides every source below' : fs.existsSync(settingsFile) ? 'sets no wizly setting' : 'not found',
+    };
+    const rules = fs.existsSync(rulesFile)
+        ? { source: 'project' as const, path: rulesFile }
+        : fs.existsSync(legacyFile)
+          ? { source: 'legacy' as const, path: legacyFile }
+          : { source: 'built-in' as const, path: path.join(extensionRoot(), 'default.rules.js') };
+    return { settings, rules };
 }
 
 // --- help ------------------------------------------------------------------------------------

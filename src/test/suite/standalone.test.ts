@@ -997,6 +997,26 @@ suite('Wizly CLI', () => {
         assert.ok(fs.readFileSync(file, 'utf8').includes(cli.SKILL_MARKER));
     });
 
+    test('the project config and rules file are reported as sources when they are used', async () => {
+        const root = tempProject();
+        fs.mkdirSync(path.join(root, '.wizly'));
+        fs.writeFileSync(path.join(root, '.wizly', 'wizly.config.js'), 'module.exports = { transformTag: { enable: false } };', 'utf8');
+        fs.copyFileSync(path.resolve(__dirname, '../../../default.rules.js'), path.join(root, '.wizly', 'wizly.rules.js'));
+
+        const c = capture();
+        await cli.main(['transform', path.join(root, 'src'), '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.settingsSources.filter((s: any) => s.used).map((s: any) => s.kind), ['project', 'workspace', 'defaults']);
+        assert.strictEqual(doc.rules.source, 'project');
+
+        const plain = tempProject();
+        const p = capture();
+        await cli.main(['transform', path.join(plain, 'src'), '--root', plain, '--check', '--json', '--no-user-settings'], p.io);
+        const plainDoc = JSON.parse(p.out.join('\n'));
+        assert.strictEqual(plainDoc.settingsSources[0].used, false);
+        assert.strictEqual(plainDoc.rules.source, 'built-in');
+    });
+
     test('a JSONC settings file is read the way VS Code reads it', () => {
         const parsed = JSON.parse(stripJsonc('{\n  // c\n  "a": "x // not a comment",\n  /* b */ "b": [1, 2,],\n}'));
         assert.deepStrictEqual(parsed, { a: 'x // not a comment', b: [1, 2] });
