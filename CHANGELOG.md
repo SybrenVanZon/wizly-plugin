@@ -12,6 +12,9 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 - **PWA chapter in `Wizly: Check Angular Setup (Report)`**: Reports whether both `manifest.webmanifest` and `ngsw-config.json` are present.
 - **PWA wiki page**: Covers both commands, the update prompt, caching Magic's `Prepare for Deployment` XML files, the recommended build order, testing, and self-hosting the Material Icons font for offline use.
 
+### Changed
+- **Project config folder is now `.wizly/`**: New projects get `.wizly/` (`wizly.config.js`, `wizly.rules.js`, `templates/`) from `Export Settings`, `Export Templates` and `Export Rules`. The old name tied the folder to VS Code. **Existing projects need to do nothing**: as long as a project has no `.wizly/`, Wizly keeps reading *and writing* `.vswizly/`, so a project's configuration never ends up split over two folders. When both exist, only `.wizly/` is read and Wizly warns once on startup. The legacy root file `.vswizly.js` is still read as before.
+
 ## [0.6.0] - 2026-08-17
 
 ### Added

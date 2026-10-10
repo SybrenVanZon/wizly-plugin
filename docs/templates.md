@@ -66,6 +66,6 @@ Templates that transform specific attributes or common styles across any element
 ---
 
 ## Customizing Templates
-You can override any default template by placing a file with the same name in your workspace's `.vswizly/templates/` directory.
+You can override any default template by placing a file with the same name in your workspace's `.wizly/templates/` directory (`.vswizly/templates/` in a project that still has the pre-0.7.0 folder).
 
 See the specific documentation for each component template in this folder.

@@ -7,6 +7,7 @@ import { PNG } from 'pngjs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
+import { CONFIG_DIR, configDirFor, hasIgnoredLegacyConfigDir, LEGACY_CONFIG_DIR, LEGACY_CONFIG_FILE } from './project-config';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
 import { detectRuntimeThemeFromBundleName } from './runtime-themes';
@@ -4811,7 +4812,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
 
         try {
             if (!fs.existsSync(configDir)) {
@@ -4838,7 +4839,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
 
         try {
             if (!fs.existsSync(configDir)) {
@@ -4890,7 +4891,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
         const rulesPath = path.join(configDir, 'wizly.rules.js');
         
         try {
@@ -4928,7 +4929,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
         const extDir = path.join(__dirname, '..');
         await patchTemplates(extDir, configDir);
     });
@@ -4940,7 +4941,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
         const extDir = path.join(__dirname, '..');
         await patchRules(extDir, configDir);
     });
@@ -4952,7 +4953,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
         const rootPath = workspaceFolders[0].uri.fsPath;
-        const configDir = path.join(rootPath, '.vswizly');
+        const configDir = configDirFor(rootPath);
         await patchSettings(configDir);
     });
 
@@ -4994,9 +4995,9 @@ export function activate(context: vscode.ExtensionContext) {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) { return; }
         const candidates = [
-            path.join(workspaceRoot, '.vswizly', 'wizly.rules.js'),
-            path.join(workspaceRoot, '.vswizly', 'wizly.config.js'),
-            path.join(workspaceRoot, '.vswizly.js'),
+            path.join(configDirFor(workspaceRoot), 'wizly.rules.js'),
+            path.join(configDirFor(workspaceRoot), 'wizly.config.js'),
+            path.join(workspaceRoot, LEGACY_CONFIG_FILE),
         ];
         for (const filePath of candidates) {
             if (fs.existsSync(filePath)) {
@@ -5012,15 +5013,26 @@ export function activate(context: vscode.ExtensionContext) {
     updateStatusBar();
     void maybeShowReleaseNotesForExtensionUpdate(context);
 
+    const activeRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (activeRoot && hasIgnoredLegacyConfigDir(activeRoot)) {
+        vscode.window.showWarningMessage(
+            `Wizly: This project has both ${CONFIG_DIR}/ and ${LEGACY_CONFIG_DIR}/. Only ${CONFIG_DIR}/ is read; move anything still needed out of ${LEGACY_CONFIG_DIR}/ and remove it.`
+        );
+    }
+
     // File watcher to clear cache on config change
-    const watcher = vscode.workspace.createFileSystemWatcher('**/.vswizly/*.js');
-    watcher.onDidChange(() => { refreshModes(); updateStatusBar(); });
-    watcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
-    watcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
-    context.subscriptions.push(watcher);
+    // Both folder names: a project has one of them, and creating .wizly/ next to .vswizly/ switches
+    // which one is read.
+    for (const dir of [CONFIG_DIR, LEGACY_CONFIG_DIR]) {
+        const watcher = vscode.workspace.createFileSystemWatcher(`**/${dir}/*.js`);
+        watcher.onDidChange(() => { refreshModes(); updateStatusBar(); });
+        watcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
+        watcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });
+        context.subscriptions.push(watcher);
+    }
 
     // Also watch legacy .vswizly.js
-    const legacyWatcher = vscode.workspace.createFileSystemWatcher('**/.vswizly.js');
+    const legacyWatcher = vscode.workspace.createFileSystemWatcher(`**/${LEGACY_CONFIG_FILE}`);
     legacyWatcher.onDidChange(() => { refreshModes(); updateStatusBar(); });
     legacyWatcher.onDidCreate(() => { refreshModes(); updateStatusBar(); });
     legacyWatcher.onDidDelete(() => { refreshModes(); updateStatusBar(); });

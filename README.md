@@ -7,7 +7,7 @@ Wizly is a VS Code extension that post-processes Magic xpa Web Client output. It
 ## What It Does
 
 - Transforms generated HTML with configurable regex-based processing
-- Supports shared project configuration through `.vswizly/wizly.config.js`
+- Supports shared project configuration through `.wizly/wizly.config.js` (existing projects keep `.vswizly/`)
 - Can auto-transform new files
 - Lets teams export and override templates
 - Includes patch commands to review changes after upgrades

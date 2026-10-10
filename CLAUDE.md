@@ -25,13 +25,13 @@ npm test               # Run tests via vscode-test (requires display on Linux: x
 
 - **[src/extension.ts](src/extension.ts)** — VS Code entry point. Registers commands (`Transform Current File`, `Transform Uncommitted Files`, export commands), file watchers for auto-transform on create, status bar, and progress UI.
 - **[src/transformer.ts](src/transformer.ts)** — Core engine. Applies regex rules sequentially, renders EJS templates, runs smart matchers (label, tab, custom), calls Prettier.
-- **[src/config.ts](src/config.ts)** — Loads and caches project config from `.vswizly/wizly.config.js` (or legacy `.vswizly.js`), or falls back to `default.rules.js`. Manages modes.
+- **[src/config.ts](src/config.ts)** — Loads and caches project config from `.wizly/wizly.config.js` (or `.vswizly/` in a project from before 0.7.0, or legacy `.vswizly.js`; the folder is chosen in [src/project-config.ts](src/project-config.ts)), or falls back to `default.rules.js`. Manages modes.
 - **[src/utils.ts](src/utils.ts)** — File matching, template path resolution, control name extraction, balanced tag extraction, comment style detection.
 - **[default.rules.js](default.rules.js)** — Built-in transformation rules, exported to users who run the export command.
 
 ### Transformation Pipeline
 
-1. Config is loaded from `.vswizly/wizly.config.js` (project-level, version-controlled)
+1. Config is loaded from `.wizly/wizly.config.js` (project-level, version-controlled; `.vswizly/` as fallback)
 2. Rules are applied in order — each rule has a `regex`, optional `templateFile` or `replace` string
 3. Rules with `templateFile` render EJS templates; `useBalancedTag: true` extracts the full matched element before rendering
 4. Smart matchers run after regex: `smartLabelMatcher` (associates labels with controls), `smartTabMatcher` (aligns tab headers), custom matchers
@@ -49,7 +49,7 @@ The `card.ejs` template uses `useBalancedTag: true` (see `default.rules.js`). In
 ### Tests
 
 Tests are in [src/test/suite/standalone.test.ts](src/test/suite/standalone.test.ts) and use fixture files:
-- **[src/test/fixtures/input/](src/test/fixtures/input/)** — Raw HTML input files, or folders containing `raw.html` + optional `settings.js` + optional `.vswizly/templates/` overrides
+- **[src/test/fixtures/input/](src/test/fixtures/input/)** — Raw HTML input files, or folders containing `raw.html` + optional `settings.js` + optional `.vswizly/templates/` overrides (kept on the old name on purpose: it covers the fallback)
 - **[src/test/fixtures/expected/](src/test/fixtures/expected/)** — Expected transformed output
 
 Each fixture file/folder name becomes a test case. Folder-based tests allow per-test settings overrides.
@@ -80,7 +80,7 @@ When a feature adds or changes a wiki page:
 
 ## Project Config Format
 
-Users configure the extension via `.vswizly/wizly.config.js` in their workspace:
+Users configure the extension via `.wizly/wizly.config.js` in their workspace (`.vswizly/` in projects from before 0.7.0 — read and written as long as no `.wizly/` exists):
 ```js
 module.exports = {
   modes: { /* named sets of rules */ },
@@ -88,7 +88,7 @@ module.exports = {
 };
 ```
 
-Rules reference templates relative to `.vswizly/templates/` first, then the extension's bundled `templates/`.
+Rules reference templates relative to the project's `templates/` (in `.wizly/` or `.vswizly/`) first, then the extension's bundled `templates/`.
 
 ## Brand Colors
 

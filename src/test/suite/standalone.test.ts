@@ -41,6 +41,7 @@ Module.prototype.require = function(request: string) {
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
+import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {
@@ -198,6 +199,46 @@ suite('Wizly Utils Test Suite', () => {
 		assert.strictEqual(utils.isHtmlFile('test.htm'), true);
 		assert.strictEqual(utils.isHtmlFile('test.js'), false);
 	});
+});
+
+suite('Wizly Project Config Folder', () => {
+    function tempProject(dirs: string[]): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-config-'));
+        for (const dir of dirs) {
+            fs.mkdirSync(path.join(root, dir, 'templates'), { recursive: true });
+        }
+        return root;
+    }
+
+    test('a new project gets .wizly/', () => {
+        const root = tempProject([]);
+        assert.strictEqual(configDirFor(root), path.join(root, '.wizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), false);
+    });
+
+    test('an existing project keeps .vswizly/, for reading and for writing', () => {
+        const root = tempProject(['.vswizly']);
+        assert.strictEqual(configDirFor(root), path.join(root, '.vswizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), false);
+    });
+
+    test('.wizly/ wins when both exist, and that is reported', () => {
+        const root = tempProject(['.wizly', '.vswizly']);
+        assert.strictEqual(configDirFor(root), path.join(root, '.wizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), true);
+    });
+
+    test('a template override is found in .wizly/templates/', () => {
+        const root = tempProject(['.wizly']);
+        const override = path.join(root, '.wizly', 'templates', 'select.ejs');
+        fs.writeFileSync(override, '<!-- override -->', 'utf8');
+        currentTestFolder = root;
+        try {
+            assert.strictEqual(utils.resolveTemplatePath('select.ejs'), override);
+        } finally {
+            currentTestFolder = null;
+        }
+    });
 });
 
 suite('Wizly Magic Dependency Check', () => {

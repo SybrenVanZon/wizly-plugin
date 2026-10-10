@@ -61,7 +61,7 @@ Retrieves the label text associated with the given magic control name, if availa
 ```
 
 ### Configuration
-You can customize the prefixes in your `.vswizly/wizly.config.js` file. `labelPrefix` can be a string or an array of strings. `controlPrefix` can be a string or an array of strings.
+You can customize the prefixes in your `.wizly/wizly.config.js` file. `labelPrefix` can be a string or an array of strings. `controlPrefix` can be a string or an array of strings.
 
 ```javascript
 module.exports = {

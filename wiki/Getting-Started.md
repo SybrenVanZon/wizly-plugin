@@ -118,7 +118,7 @@ Only after the functional flow feels right, export the project config:
 
 - `Wizly: Export Settings`
 
-This creates `.vswizly/wizly.config.js` so you can version shared defaults for the team.
+This creates `.wizly/wizly.config.js` so you can version shared defaults for the team. A project that already has a `.vswizly/` folder from an earlier version keeps using it; nothing has to move.
 
 Useful starting points:
 

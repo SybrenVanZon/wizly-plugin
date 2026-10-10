@@ -47,6 +47,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:html",
+    "workspaceContains:.wizly/wizly.config.js",
     "workspaceContains:.vswizly.js",
     "workspaceContains:.vswizly/wizly.config.js"
   ],

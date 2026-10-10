@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import type { WizlySettings } from './config';
+import { configDirFor } from './project-config';
 
 export type LabelMap = Record<string, string>;
 
@@ -65,10 +66,10 @@ export function matchesFilePattern(filePath: string, pattern: string): boolean {
 }
 
 export function resolveTemplatePath(templateFile: string): string | null {
-    // 1. Try workspace .vswizly/templates/
+    // 1. Try the project's templates/ (.wizly/, or .vswizly/ in an existing project)
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (workspaceRoot) {
-        const workspaceTemplate = path.join(workspaceRoot, '.vswizly', 'templates', templateFile);
+        const workspaceTemplate = path.join(configDirFor(workspaceRoot), 'templates', templateFile);
         if (fs.existsSync(workspaceTemplate)) {
             return workspaceTemplate;
         }

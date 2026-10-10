@@ -10,7 +10,7 @@ When you install a new version of Wizly, the built-in templates, rules, and sett
 
 **Command:** `Wizly: Patch Templates`
 
-Compares every `.ejs` file in your `.vswizly/templates/` folder against the current built-in templates.
+Compares every `.ejs` file in your `.wizly/templates/` folder against the current built-in templates.
 
 ### What it shows
 
@@ -39,7 +39,7 @@ Files that are identical are not shown.
 
 **Command:** `Wizly: Patch Rules`
 
-Compares your `.vswizly/wizly.rules.js` against the built-in `default.rules.js` by loading both files and matching rules by their `name` field.
+Compares your `.wizly/wizly.rules.js` against the built-in `default.rules.js` by loading both files and matching rules by their `name` field.
 
 ### What it reports
 
@@ -55,7 +55,7 @@ Compares your `.vswizly/wizly.rules.js` against the built-in `default.rules.js` 
 2. A summary message appears listing the counts for each category.
 3. Click **View Diff** to open the diff editor:
    - Left side: the current system `default.rules.js`
-   - Right side: your `.vswizly/wizly.rules.js`
+   - Right side: your `.wizly/wizly.rules.js`
 4. Copy the rules you want to adopt from left to right using the diff gutter arrows, or edit the file directly.
 
 > **Custom rules are safe.** The diff only shows what is different. Rules you added yourself appear only on the right side, so they are not affected unless you explicitly delete them.
@@ -66,7 +66,7 @@ Compares your `.vswizly/wizly.rules.js` against the built-in `default.rules.js` 
 
 **Command:** `Wizly: Patch Settings`
 
-Checks whether your `.vswizly/wizly.config.js` contains all keys that are defined in the current system defaults. Missing keys are detected at every level of nesting.
+Checks whether your `.wizly/wizly.config.js` contains all keys that are defined in the current system defaults. Missing keys are detected at every level of nesting.
 
 ### Example
 
