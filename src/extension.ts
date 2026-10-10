@@ -7,6 +7,7 @@ import { PNG } from 'pngjs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
+import { filesForRules, uncommittedFiles } from './file-selection';
 import { setHost } from './host';
 import { vscodeHost } from './vscode-host';
 import { CONFIG_DIR, configDirFor, hasIgnoredLegacyConfigDir, LEGACY_CONFIG_DIR, LEGACY_CONFIG_FILE } from './project-config';
@@ -1326,57 +1327,27 @@ async function pickThemeColorsWithPreview(initial?: { primary?: string; secondar
     });
 }
 
-// Get uncommitted files from Git
+// New and changed files in every workspace folder, limited to the ones a rule applies to — the
+// same selection as `wizly transform --uncommitted` (src/file-selection.ts). It used to look for
+// .git in the workspace folder itself, so a folder inside a larger repository found nothing; it
+// took a new folder from `git status` as one path; and it handed every file to the transformer,
+// so a changed .ts or .json produced a Prettier warning of its own.
 function getUncommittedFiles(): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-        const folders = vscode.workspace.workspaceFolders;
-        if (!folders || folders.length === 0) {
-            reject(new Error('No workspace folder found'));
-            return;
-        }
-
-        const allFiles: string[] = [];
-        let remaining = folders.length;
-
-        folders.forEach(folder => {
-            const cwd = folder.uri.fsPath;
-            const gitDir = path.join(cwd, '.git');
-            // Skip non-git folders
-            if (!fs.existsSync(gitDir)) {
-                if (--remaining === 0) {
-                    resolve(allFiles);
-                }
-                return;
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+        return Promise.reject(new Error('No workspace folder found'));
+    }
+    const all = new Set<string>();
+    for (const folder of folders) {
+        try {
+            for (const file of uncommittedFiles(folder.uri.fsPath)) {
+                all.add(file);
             }
-
-            exec('git status --porcelain', { cwd }, (error, stdout) => {
-                if (!error) {
-                    const files = stdout
-                        .split('\n')
-                        .filter(line => line.trim())
-                        .map(line => {
-                            // Git status format: XY filename
-                            // We want modified (M), added (A), or untracked (??) files
-                            const status = line.substring(0, 2);
-                            const filename = line.substring(3).trim();
-                            return { status, filename };
-                        })
-                        .filter(({ status }) => {
-                            // Include modified, added, or untracked files
-                            const isRelevantStatus = status.includes('M') || status.includes('A') || status.includes('??');
-                            return isRelevantStatus;
-                        })
-                        .map(({ filename }) => path.resolve(cwd, filename));
-
-                    allFiles.push(...files);
-                }
-
-                if (--remaining === 0) {
-                    resolve(allFiles);
-                }
-            });
-        });
-    });
+        } catch {
+            // Not inside a git work tree: nothing to report for this folder.
+        }
+    }
+    return Promise.resolve(filesForRules([...all], getModes()));
 }
 
 // Transform all uncommitted files

@@ -13,6 +13,7 @@ import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
 import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
 import { setHost, Host } from '../../host';
+import { filesForRules, uncommittedFiles } from '../../file-selection';
 import { transformText } from '../../transformer';
 import * as cli from '../../cli';
 import { stripJsonc } from '../../cli-host';
@@ -223,6 +224,27 @@ suite('Wizly Project Config Folder', () => {
         } finally {
             currentTestFolder = null;
         }
+    });
+});
+
+// The selection Transform All Uncommitted Files and `wizly transform --uncommitted` share.
+suite('Wizly File Selection', () => {
+    const rulesModule = require(path.resolve(__dirname, '../../../default.rules.js'));
+    const modes = [{ name: 'Defaults', active: true, rules: sanitizeRules(rulesModule.rules) }];
+
+    test('only files an active rule applies to are kept', () => {
+        const kept = filesForRules(['a/x.component.html', 'a/x.component.ts', 'package.json', 'b/y.HTML'], modes);
+        assert.deepStrictEqual(kept, ['a/x.component.html', 'b/y.HTML']);
+    });
+
+    test('a mode or rule that is switched off does not select files', () => {
+        const off = [{ name: 'Off', active: false, rules: modes[0].rules }];
+        assert.deepStrictEqual(filesForRules(['x.html'], off), []);
+    });
+
+    test('a folder outside any git repository is an error, not an empty list', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-nogit-'));
+        assert.throws(() => uncommittedFiles(root), /not a git repository/);
     });
 });
 

@@ -1,12 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
 import { getModes, refreshModes } from './config';
 import { createCliHost, Message, SettingsSource } from './cli-host';
+import { filesForRules, filesUnder, uncommittedFiles } from './file-selection';
 import { host, setHost } from './host';
 import { configDirFor } from './project-config';
 import { transformText } from './transformer';
-import { matchesFilePattern } from './utils';
 
 /**
  * Wizly without VS Code.
@@ -291,7 +290,6 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
     setHost(cliHost);
     refreshModes();
     try {
-        const patterns = activeFilePatterns();
         const candidates = new Set<string>();
         const problems: string[] = [];
         for (const p of args.positional) {
@@ -314,7 +312,7 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
             }
         }
 
-        const files = [...candidates].filter((f) => patterns.some((p) => matchesFilePattern(f, p))).sort();
+        const files = filesForRules([...candidates], getModes()).sort();
         const results: FileResult[] = [];
         for (const file of files) {
             const rel = path.relative(root, file).replace(/\\/g, '/');
@@ -370,70 +368,6 @@ async function runTransform(args: ParsedArgs, io: Io): Promise<number> {
         setHost(previous);
         refreshModes();
     }
-}
-
-/** The file patterns of every active rule — what decides whether a file is Wizly's to touch. */
-function activeFilePatterns(): string[] {
-    const patterns = new Set<string>();
-    for (const mode of getModes()) {
-        if (!mode.active) {
-            continue;
-        }
-        for (const rule of mode.rules) {
-            if (rule.active && rule.filePattern) {
-                patterns.add(rule.filePattern);
-            }
-        }
-    }
-    return [...patterns];
-}
-
-const SKIPPED_DIRS = new Set(['node_modules', '.git', 'dist', 'out', '.angular', 'coverage']);
-
-function filesUnder(target: string): string[] {
-    if (fs.statSync(target).isFile()) {
-        return [target];
-    }
-    const out: string[] = [];
-    for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
-        if (entry.isDirectory()) {
-            if (!SKIPPED_DIRS.has(entry.name)) {
-                out.push(...filesUnder(path.join(target, entry.name)));
-            }
-        } else if (entry.isFile()) {
-            out.push(path.join(target, entry.name));
-        }
-    }
-    return out;
-}
-
-/**
- * New and changed files under `root`, as git reports them.
- *
- * Asks git rather than looking for `.git` in the root, so a project whose repository starts
- * higher up works too; and lists the files inside a new directory one by one — a regenerated
- * program is usually exactly that.
- */
-function uncommittedFiles(root: string): string[] {
-    const git = (...args: string[]) =>
-        execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    try {
-        git('rev-parse', '--is-inside-work-tree');
-    } catch {
-        throw new Error(`not a git repository: ${root}`);
-    }
-    let changed: string[] = [];
-    try {
-        changed = git('diff', '--name-only', '--relative', 'HEAD').split('\n');
-    } catch {
-        // No commit yet: everything is untracked, which the next call lists.
-    }
-    const untracked = git('ls-files', '--others', '--exclude-standard').split('\n');
-    return [...changed, ...untracked]
-        .map((f) => f.trim())
-        .filter(Boolean)
-        .map((f) => path.join(root, f))
-        .filter((f) => fs.existsSync(f) && fs.statSync(f).isFile());
 }
 
 // --- help ------------------------------------------------------------------------------------
