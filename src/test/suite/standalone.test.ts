@@ -983,6 +983,41 @@ suite('Wizly CLI', () => {
         assert.ok(!skill.includes(os.homedir()), 'no machine-specific path');
     });
 
+    test('skill --target agents writes a block into AGENTS.md and touches nothing else in it', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        const file = path.join(root, 'AGENTS.md');
+        const own = '# Our project\n\nUse tabs. Never touch the generated folder.\n';
+        fs.writeFileSync(file, own, 'utf8');
+
+        assert.strictEqual(await cli.main(['skill', '--target', 'agents', '--root', root], capture().io), cli.EXIT.OK);
+        const first = fs.readFileSync(file, 'utf8');
+        assert.ok(first.startsWith(own.trimEnd()), 'the project\'s own text stays first, unchanged');
+        assert.strictEqual(first.split(cli.AGENTS_BEGIN).length - 1, 1);
+        assert.ok(first.includes('## Wizly') && first.includes('#### `wizly transform`'), 'one heading level down');
+        assert.ok(!fs.existsSync(path.join(root, '.claude')), 'agents only: no Claude skill');
+
+        assert.strictEqual(await cli.main(['skill', '--target', 'agents', '--root', root], capture().io), cli.EXIT.OK);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), first, 'running it again changes nothing');
+    });
+
+    test('skill refuses an AGENTS.md whose markers are broken, and writes nothing', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        const file = path.join(root, 'AGENTS.md');
+        const broken = `# Ours\n\n${cli.AGENTS_BEGIN}\nhalf a block, no end marker\n`;
+        fs.writeFileSync(file, broken, 'utf8');
+        assert.strictEqual(await cli.main(['skill', '--target', 'all', '--root', root], capture().io), cli.EXIT.ERRORS);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), broken);
+        assert.ok(!fs.existsSync(path.join(root, '.claude')), 'all-or-nothing: the skill was not written either');
+    });
+
+    test('skill --target all writes both; an unknown target is a usage error', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        assert.strictEqual(await cli.main(['skill', '--target', 'all', '--root', root], capture().io), cli.EXIT.OK);
+        assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'wizly', 'SKILL.md')));
+        assert.ok(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').startsWith(cli.AGENTS_BEGIN));
+        assert.strictEqual(await cli.main(['skill', '--target', 'gemini', '--root', root], capture().io), cli.EXIT.USAGE);
+    });
+
     test('skill overwrites its own file, and a hand-written one only with --force', async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-skill-'));
         const file = path.join(root, '.claude', 'skills', 'wizly', 'SKILL.md');

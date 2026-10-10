@@ -27,7 +27,7 @@ The examples below write `wizly` for whichever of these you use.
 | Command | What it does | Writes files |
 | --- | --- | --- |
 | `wizly transform` | Applies the rules to files, as `Transform Current File` does | yes |
-| `wizly skill` | Writes a Claude Code skill for this project, so an agent knows when and how to use Wizly | yes |
+| `wizly skill` | Writes instructions for your coding agent — a Claude Code skill, an `AGENTS.md` block, or both — so it knows when and how to use Wizly | yes |
 | `wizly commands` | Lists every command; with `--json`, everything a tool needs to call them | no |
 | `wizly help [<command>]` | Shows the help of a command | no |
 
@@ -93,17 +93,26 @@ The CLI is written to be called by tools as well as people:
 
 A typical agent flow after a Magic regeneration: `wizly transform --uncommitted --check --json`, review the listed files, then `wizly transform --uncommitted`.
 
-### A Skill for Claude Code
+### Instructions for Your Agent
 
 ```bash
-wizly skill
+wizly skill                   # Claude Code
+wizly skill --target agents   # AGENTS.md, read by most other agents
+wizly skill --target all      # both
 ```
 
-writes `.claude/skills/wizly/SKILL.md` in the project. Claude Code reads it and from then on knows when to reach for Wizly — after a Magic regeneration, or when generated templates look untransformed — how to find the CLI, and to preview with `--check` before it writes. The skill is generated from the same command descriptions as `wizly help`, so it describes the Wizly you have installed.
+`wizly skill` writes instructions that tell an agent when to reach for Wizly — after a Magic regeneration, or when generated templates look untransformed — how to find the CLI, and to preview with `--check` before it writes. They are generated from the same command descriptions as `wizly help`, so they describe the Wizly you have installed.
 
-- Commit it: every teammate's agent gets it. It contains no machine-specific path.
+| `--target` | Writes | Read by |
+| --- | --- | --- |
+| `claude` (default) | `.claude/skills/wizly/SKILL.md` | Claude Code |
+| `agents` | a marked block in `AGENTS.md` | Codex, GitHub Copilot, Cursor, Gemini CLI and many others; Claude Code only when the project has no `CLAUDE.md` |
+| `all` | both | everyone |
+
+- Commit them: every teammate's agent gets them. They contain no machine-specific path.
 - Run `wizly skill` again after updating Wizly. It overwrites a skill it wrote itself, and refuses to overwrite a hand-written `SKILL.md` unless you pass `--force`.
-- `wizly skill --print` shows the skill without writing it.
+- `AGENTS.md` is your file. Wizly only ever changes the block between its own `<!-- wizly:begin … -->` and `<!-- wizly:end -->` markers, adds the block at the end when there is none, and writes nothing at all when the markers are broken.
+- `--print` shows what would be written, without writing it.
 
 ## Related Pages
 
