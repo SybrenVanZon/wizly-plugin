@@ -80,3 +80,4 @@ If `magic-styles.css` exists next to `index.html`, Wizly can help in two differe
 - [Theme Color Utilities](./Theme-Color-Utilities.md)
 - [Magic Colors](./Magic-Colors.md)
 - [Runtime Settings](./Runtime-Settings.md)
+- [PWA](./PWA.md)

@@ -1,5 +1,5 @@
 
-import * as vscode from 'vscode';
+import { host } from './host';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ejs from 'ejs';
@@ -446,7 +446,7 @@ function hasTransformTag(text: string, filePath: string | undefined, template?: 
 
 // Prefer workspace-installed Prettier when available; otherwise fall back to bundled Prettier
 async function loadPrettier(): Promise<any> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot = host().workspaceRoot();
     try {
         if (workspaceRoot) {
             // Try resolving Prettier from the workspace (user-installed)
@@ -474,16 +474,16 @@ export async function transformText(text: string, filePath?: string, options?: {
 
     const settings: WizlySettings = {
         transformTag: {
-            enable: (cachedSettings?.transformTag?.enable ?? vscode.workspace.getConfiguration('wizly').get<boolean>('transformTag.enable', false)) as boolean,
-            dateFormat: (cachedSettings?.transformTag?.dateFormat ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.dateFormat', 'YYYY-MM-DD')) as string,
-            timeFormat: (cachedSettings?.transformTag?.timeFormat ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.timeFormat', 'HH:mm')) as string,
-            template: (cachedSettings?.transformTag?.template ?? vscode.workspace.getConfiguration('wizly').get<string>('transformTag.template')) as string | undefined,
+            enable: (cachedSettings?.transformTag?.enable ?? host().getSetting<boolean>('transformTag.enable', false)) as boolean,
+            dateFormat: (cachedSettings?.transformTag?.dateFormat ?? host().getSetting<string>('transformTag.dateFormat', 'YYYY-MM-DD')) as string,
+            timeFormat: (cachedSettings?.transformTag?.timeFormat ?? host().getSetting<string>('transformTag.timeFormat', 'HH:mm')) as string,
+            template: (cachedSettings?.transformTag?.template ?? host().getSetting<string>('transformTag.template')) as string | undefined,
         },
-        zoomIcon: (cachedSettings?.zoomIcon ?? vscode.workspace.getConfiguration('wizly').get<string>('zoomIcon', 'search')) as string,
-        smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? vscode.workspace.getConfiguration('wizly').get('smartLabelMatcher'),
-        removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? vscode.workspace.getConfiguration('wizly').get<boolean>('removeEmptyLinesAfterPrettier', false),
-        smartTabMatcher: cachedSettings?.smartTabMatcher ?? vscode.workspace.getConfiguration('wizly').get<boolean>('smartTabMatcher', false),
-        customSmartMatchers: cachedSettings?.customSmartMatchers ?? vscode.workspace.getConfiguration('wizly').get('customSmartMatchers'),
+        zoomIcon: (cachedSettings?.zoomIcon ?? host().getSetting<string>('zoomIcon', 'search')) as string,
+        smartLabelMatcher: cachedSettings?.smartLabelMatcher ?? host().getSetting('smartLabelMatcher'),
+        removeEmptyLinesAfterPrettier: cachedSettings?.removeEmptyLinesAfterPrettier ?? host().getSetting<boolean>('removeEmptyLinesAfterPrettier', false),
+        smartTabMatcher: cachedSettings?.smartTabMatcher ?? host().getSetting<boolean>('smartTabMatcher', false),
+        customSmartMatchers: cachedSettings?.customSmartMatchers ?? host().getSetting('customSmartMatchers'),
     };
 
     // Use provided settings or fallback to VS Code config
@@ -494,7 +494,12 @@ export async function transformText(text: string, filePath?: string, options?: {
         return text;
     }
 
-    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
+    // Rules and smart matchers are regexes over raw text, so markup *named* inside a comment
+    // looked like markup to them: `<!-- … Magic's own <label> … -->` opened a <span> inside the
+    // comment, the real </label> further down closed it, and Prettier gave up on the result.
+    // Comments are out of every rule's reach until the rules are done.
+    const { text: masked, comments } = maskHtmlComments(text);
+    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(masked, settings);
     const { tabPageContent, text: textWithoutTabContent } = settings.smartTabMatcher
         ? extractTabContentAndRemove(textWithoutLabels)
         : { tabPageContent: {}, text: textWithoutLabels };
@@ -600,7 +605,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                     return ejs.render(templateContent, data, { filename: tplPath, views: [extensionTemplatesDir] });
                                 } catch (err) {
                                     console.error(`EJS render error for rule ${rule.name}:`, err);
-                                    vscode.window.showErrorMessage(`Template render error in ${rule.name}: ${err}`);
+                                    host().showError(`Template render error in ${rule.name}: ${err}`);
                                     return fullElement;
                                 }
                             };
@@ -741,7 +746,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                                     return ejs.render(templateContent, data, { filename: tplPath, views: [extensionTemplatesDir] });
                                 } catch (err) {
                                     console.error(`EJS render error for rule ${rule.name}:`, err);
-                                    vscode.window.showErrorMessage(`Template render error in ${rule.name}: ${err}`);
+                                    host().showError(`Template render error in ${rule.name}: ${err}`);
                                     return args[0];
                                 }
                             });
@@ -752,7 +757,7 @@ export async function transformText(text: string, filePath?: string, options?: {
                         if (rule.replacement !== undefined) {
                             newText = newText.replace(re, rule.replacement);
                         } else if (rule.templateFile) {
-                            vscode.window.showErrorMessage(`Wizly: Template not found: ${rule.templateFile} (Rule: ${rule.name})`);
+                            host().showError(`Wizly: Template not found: ${rule.templateFile} (Rule: ${rule.name})`);
                         }
                     }
             } catch (error) {
@@ -763,6 +768,7 @@ export async function transformText(text: string, filePath?: string, options?: {
     
     newText = applySmartLabelPlaceholders(newText, labelMap, settings);
     newText = newText.replace(eofMarker, '');
+    newText = restoreHtmlComments(newText, comments);
 
     newText = await formatWithPrettier(newText, filePath, settings);
 
@@ -783,6 +789,25 @@ export async function transformText(text: string, filePath?: string, options?: {
     }
 
     return newText;
+}
+
+const COMMENT_PLACEHOLDER = /~~WIZLY_COMMENT_(\d+)~~/g;
+
+/**
+ * Every `<!-- … -->` replaced by a placeholder with no `<` or `>` in it, so no rule can match
+ * inside a comment. A comment inside a match travels with the match as plain text.
+ */
+export function maskHtmlComments(text: string): { text: string; comments: string[] } {
+    const comments: string[] = [];
+    const masked = text.replace(/<!--[\s\S]*?-->/g, (comment) => {
+        comments.push(comment);
+        return `~~WIZLY_COMMENT_${comments.length - 1}~~`;
+    });
+    return { text: masked, comments };
+}
+
+export function restoreHtmlComments(text: string, comments: string[]): string {
+    return text.replace(COMMENT_PLACEHOLDER, (placeholder, index) => comments[Number(index)] ?? placeholder);
 }
 
 async function formatWithPrettier(text: string, filePath?: string, settings?: WizlySettings): Promise<string> {
@@ -831,7 +856,7 @@ async function formatWithPrettier(text: string, filePath?: string, settings?: Wi
 
         return newText;
     } catch (error) {
-        vscode.window.showWarningMessage(`Prettier formatting failed: ${error}`);
+        host().showWarning(`Prettier formatting failed: ${error}`);
         return text;
     }
 }

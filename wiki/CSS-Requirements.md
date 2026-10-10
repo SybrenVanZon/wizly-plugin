@@ -63,3 +63,5 @@ Add the Material Icons font to your `index.html` so icon names render correctly:
 ```
 
 If you run `Wizly: Setup Runtime Settings (Angular)` and your project already has Angular Material installed, Wizly can ask to add this stylesheet for you when it scaffolds the Material-based mode toggle.
+
+This link needs an internet connection. For a PWA that must also start offline, host the font yourself instead. See [PWA](./PWA.md#material-icons-without-internet).

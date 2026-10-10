@@ -29,13 +29,13 @@ Wizly applies all active rules and formats the file using Prettier.
 
 ## 3. Exporting and Configuring Settings
 
-Wizly settings can be configured through VS Code settings, or you can export a project file (`.vswizly.js`) to share settings with your team.
+Wizly settings can be configured through VS Code settings, or you can export a project config file to share settings with your team.
 
 ### Exporting Settings
 
 1. Open the command palette with `Ctrl+Shift+P`
 2. Select `Wizly: Export Settings`
-3. A `.vswizly/` folder is created in the root of your workspace containing the config file
+3. A `.wizly/` folder is created in the root of your workspace containing the config file. A project that already has a `.vswizly/` folder (from before 0.7.0) keeps using that one
 
 ### Enabling smartLabelMatcher
 
@@ -79,7 +79,7 @@ Wizly uses EJS templates to generate HTML structures. You can export the built-i
 
 1. Open the command palette with `Ctrl+Shift+P`
 2. Select `Wizly: Export Templates`
-3. The templates are copied into the `.vswizly/templates/` folder in your workspace
+3. The templates are copied into the `.wizly/templates/` folder in your workspace
 
 You can then edit the `.ejs` files as needed. Wizly automatically picks up your local versions — any template present in the project takes precedence over the built-in version.
 

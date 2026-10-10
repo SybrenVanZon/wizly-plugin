@@ -7,40 +7,27 @@ import * as fs from 'fs';
 // Dynamic workspace root for per-test template overrides
 let currentTestFolder: string | null = null;
 
-// Mock vscode module before importing modules that depend on it
-const Module = require('module');
-const originalRequire = Module.prototype.require;
-
-Module.prototype.require = function(request: string) {
-    if (request === 'vscode') {
-        return {
-            workspace: {
-                get workspaceFolders() {
-                    return currentTestFolder
-                        ? [{ uri: { fsPath: currentTestFolder } }]
-                        : [];
-                },
-                getConfiguration: () => ({
-                    get: (key: string) => {
-                        if (key === 'transformTag.enable') { return false; }
-                        return undefined;
-                    }
-                })
-            },
-            window: {
-                showErrorMessage: (msg: string) => console.error(msg),
-                showWarningMessage: (msg: string) => console.warn(msg),
-                showInformationMessage: (msg: string) => console.log(msg)
-            }
-        };
-    }
-    return originalRequire.apply(this, arguments);
-};
-
 // Now import the modules to test
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
+import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
+import { setHost, Host } from '../../host';
+import { filesForRules, uncommittedFiles } from '../../file-selection';
+import { transformText } from '../../transformer';
+import * as cli from '../../cli';
+import { stripJsonc } from '../../cli-host';
+
+// The host the modules under test see. Same answers the require('vscode') stub gave before the
+// Host interface existed: no fallback values, and transformTag off.
+const testHost: Host = {
+    workspaceRoot: () => currentTestFolder ?? undefined,
+    getSetting: <T>(key: string) => (key === 'transformTag.enable' ? (false as unknown as T) : undefined),
+    showError: (msg: string) => console.error(msg),
+    showWarning: (msg: string) => console.warn(msg),
+    showInfo: (msg: string) => console.log(msg),
+};
+setHost(testHost);
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {
@@ -50,6 +37,17 @@ import {
     satisfiesRange,
     MagicDependencyContext
 } from '../../magic-dependency-check';
+import {
+    buildIco,
+    getAngularMajorVersion,
+    parseManifestIconTargets,
+    relaxDefaultPwaInitialBudgets,
+    renderPwaUpdateService,
+    resizeRgbaBilinear,
+    resolveFaviconPath,
+    resolveManifestIconPath,
+    wirePwaUpdateServiceIntoAppComponent
+} from '../../pwa';
 
 // Parse regex strings like '/pattern/flags' into RegExp objects, recursively
 function parseRegexFields(obj: any): any {
@@ -187,6 +185,67 @@ suite('Wizly Utils Test Suite', () => {
 		assert.strictEqual(utils.isHtmlFile('test.htm'), true);
 		assert.strictEqual(utils.isHtmlFile('test.js'), false);
 	});
+});
+
+suite('Wizly Project Config Folder', () => {
+    function tempProject(dirs: string[]): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-config-'));
+        for (const dir of dirs) {
+            fs.mkdirSync(path.join(root, dir, 'templates'), { recursive: true });
+        }
+        return root;
+    }
+
+    test('a new project gets .wizly/', () => {
+        const root = tempProject([]);
+        assert.strictEqual(configDirFor(root), path.join(root, '.wizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), false);
+    });
+
+    test('an existing project keeps .vswizly/, for reading and for writing', () => {
+        const root = tempProject(['.vswizly']);
+        assert.strictEqual(configDirFor(root), path.join(root, '.vswizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), false);
+    });
+
+    test('.wizly/ wins when both exist, and that is reported', () => {
+        const root = tempProject(['.wizly', '.vswizly']);
+        assert.strictEqual(configDirFor(root), path.join(root, '.wizly'));
+        assert.strictEqual(hasIgnoredLegacyConfigDir(root), true);
+    });
+
+    test('a template override is found in .wizly/templates/', () => {
+        const root = tempProject(['.wizly']);
+        const override = path.join(root, '.wizly', 'templates', 'select.ejs');
+        fs.writeFileSync(override, '<!-- override -->', 'utf8');
+        currentTestFolder = root;
+        try {
+            assert.strictEqual(utils.resolveTemplatePath('select.ejs'), override);
+        } finally {
+            currentTestFolder = null;
+        }
+    });
+});
+
+// The selection Transform All Uncommitted Files and `wizly transform --uncommitted` share.
+suite('Wizly File Selection', () => {
+    const rulesModule = require(path.resolve(__dirname, '../../../default.rules.js'));
+    const modes = [{ name: 'Defaults', active: true, rules: sanitizeRules(rulesModule.rules) }];
+
+    test('only files an active rule applies to are kept', () => {
+        const kept = filesForRules(['a/x.component.html', 'a/x.component.ts', 'package.json', 'b/y.HTML'], modes);
+        assert.deepStrictEqual(kept, ['a/x.component.html', 'b/y.HTML']);
+    });
+
+    test('a mode or rule that is switched off does not select files', () => {
+        const off = [{ name: 'Off', active: false, rules: modes[0].rules }];
+        assert.deepStrictEqual(filesForRules(['x.html'], off), []);
+    });
+
+    test('a folder outside any git repository is an error, not an empty list', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-nogit-'));
+        assert.throws(() => uncommittedFiles(root), /not a git repository/);
+    });
 });
 
 suite('Wizly Magic Dependency Check', () => {
@@ -404,6 +463,240 @@ suite('Wizly Magic Dependency Check', () => {
     });
 });
 
+suite('Wizly PWA', () => {
+    test('relaxDefaultPwaInitialBudgets: raises only the untouched Angular default in production configs', () => {
+        const angularJson = {
+            projects: {
+                app: {
+                    architect: {
+                        build: {
+                            configurations: {
+                                production: {
+                                    budgets: [
+                                        { type: 'initial', maximumWarning: '500kB', maximumError: '1MB' },
+                                        { type: 'anyComponentStyle', maximumWarning: '4kB', maximumError: '8kB' }
+                                    ]
+                                },
+                                staging: { budgets: [{ type: 'initial', maximumWarning: '2mb', maximumError: '4mb' }] },
+                                development: { budgets: [{ type: 'initial', maximumWarning: '500kb', maximumError: '1mb' }] }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const scopes = relaxDefaultPwaInitialBudgets(angularJson, 'app');
+
+        const configs = angularJson.projects.app.architect.build.configurations;
+        assert.deepStrictEqual(scopes, ['build.configurations.production']);
+        assert.deepStrictEqual(configs.production.budgets[0], { type: 'initial', maximumWarning: '3mb', maximumError: '5mb' });
+        assert.strictEqual(configs.production.budgets[1].maximumWarning, '4kB');
+        assert.strictEqual(configs.staging.budgets[0].maximumWarning, '2mb');
+        assert.strictEqual(configs.development.budgets[0].maximumWarning, '500kb');
+        assert.deepStrictEqual(relaxDefaultPwaInitialBudgets(angularJson, 'missing'), []);
+    });
+
+    test('parseManifestIconTargets: keeps local square icons, sorted and without duplicates', () => {
+        const targets = parseManifestIconTargets({
+            icons: [
+                { src: 'icons/icon-512x512.png', sizes: '512x512' },
+                { src: 'icons/icon-72x72.png', sizes: '72x72' },
+                { src: 'icons/icon-72x72.png', sizes: '72x72' },
+                { src: 'icons/multi.png', sizes: '96x96 128x128' },
+                { src: 'icons/wide.png', sizes: '192x96' },
+                { src: 'https://cdn.example.com/icon.png', sizes: '192x192' },
+                { src: 'data:image/png;base64,AAAA', sizes: '192x192' },
+                { src: 'icons/any.svg', sizes: 'any' },
+                { sizes: '144x144' }
+            ]
+        });
+
+        assert.deepStrictEqual(targets, [
+            { size: 72, src: 'icons/icon-72x72.png' },
+            { size: 96, src: 'icons/multi.png' },
+            { size: 128, src: 'icons/multi.png' },
+            { size: 512, src: 'icons/icon-512x512.png' }
+        ]);
+        assert.deepStrictEqual(parseManifestIconTargets({}), []);
+    });
+
+    test('resolveManifestIconPath and resolveFaviconPath: follow public/ when the project uses it', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-paths-'));
+        try {
+            fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+            const legacyManifest = path.join(projectRoot, 'src', 'manifest.webmanifest');
+
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', legacyManifest, 'assets/icons/icon-72x72.png'), path.join(projectRoot, 'src', 'assets', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', legacyManifest, 'icons/icon-72x72.png'), path.join(projectRoot, 'src', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'src', 'favicon.ico'));
+
+            fs.mkdirSync(path.join(projectRoot, 'public'), { recursive: true });
+            const publicManifest = path.join(projectRoot, 'public', 'manifest.webmanifest');
+
+            assert.strictEqual(resolveManifestIconPath(projectRoot, 'src', publicManifest, '/icons/icon-72x72.png'), path.join(projectRoot, 'public', 'icons', 'icon-72x72.png'));
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src'), path.join(projectRoot, 'public', 'favicon.ico'));
+
+            // Without a favicon, the Angular version decides over whether public/ exists.
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 17), path.join(projectRoot, 'src', 'favicon.ico'));
+            fs.rmSync(path.join(projectRoot, 'public'), { recursive: true, force: true });
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 18), path.join(projectRoot, 'public', 'favicon.ico'));
+
+            // An existing favicon keeps its place, whatever the Angular version.
+            fs.writeFileSync(path.join(projectRoot, 'src', 'favicon.ico'), '', 'utf8');
+            assert.strictEqual(resolveFaviconPath(projectRoot, 'src', 19), path.join(projectRoot, 'src', 'favicon.ico'));
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    test('getAngularMajorVersion: prefers the installed @angular/core over the package.json range', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-angular-'));
+        try {
+            assert.strictEqual(getAngularMajorVersion(projectRoot), undefined);
+
+            fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({ dependencies: { '@angular/core': '^17.3.0' } }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 17);
+            assert.strictEqual(getAngularMajorVersion(projectRoot, { devDependencies: { '@angular/core': '~19.2.0' } }), 19);
+
+            const coreDir = path.join(projectRoot, 'node_modules', '@angular', 'core');
+            fs.mkdirSync(coreDir, { recursive: true });
+            fs.writeFileSync(path.join(coreDir, 'package.json'), JSON.stringify({ name: '@angular/core', version: '19.2.14' }), 'utf8');
+            assert.strictEqual(getAngularMajorVersion(projectRoot), 19);
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    test('resizeRgbaBilinear and buildIco: produce a valid icon directory', () => {
+        const src = Buffer.alloc(64 * 64 * 4);
+        for (let i = 0; i < src.length; i += 4) {
+            src[i] = 200; src[i + 1] = 100; src[i + 2] = 50; src[i + 3] = 255;
+        }
+        const resized = resizeRgbaBilinear(src, 64, 64, 16, 16);
+        assert.strictEqual(resized.length, 16 * 16 * 4);
+        assert.deepStrictEqual([...resized.subarray(0, 4)], [200, 100, 50, 255]);
+
+        const pngA = Buffer.from([1, 2, 3]);
+        const pngB = Buffer.from([4, 5, 6, 7, 8]);
+        const ico = buildIco([{ size: 16, png: pngA }, { size: 256, png: pngB }]);
+
+        assert.strictEqual(ico.readUInt16LE(2), 1);
+        assert.strictEqual(ico.readUInt16LE(4), 2);
+        assert.strictEqual(ico.readUInt8(6), 16);
+        assert.strictEqual(ico.readUInt8(6 + 16), 0, '256 px is stored as 0 in the ICO directory');
+        assert.strictEqual(ico.readUInt32LE(6 + 8), pngA.length);
+        assert.strictEqual(ico.readUInt32LE(6 + 12), 6 + 16 * 2);
+        assert.strictEqual(ico.readUInt32LE(6 + 16 + 12), 6 + 16 * 2 + pngA.length);
+        assert.strictEqual(ico.length, 6 + 16 * 2 + pngA.length + pngB.length);
+    });
+
+    test('renderPwaUpdateService: uses MatDialog only when Angular Material is available', () => {
+        const withMaterial = renderPwaUpdateService(true);
+        const withoutMaterial = renderPwaUpdateService(false);
+
+        assert.ok(withMaterial.includes("from '@angular/material/dialog'"));
+        assert.ok(withMaterial.includes('export class PwaUpdateDialogComponent'));
+        assert.ok(!withoutMaterial.includes('@angular/material'));
+        for (const text of [withMaterial, withoutMaterial]) {
+            assert.ok(text.includes('export class PwaUpdateService'));
+            assert.ok(text.includes("filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY')"));
+            assert.ok(text.includes('await this.swUpdate.activateUpdate();'));
+        }
+    });
+
+    test('wirePwaUpdateServiceIntoAppComponent: injects the service once and calls init()', () => {
+        const withoutConstructor = [
+            "import { Component } from '@angular/core';",
+            "import { RouterOutlet } from '@angular/router';",
+            '',
+            '@Component({',
+            "    selector: 'app-root',",
+            "    templateUrl: './app.component.html'",
+            '})',
+            'export class AppComponent {',
+            "    title = 'demo';",
+            '}',
+            ''
+        ].join('\n');
+
+        const first = wirePwaUpdateServiceIntoAppComponent(withoutConstructor);
+        assert.strictEqual(first.wired, true);
+        assert.strictEqual(first.text, [
+            "import { Component, inject } from '@angular/core';",
+            "import { RouterOutlet } from '@angular/router';",
+            "import { PwaUpdateService } from './pwa-update.service';",
+            '',
+            '@Component({',
+            "    selector: 'app-root',",
+            "    templateUrl: './app.component.html'",
+            '})',
+            'export class AppComponent {',
+            '    private readonly pwaUpdateService = inject(PwaUpdateService);',
+            '',
+            '    constructor() {',
+            '        this.pwaUpdateService.init();',
+            '    }',
+            '',
+            "    title = 'demo';",
+            '}',
+            ''
+        ].join('\n'));
+
+        const second = wirePwaUpdateServiceIntoAppComponent(first.text);
+        assert.strictEqual(second.text, first.text, 'running it twice changes nothing');
+
+        const withConstructor = [
+            "import { Component, inject } from '@angular/core';",
+            'export class AppComponent {',
+            '    constructor(private readonly zone: NgZone) {',
+            '        this.start();',
+            '    }',
+            '}'
+        ].join('\n');
+        const wiredCtor = wirePwaUpdateServiceIntoAppComponent(withConstructor).text;
+        assert.strictEqual(wiredCtor, [
+            "import { Component, inject } from '@angular/core';",
+            "import { PwaUpdateService } from './pwa-update.service';",
+            'export class AppComponent {',
+            '    private readonly pwaUpdateService = inject(PwaUpdateService);',
+            '',
+            '    constructor(private readonly zone: NgZone) {',
+            '        this.pwaUpdateService.init();',
+            '        this.start();',
+            '    }',
+            '}'
+        ].join('\n'));
+
+        const notApp = wirePwaUpdateServiceIntoAppComponent('export class ShellComponent {}\n');
+        assert.deepStrictEqual(notApp, { text: 'export class ShellComponent {}\n', wired: false });
+    });
+
+    test('analyzeAngularSetup: reports the PWA markers in their own chapter', () => {
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-pwa-check-'));
+        try {
+            fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+            const angularJson = {
+                projects: { app: { sourceRoot: 'src', architect: { build: { options: { styles: [], assets: [] } } } } }
+            };
+            const pwaFindings = () => analyzeAngularSetup(projectRoot, angularJson, { dependencies: {} }, 'app').findings
+                .filter((finding) => finding.section === 'pwa')
+                .map((finding) => `${finding.severity}: ${finding.title}`);
+
+            assert.deepStrictEqual(pwaFindings(), ['info: PWA support is not configured.']);
+
+            fs.mkdirSync(path.join(projectRoot, 'public'), { recursive: true });
+            fs.writeFileSync(path.join(projectRoot, 'public', 'manifest.webmanifest'), '{}', 'utf8');
+            assert.deepStrictEqual(pwaFindings(), ['warning: Only part of the expected PWA setup was found.']);
+
+            fs.writeFileSync(path.join(projectRoot, 'ngsw-config.json'), '{}', 'utf8');
+            assert.deepStrictEqual(pwaFindings(), ['success: PWA markers were found (manifest.webmanifest + ngsw-config.json).']);
+        } finally {
+            fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+    });
+});
+
 suite('Wizly Integration Tests', function() {
     test('Environment Check', () => {
         assert.ok(true);
@@ -489,4 +782,278 @@ suite('Wizly Integration Tests', function() {
             });
         });
     }
+});
+
+// Hand-written markup in a generated file: explanatory comments, and elements added beside
+// Magic's own. Each case produced HTML Prettier rejected, and dropped the added markup silently.
+suite('Wizly Hand-Added Markup', () => {
+    const rulesModule = require(path.resolve(__dirname, '../../../default.rules.js'));
+    const modes = [{ name: 'Test', active: true, rules: sanitizeRules(rulesModule.rules) }];
+    const settings = { transformTag: { enable: false, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', template: '' } };
+
+    async function transform(html: string): Promise<{ out: string; warnings: string[] }> {
+        const warnings: string[] = [];
+        setHost({
+            workspaceRoot: () => undefined,
+            getSetting: () => undefined,
+            showError: (m: string) => warnings.push(m),
+            showWarning: (m: string) => warnings.push(m),
+            showInfo: () => {},
+        });
+        try {
+            return { out: await transformText(html, 'x.html', { modes, settings }), warnings };
+        } finally {
+            setHost(testHost);
+        }
+    }
+    const count = (text: string, needle: string) => text.split(needle).length - 1;
+
+    test('markup named inside a comment is not transformed', async () => {
+        const comment = '<!-- the label inside is Magic\'s own <label>, projected unchanged -->';
+        const { out, warnings } = await transform([
+            '<div>',
+            '    ' + comment,
+            '    <label [magic]="mgc.L_Name" class="lable_overflow">{{mg.getText(mgc.L_Name)}}</label>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.ok(out.includes(comment), 'the comment comes back byte for byte');
+        assert.strictEqual(count(out, '<span'), count(out, '</span>'));
+    });
+
+    test('an element added after a table cell\'s read label stays, and so does its comment', async () => {
+        const { out, warnings } = await transform([
+            '<div>',
+            '    <mat-form-field *ngIf="mg.isRowInRowEditing(row)">',
+            '        <div><input matInput [magic]="mgc.V_A" [rowId]="row.rowId" [formControlName]="mgc.V_A"><mgError [magic]=mgc.V_A> </mgError></div>',
+            '    </mat-form-field>',
+            '    <label *ngIf="!mg.isRowInRowEditing(row)" [magic]="mgc.V_A">{{mg.getValue(mgc.V_A, row.rowId)}}</label>',
+            '    <!-- added by hand -->',
+            '    <my-widget [magic]="mgc.V_A"></my-widget>',
+            '</div>',
+            '<div>',
+            '    <mat-form-field><div><input matInput [magic]="mgc.V_B" [formControlName]="mgc.V_B"><mgError [magic]=mgc.V_B> </mgError></div></mat-form-field>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.strictEqual(count(out, '<my-widget'), 1);
+        assert.strictEqual(count(out, '<!-- added by hand -->'), 1);
+        assert.ok(out.includes('mgc.V_B'), 'the next field is still there');
+    });
+
+    test('something placed between the two root divs is not swallowed by the Page rule', async () => {
+        const { out, warnings } = await transform([
+            '<div',
+            '    novalidate',
+            '    [formGroup]="screenFormGroup"',
+            '>',
+            '    <my-probe [controls]="probeControls"></my-probe>',
+            '    <div style="display: flex; flex-direction: column" [magic]="mgc.Form">',
+            '        <span>content</span>',
+            '    </div>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.strictEqual(count(out, '<my-probe'), 1);
+        assert.strictEqual(count(out, '</my-probe>'), 1);
+    });
+});
+
+suite('Wizly CLI', () => {
+    const fixturesDir = path.resolve(__dirname, '../../../src/test/fixtures');
+    const sample = ['checkbox.html', 'select.html', 'input-text-smart-label.html'];
+
+    function capture() {
+        const out: string[] = [];
+        const err: string[] = [];
+        return { io: { out: (t: string) => out.push(t), err: (t: string) => err.push(t) }, out, err };
+    }
+
+    // A project the way a customer has one: generated files, and settings in .vscode/settings.json
+    // written the way VS Code writes it — comments and a trailing comma included.
+    function tempProject(): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-cli-'));
+        fs.mkdirSync(path.join(root, '.vscode'));
+        fs.writeFileSync(path.join(root, '.vscode', 'settings.json'), [
+            '{',
+            '    // the tag carries a date, which no fixture can expect',
+            '    "wizly.transformTag": { "enable": false },',
+            '    /* the fixtures are written with the label matcher on */',
+            '    "wizly.smartLabelMatcher": { "enabled": true, "labelPrefix": "L_", "controlPrefix": ["V_", "P_"] },',
+            '}',
+        ].join('\n'), 'utf8');
+        fs.mkdirSync(path.join(root, 'src'));
+        for (const f of sample) {
+            fs.copyFileSync(path.join(fixturesDir, 'input', f), path.join(root, 'src', f));
+        }
+        return root;
+    }
+
+    const normalise = (t: string) => t.replace(/\r\n/g, '\n').trim();
+
+    test('no command is a usage error; --help is not', async () => {
+        assert.strictEqual(await cli.main([], capture().io), cli.EXIT.USAGE);
+        assert.strictEqual(await cli.main(['--help'], capture().io), cli.EXIT.OK);
+    });
+
+    test('an unknown option is a usage error, and says which', async () => {
+        const c = capture();
+        assert.strictEqual(await cli.main(['transform', 'x', '--chek'], c.io), cli.EXIT.USAGE);
+        assert.ok(c.err.join('\n').includes('--chek'));
+    });
+
+    test('transform without a path or --uncommitted is a usage error', async () => {
+        assert.strictEqual(await cli.main(['transform'], capture().io), cli.EXIT.USAGE);
+    });
+
+    test('commands --json describes every command an agent can call', async () => {
+        const c = capture();
+        assert.strictEqual(await cli.main(['commands', '--json'], c.io), cli.EXIT.OK);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.commands.map((x: any) => x.name), cli.COMMANDS.map((x) => x.name));
+        for (const command of doc.commands) {
+            assert.ok(command.summary && command.usage && command.description, command.name);
+            assert.ok(command.examples.length > 0, `${command.name} has no example`);
+            assert.strictEqual(typeof command.writesFiles, 'boolean');
+        }
+        assert.deepStrictEqual(Object.keys(doc.exitCodes), ['0', '1', '2', '64']);
+    });
+
+    test('transform --check writes nothing and exits 1; transform matches the fixtures; then --check exits 0', async () => {
+        const root = tempProject();
+        const src = path.join(root, 'src');
+        const before = sample.map((f) => fs.readFileSync(path.join(src, f), 'utf8'));
+
+        const check = capture();
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--check', '--no-user-settings'], check.io), cli.EXIT.CHANGES_PENDING);
+        assert.deepStrictEqual(sample.map((f) => fs.readFileSync(path.join(src, f), 'utf8')), before);
+
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--no-user-settings'], capture().io), cli.EXIT.OK);
+        for (const f of sample) {
+            const expected = fs.readFileSync(path.join(fixturesDir, 'expected', f), 'utf8');
+            assert.strictEqual(normalise(fs.readFileSync(path.join(src, f), 'utf8')), normalise(expected), f);
+        }
+
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--check', '--no-user-settings'], capture().io), cli.EXIT.OK);
+    });
+
+    test('--json reports every file and where the settings came from', async () => {
+        const root = tempProject();
+        const c = capture();
+        await cli.main(['transform', path.join(root, 'src'), '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.strictEqual(doc.summary.files, sample.length);
+        assert.strictEqual(doc.files.every((f: any) => f.status === 'changed'), true);
+        const used = doc.settingsSources.filter((s: any) => s.used).map((s: any) => s.kind);
+        assert.deepStrictEqual(used, ['workspace', 'defaults']);
+        assert.strictEqual(doc.settingsSources.find((s: any) => s.kind === 'user').used, false);
+        assert.strictEqual(doc.exitCode, cli.EXIT.CHANGES_PENDING);
+    });
+
+    test('--uncommitted finds a new program in a project whose repository starts higher up', async () => {
+        // The layout of a Magic project kept beside its Angular app: .git two levels above the
+        // Angular root, and a regeneration that adds a whole new folder.
+        const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-git-'));
+        const root = path.join(repo, 'output', 'app');
+        fs.mkdirSync(root, { recursive: true });
+        const git = (...args: string[]) => require('child_process').execFileSync('git', ['-C', repo, ...args], { stdio: 'pipe' });
+        git('init', '-q');
+        fs.writeFileSync(path.join(root, 'committed.html'), fs.readFileSync(path.join(fixturesDir, 'expected', 'checkbox.html')));
+        git('add', '.');
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base');
+        fs.mkdirSync(path.join(root, 'magic', 'newprog'), { recursive: true });
+        fs.copyFileSync(path.join(fixturesDir, 'input', 'select.html'), path.join(root, 'magic', 'newprog', 'newprog.component.html'));
+
+        const c = capture();
+        const code = await cli.main(['transform', '--uncommitted', '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.files.map((x: any) => x.path), ['magic/newprog/newprog.component.html']);
+        assert.strictEqual(code, cli.EXIT.CHANGES_PENDING);
+    });
+
+    test('the skill names every command and every option the CLI has', () => {
+        const skill = cli.renderSkill();
+        assert.ok(skill.startsWith('---\nname: wizly\ndescription: '), 'frontmatter');
+        for (const command of cli.COMMANDS) {
+            assert.ok(skill.includes('### `wizly ' + command.name + '`'), command.name);
+            for (const option of command.options) {
+                assert.ok(skill.includes(option.flag), `${command.name} ${option.flag}`);
+            }
+        }
+        assert.ok(!skill.includes(os.homedir()), 'no machine-specific path');
+    });
+
+    test('skill --target agents writes a block into AGENTS.md and touches nothing else in it', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        const file = path.join(root, 'AGENTS.md');
+        const own = '# Our project\n\nUse tabs. Never touch the generated folder.\n';
+        fs.writeFileSync(file, own, 'utf8');
+
+        assert.strictEqual(await cli.main(['skill', '--target', 'agents', '--root', root], capture().io), cli.EXIT.OK);
+        const first = fs.readFileSync(file, 'utf8');
+        assert.ok(first.startsWith(own.trimEnd()), 'the project\'s own text stays first, unchanged');
+        assert.strictEqual(first.split(cli.AGENTS_BEGIN).length - 1, 1);
+        assert.ok(first.includes('## Wizly') && first.includes('#### `wizly transform`'), 'one heading level down');
+        assert.ok(!fs.existsSync(path.join(root, '.claude')), 'agents only: no Claude skill');
+
+        assert.strictEqual(await cli.main(['skill', '--target', 'agents', '--root', root], capture().io), cli.EXIT.OK);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), first, 'running it again changes nothing');
+    });
+
+    test('skill refuses an AGENTS.md whose markers are broken, and writes nothing', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        const file = path.join(root, 'AGENTS.md');
+        const broken = `# Ours\n\n${cli.AGENTS_BEGIN}\nhalf a block, no end marker\n`;
+        fs.writeFileSync(file, broken, 'utf8');
+        assert.strictEqual(await cli.main(['skill', '--target', 'all', '--root', root], capture().io), cli.EXIT.ERRORS);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), broken);
+        assert.ok(!fs.existsSync(path.join(root, '.claude')), 'all-or-nothing: the skill was not written either');
+    });
+
+    test('skill --target all writes both; an unknown target is a usage error', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-agents-'));
+        assert.strictEqual(await cli.main(['skill', '--target', 'all', '--root', root], capture().io), cli.EXIT.OK);
+        assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'wizly', 'SKILL.md')));
+        assert.ok(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').startsWith(cli.AGENTS_BEGIN));
+        assert.strictEqual(await cli.main(['skill', '--target', 'gemini', '--root', root], capture().io), cli.EXIT.USAGE);
+    });
+
+    test('skill overwrites its own file, and a hand-written one only with --force', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-skill-'));
+        const file = path.join(root, '.claude', 'skills', 'wizly', 'SKILL.md');
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.OK);
+        assert.ok(fs.readFileSync(file, 'utf8').includes(cli.SKILL_MARKER));
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.OK);
+
+        fs.writeFileSync(file, 'my own notes', 'utf8');
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.ERRORS);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), 'my own notes');
+        assert.strictEqual(await cli.main(['skill', '--root', root, '--force'], capture().io), cli.EXIT.OK);
+        assert.ok(fs.readFileSync(file, 'utf8').includes(cli.SKILL_MARKER));
+    });
+
+    test('the project config and rules file are reported as sources when they are used', async () => {
+        const root = tempProject();
+        fs.mkdirSync(path.join(root, '.wizly'));
+        fs.writeFileSync(path.join(root, '.wizly', 'wizly.config.js'), 'module.exports = { transformTag: { enable: false } };', 'utf8');
+        fs.copyFileSync(path.resolve(__dirname, '../../../default.rules.js'), path.join(root, '.wizly', 'wizly.rules.js'));
+
+        const c = capture();
+        await cli.main(['transform', path.join(root, 'src'), '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.settingsSources.filter((s: any) => s.used).map((s: any) => s.kind), ['project', 'workspace', 'defaults']);
+        assert.strictEqual(doc.rules.source, 'project');
+
+        const plain = tempProject();
+        const p = capture();
+        await cli.main(['transform', path.join(plain, 'src'), '--root', plain, '--check', '--json', '--no-user-settings'], p.io);
+        const plainDoc = JSON.parse(p.out.join('\n'));
+        assert.strictEqual(plainDoc.settingsSources[0].used, false);
+        assert.strictEqual(plainDoc.rules.source, 'built-in');
+    });
+
+    test('a JSONC settings file is read the way VS Code reads it', () => {
+        const parsed = JSON.parse(stripJsonc('{\n  // c\n  "a": "x // not a comment",\n  /* b */ "b": [1, 2,],\n}'));
+        assert.deepStrictEqual(parsed, { a: 'x // not a comment', b: [1, 2] });
+    });
 });

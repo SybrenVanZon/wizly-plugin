@@ -1,7 +1,8 @@
 
-import * as vscode from 'vscode';
+import { host } from './host';
 import * as path from 'path';
 import * as fs from 'fs';
+import { configDirFor, LEGACY_CONFIG_FILE } from './project-config';
 
 // Single source of truth for the default settings.
 // Used by both exportSettings and patchSettings so they stay in sync.
@@ -113,10 +114,9 @@ export function getModes(): Mode[] {
         return cachedModes;
     }
     
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder) {
-        const root = workspaceFolder.uri.fsPath;
-        const configDir = path.join(root, '.vswizly');
+    const root = host().workspaceRoot();
+    if (root) {
+        const configDir = configDirFor(root);
         
         const rulesPath = path.join(configDir, 'wizly.rules.js');
         if (fs.existsSync(rulesPath)) {
@@ -132,7 +132,7 @@ export function getModes(): Mode[] {
         }
 
         if (!cachedModes) {
-            const legacyPath = path.join(root, '.vswizly.js');
+            const legacyPath = path.join(root, LEGACY_CONFIG_FILE);
             if (fs.existsSync(legacyPath)) {
                 const loaded = loadModesFromConfigSync(legacyPath);
                 if (loaded && loaded.length > 0) {

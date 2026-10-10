@@ -17,7 +17,8 @@ The report is split into chapters. The top of the report shows the totals, and e
 2. **SCSS structure** — `src/scss/main.scss` and how it is wired into `angular.json`
 3. **Themes and color utilities** — theme bundles, Material and Magic color utilities
 4. **Runtime settings** — `settings.json`, the settings service, Material form-field defaults, and how a theme becomes active
-5. **Magic dependencies** — see below
+5. **PWA** — whether both `manifest.webmanifest` and `ngsw-config.json` exist. See [PWA](./PWA.md).
+6. **Magic dependencies** — see below
 
 A chapter without findings is left out. If the Angular project itself cannot be read from `angular.json`, the report shows only that error.
 
@@ -121,3 +122,4 @@ After editing `package.json`, run `npm install` and run the report again.
 - [Angular](./Angular.md)
 - [Convert to SCSS](./Convert-to-SCSS.md)
 - [Runtime Settings](./Runtime-Settings.md)
+- [PWA](./PWA.md)

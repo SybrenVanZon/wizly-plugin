@@ -7,11 +7,11 @@ Wizly is a VS Code extension that post-processes Magic xpa Web Client output. It
 ## What It Does
 
 - Transforms generated HTML with configurable regex-based processing
-- Supports shared project configuration through `.vswizly/wizly.config.js`
+- Supports shared project configuration through `.wizly/wizly.config.js` (existing projects keep `.vswizly/`)
 - Can auto-transform new files
 - Lets teams export and override templates
 - Includes patch commands to review changes after upgrades
-- Includes Angular helper commands for SCSS conversion, Material/blank theme generation, theme color utilities, and runtime settings
+- Includes Angular helper commands for SCSS conversion, Material/blank theme generation, theme color utilities, runtime settings, and PWA setup
 
 ## Quick Start
 
@@ -33,6 +33,8 @@ Detailed documentation lives in the GitHub Wiki:
 - Theme color utilities: [Theme Color Utilities](https://github.com/SybrenVanZon/wizly-plugin/wiki/Theme-Color-Utilities)
 - Magic colors: [Magic Colors](https://github.com/SybrenVanZon/wizly-plugin/wiki/Magic-Colors)
 - Setup report: [Check Angular Setup](https://github.com/SybrenVanZon/wizly-plugin/wiki/Check-Angular-Setup)
+- Installable app: [PWA](https://github.com/SybrenVanZon/wizly-plugin/wiki/PWA)
+- Outside VS Code: [Command Line (CLI)](https://github.com/SybrenVanZon/wizly-plugin/wiki/CLI)
 
 Repository docs in `docs/` remain available as source/reference documentation for rule fields, templates, and helper functions.
 
