@@ -16,6 +16,7 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 # Instructions for AI agents working on this repository; nothing an installed extension uses.
 CLAUDE.md
+AGENTS.md
 
 # Documentation and project tooling. The installed extension reads dist/, templates/,
 # default.rules.js, release-notes/, images/ and CHANGELOG.md, plus prettier and ejs from
