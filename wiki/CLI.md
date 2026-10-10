@@ -96,18 +96,18 @@ A typical agent flow after a Magic regeneration: `wizly transform --uncommitted 
 ### Instructions for Your Agent
 
 ```bash
-wizly skill                   # Claude Code
-wizly skill --target agents   # AGENTS.md, read by most other agents
-wizly skill --target all      # both
+wizly skill                   # both: Claude Code and AGENTS.md
+wizly skill --target claude   # only the Claude Code skill
+wizly skill --target agents   # only the AGENTS.md block
 ```
 
 `wizly skill` writes instructions that tell an agent when to reach for Wizly — after a Magic regeneration, or when generated templates look untransformed — how to find the CLI, and to preview with `--check` before it writes. They are generated from the same command descriptions as `wizly help`, so they describe the Wizly you have installed.
 
 | `--target` | Writes | Read by |
 | --- | --- | --- |
-| `claude` (default) | `.claude/skills/wizly/SKILL.md` | Claude Code |
+| `claude` | `.claude/skills/wizly/SKILL.md` | Claude Code |
 | `agents` | a marked block in `AGENTS.md` | Codex, GitHub Copilot, Cursor, Gemini CLI and many others; Claude Code only when the project has no `CLAUDE.md` |
-| `all` | both | everyone |
+| `all` (default) | both | everyone — you rarely know which agents your team uses |
 
 - Commit them: every teammate's agent gets them. They contain no machine-specific path.
 - Run `wizly skill` again after updating Wizly. It overwrites a skill it wrote itself, and refuses to overwrite a hand-written `SKILL.md` unless you pass `--force`.
