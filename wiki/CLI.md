@@ -27,6 +27,7 @@ The examples below write `wizly` for whichever of these you use.
 | Command | What it does | Writes files |
 | --- | --- | --- |
 | `wizly transform` | Applies the rules to files, as `Transform Current File` does | yes |
+| `wizly skill` | Writes a Claude Code skill for this project, so an agent knows when and how to use Wizly | yes |
 | `wizly commands` | Lists every command; with `--json`, everything a tool needs to call them | no |
 | `wizly help [<command>]` | Shows the help of a command | no |
 
@@ -91,6 +92,18 @@ The CLI is written to be called by tools as well as people:
 - Nothing asks a question. Choices are flags, and `--check` previews without writing.
 
 A typical agent flow after a Magic regeneration: `wizly transform --uncommitted --check --json`, review the listed files, then `wizly transform --uncommitted`.
+
+### A Skill for Claude Code
+
+```bash
+wizly skill
+```
+
+writes `.claude/skills/wizly/SKILL.md` in the project. Claude Code reads it and from then on knows when to reach for Wizly — after a Magic regeneration, or when generated templates look untransformed — how to find the CLI, and to preview with `--check` before it writes. The skill is generated from the same command descriptions as `wizly help`, so it describes the Wizly you have installed.
+
+- Commit it: every teammate's agent gets it. It contains no machine-specific path.
+- Run `wizly skill` again after updating Wizly. It overwrites a skill it wrote itself, and refuses to overwrite a hand-written `SKILL.md` unless you pass `--force`.
+- `wizly skill --print` shows the skill without writing it.
 
 ## Related Pages
 

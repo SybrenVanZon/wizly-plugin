@@ -872,6 +872,32 @@ suite('Wizly CLI', () => {
         assert.strictEqual(code, cli.EXIT.CHANGES_PENDING);
     });
 
+    test('the skill names every command and every option the CLI has', () => {
+        const skill = cli.renderSkill();
+        assert.ok(skill.startsWith('---\nname: wizly\ndescription: '), 'frontmatter');
+        for (const command of cli.COMMANDS) {
+            assert.ok(skill.includes('### `wizly ' + command.name + '`'), command.name);
+            for (const option of command.options) {
+                assert.ok(skill.includes(option.flag), `${command.name} ${option.flag}`);
+            }
+        }
+        assert.ok(!skill.includes(os.homedir()), 'no machine-specific path');
+    });
+
+    test('skill overwrites its own file, and a hand-written one only with --force', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-skill-'));
+        const file = path.join(root, '.claude', 'skills', 'wizly', 'SKILL.md');
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.OK);
+        assert.ok(fs.readFileSync(file, 'utf8').includes(cli.SKILL_MARKER));
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.OK);
+
+        fs.writeFileSync(file, 'my own notes', 'utf8');
+        assert.strictEqual(await cli.main(['skill', '--root', root], capture().io), cli.EXIT.ERRORS);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), 'my own notes');
+        assert.strictEqual(await cli.main(['skill', '--root', root, '--force'], capture().io), cli.EXIT.OK);
+        assert.ok(fs.readFileSync(file, 'utf8').includes(cli.SKILL_MARKER));
+    });
+
     test('a JSONC settings file is read the way VS Code reads it', () => {
         const parsed = JSON.parse(stripJsonc('{\n  // c\n  "a": "x // not a comment",\n  /* b */ "b": [1, 2,],\n}'));
         assert.deepStrictEqual(parsed, { a: 'x // not a comment', b: [1, 2] });
