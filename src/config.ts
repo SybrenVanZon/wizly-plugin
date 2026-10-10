@@ -1,5 +1,5 @@
 
-import * as vscode from 'vscode';
+import { host } from './host';
 import * as path from 'path';
 import * as fs from 'fs';
 import { configDirFor, LEGACY_CONFIG_FILE } from './project-config';
@@ -114,9 +114,8 @@ export function getModes(): Mode[] {
         return cachedModes;
     }
     
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder) {
-        const root = workspaceFolder.uri.fsPath;
+    const root = host().workspaceRoot();
+    if (root) {
         const configDir = configDirFor(root);
         
         const rulesPath = path.join(configDir, 'wizly.rules.js');

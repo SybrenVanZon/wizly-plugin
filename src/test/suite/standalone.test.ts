@@ -7,41 +7,22 @@ import * as fs from 'fs';
 // Dynamic workspace root for per-test template overrides
 let currentTestFolder: string | null = null;
 
-// Mock vscode module before importing modules that depend on it
-const Module = require('module');
-const originalRequire = Module.prototype.require;
-
-Module.prototype.require = function(request: string) {
-    if (request === 'vscode') {
-        return {
-            workspace: {
-                get workspaceFolders() {
-                    return currentTestFolder
-                        ? [{ uri: { fsPath: currentTestFolder } }]
-                        : [];
-                },
-                getConfiguration: () => ({
-                    get: (key: string) => {
-                        if (key === 'transformTag.enable') { return false; }
-                        return undefined;
-                    }
-                })
-            },
-            window: {
-                showErrorMessage: (msg: string) => console.error(msg),
-                showWarningMessage: (msg: string) => console.warn(msg),
-                showInformationMessage: (msg: string) => console.log(msg)
-            }
-        };
-    }
-    return originalRequire.apply(this, arguments);
-};
-
 // Now import the modules to test
 import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
 import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
+import { setHost } from '../../host';
+
+// The host the modules under test see. Same answers the require('vscode') stub gave before the
+// Host interface existed: no fallback values, and transformTag off.
+setHost({
+    workspaceRoot: () => currentTestFolder ?? undefined,
+    getSetting: <T>(key: string) => (key === 'transformTag.enable' ? (false as unknown as T) : undefined),
+    showError: (msg: string) => console.error(msg),
+    showWarning: (msg: string) => console.warn(msg),
+    showInfo: (msg: string) => console.log(msg),
+});
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {

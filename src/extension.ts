@@ -7,6 +7,8 @@ import { PNG } from 'pngjs';
 import { refreshModes, getModes, getCachedSettings, DEFAULT_SETTINGS_CONTENT } from './config';
 import { transformText } from './transformer';
 import { patchTemplates, patchRules, patchSettings } from './patcher';
+import { setHost } from './host';
+import { vscodeHost } from './vscode-host';
 import { CONFIG_DIR, configDirFor, hasIgnoredLegacyConfigDir, LEGACY_CONFIG_DIR, LEGACY_CONFIG_FILE } from './project-config';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS, AngularSetupFinding, AngularSetupReport, AngularSetupSeverity } from './angular-check';
 import { renderAllMaterialUtilityClasses } from './material-utilities';
@@ -4789,6 +4791,8 @@ async function checkAngularSetup(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    setHost(vscodeHost);
+
     // Register commands
     const transformDisposable = vscode.commands.registerCommand('wizly.transformCurrentFile', transformCurrentFile);
     const transformUncommittedDisposable = vscode.commands.registerCommand('wizly.transformUncommittedFiles', transformUncommittedFiles);

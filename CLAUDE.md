@@ -27,6 +27,7 @@ npm test               # Run tests via vscode-test (requires display on Linux: x
 - **[src/transformer.ts](src/transformer.ts)** — Core engine. Applies regex rules sequentially, renders EJS templates, runs smart matchers (label, tab, custom), calls Prettier.
 - **[src/config.ts](src/config.ts)** — Loads and caches project config from `.wizly/wizly.config.js` (or `.vswizly/` in a project from before 0.7.0, or legacy `.vswizly.js`; the folder is chosen in [src/project-config.ts](src/project-config.ts)), or falls back to `default.rules.js`. Manages modes.
 - **[src/utils.ts](src/utils.ts)** — File matching, template path resolution, control name extraction, balanced tag extraction, comment style detection.
+- **[src/host.ts](src/host.ts)** — The `Host` interface: workspace root, `wizly.*` settings, user messages. `transformer.ts`, `config.ts` and `utils.ts` reach the outside world only through it, so they do not import `vscode`; keep it that way. [src/vscode-host.ts](src/vscode-host.ts) is the extension's implementation, set in `activate()`; the tests set their own.
 - **[default.rules.js](default.rules.js)** — Built-in transformation rules, exported to users who run the export command.
 
 ### Transformation Pipeline
