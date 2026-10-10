@@ -16,6 +16,7 @@
 ## Reference
 
 - [Commands](./Commands.md)
+- [Command Line (CLI)](./CLI.md)
 - [Angular](./Angular.md)
 - [Check Angular Setup](./Check-Angular-Setup.md)
 - [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md)

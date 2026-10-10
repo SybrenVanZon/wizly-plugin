@@ -23,30 +23,33 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+const shared = {
+	bundle: true,
+	format: 'cjs',
+	minify: production,
+	sourcemap: !production,
+	sourcesContent: false,
+	platform: 'node',
+	external: ['vscode', 'prettier', 'ejs'],
+	logLevel: 'silent',
+	plugins: [
+		/* add to the end of plugins array */
+		esbuildProblemMatcherPlugin,
+	],
+};
+
 async function main() {
-	const ctx = await esbuild.context({
-		entryPoints: [
-			'src/extension.ts'
-		],
-		bundle: true,
-		format: 'cjs',
-		minify: production,
-		sourcemap: !production,
-		sourcesContent: false,
-		platform: 'node',
-		outfile: 'dist/extension.js',
-		external: ['vscode', 'prettier', 'ejs'],
-		logLevel: 'silent',
-		plugins: [
-			/* add to the end of plugins array */
-			esbuildProblemMatcherPlugin,
-		],
-	});
+	const contexts = await Promise.all([
+		esbuild.context({ ...shared, entryPoints: ['src/extension.ts'], outfile: 'dist/extension.js' }),
+		// The CLI: the same core without the editor. It must never import `vscode` — that module
+		// only exists inside the extension host — which src/host.ts is there to guarantee.
+		esbuild.context({ ...shared, entryPoints: ['src/cli.ts'], outfile: 'dist/cli.js', banner: { js: '#!/usr/bin/env node' } }),
+	]);
 	if (watch) {
-		await ctx.watch();
+		await Promise.all(contexts.map((ctx) => ctx.watch()));
 	} else {
-		await ctx.rebuild();
-		await ctx.dispose();
+		await Promise.all(contexts.map((ctx) => ctx.rebuild()));
+		await Promise.all(contexts.map((ctx) => ctx.dispose()));
 	}
 }
 

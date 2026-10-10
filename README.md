@@ -34,6 +34,7 @@ Detailed documentation lives in the GitHub Wiki:
 - Magic colors: [Magic Colors](https://github.com/SybrenVanZon/wizly-plugin/wiki/Magic-Colors)
 - Setup report: [Check Angular Setup](https://github.com/SybrenVanZon/wizly-plugin/wiki/Check-Angular-Setup)
 - Installable app: [PWA](https://github.com/SybrenVanZon/wizly-plugin/wiki/PWA)
+- Outside VS Code: [Command Line (CLI)](https://github.com/SybrenVanZon/wizly-plugin/wiki/CLI)
 
 Repository docs in `docs/` remain available as source/reference documentation for rule fields, templates, and helper functions.
 

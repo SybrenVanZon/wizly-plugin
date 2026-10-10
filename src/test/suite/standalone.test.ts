@@ -13,6 +13,8 @@ import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
 import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
 import { setHost } from '../../host';
+import * as cli from '../../cli';
+import { stripJsonc } from '../../cli-host';
 
 // The host the modules under test see. Same answers the require('vscode') stub gave before the
 // Host interface existed: no fallback values, and transformTag off.
@@ -756,4 +758,122 @@ suite('Wizly Integration Tests', function() {
             });
         });
     }
+});
+
+suite('Wizly CLI', () => {
+    const fixturesDir = path.resolve(__dirname, '../../../src/test/fixtures');
+    const sample = ['checkbox.html', 'select.html', 'input-text-smart-label.html'];
+
+    function capture() {
+        const out: string[] = [];
+        const err: string[] = [];
+        return { io: { out: (t: string) => out.push(t), err: (t: string) => err.push(t) }, out, err };
+    }
+
+    // A project the way a customer has one: generated files, and settings in .vscode/settings.json
+    // written the way VS Code writes it — comments and a trailing comma included.
+    function tempProject(): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-cli-'));
+        fs.mkdirSync(path.join(root, '.vscode'));
+        fs.writeFileSync(path.join(root, '.vscode', 'settings.json'), [
+            '{',
+            '    // the tag carries a date, which no fixture can expect',
+            '    "wizly.transformTag": { "enable": false },',
+            '    /* the fixtures are written with the label matcher on */',
+            '    "wizly.smartLabelMatcher": { "enabled": true, "labelPrefix": "L_", "controlPrefix": ["V_", "P_"] },',
+            '}',
+        ].join('\n'), 'utf8');
+        fs.mkdirSync(path.join(root, 'src'));
+        for (const f of sample) {
+            fs.copyFileSync(path.join(fixturesDir, 'input', f), path.join(root, 'src', f));
+        }
+        return root;
+    }
+
+    const normalise = (t: string) => t.replace(/\r\n/g, '\n').trim();
+
+    test('no command is a usage error; --help is not', async () => {
+        assert.strictEqual(await cli.main([], capture().io), cli.EXIT.USAGE);
+        assert.strictEqual(await cli.main(['--help'], capture().io), cli.EXIT.OK);
+    });
+
+    test('an unknown option is a usage error, and says which', async () => {
+        const c = capture();
+        assert.strictEqual(await cli.main(['transform', 'x', '--chek'], c.io), cli.EXIT.USAGE);
+        assert.ok(c.err.join('\n').includes('--chek'));
+    });
+
+    test('transform without a path or --uncommitted is a usage error', async () => {
+        assert.strictEqual(await cli.main(['transform'], capture().io), cli.EXIT.USAGE);
+    });
+
+    test('commands --json describes every command an agent can call', async () => {
+        const c = capture();
+        assert.strictEqual(await cli.main(['commands', '--json'], c.io), cli.EXIT.OK);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.commands.map((x: any) => x.name), cli.COMMANDS.map((x) => x.name));
+        for (const command of doc.commands) {
+            assert.ok(command.summary && command.usage && command.description, command.name);
+            assert.ok(command.examples.length > 0, `${command.name} has no example`);
+            assert.strictEqual(typeof command.writesFiles, 'boolean');
+        }
+        assert.deepStrictEqual(Object.keys(doc.exitCodes), ['0', '1', '2', '64']);
+    });
+
+    test('transform --check writes nothing and exits 1; transform matches the fixtures; then --check exits 0', async () => {
+        const root = tempProject();
+        const src = path.join(root, 'src');
+        const before = sample.map((f) => fs.readFileSync(path.join(src, f), 'utf8'));
+
+        const check = capture();
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--check', '--no-user-settings'], check.io), cli.EXIT.CHANGES_PENDING);
+        assert.deepStrictEqual(sample.map((f) => fs.readFileSync(path.join(src, f), 'utf8')), before);
+
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--no-user-settings'], capture().io), cli.EXIT.OK);
+        for (const f of sample) {
+            const expected = fs.readFileSync(path.join(fixturesDir, 'expected', f), 'utf8');
+            assert.strictEqual(normalise(fs.readFileSync(path.join(src, f), 'utf8')), normalise(expected), f);
+        }
+
+        assert.strictEqual(await cli.main(['transform', src, '--root', root, '--check', '--no-user-settings'], capture().io), cli.EXIT.OK);
+    });
+
+    test('--json reports every file and where the settings came from', async () => {
+        const root = tempProject();
+        const c = capture();
+        await cli.main(['transform', path.join(root, 'src'), '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.strictEqual(doc.summary.files, sample.length);
+        assert.strictEqual(doc.files.every((f: any) => f.status === 'changed'), true);
+        const used = doc.settingsSources.filter((s: any) => s.used).map((s: any) => s.kind);
+        assert.deepStrictEqual(used, ['workspace', 'defaults']);
+        assert.strictEqual(doc.settingsSources.find((s: any) => s.kind === 'user').used, false);
+        assert.strictEqual(doc.exitCode, cli.EXIT.CHANGES_PENDING);
+    });
+
+    test('--uncommitted finds a new program in a project whose repository starts higher up', async () => {
+        // The layout of a Magic project kept beside its Angular app: .git two levels above the
+        // Angular root, and a regeneration that adds a whole new folder.
+        const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'wizly-git-'));
+        const root = path.join(repo, 'output', 'app');
+        fs.mkdirSync(root, { recursive: true });
+        const git = (...args: string[]) => require('child_process').execFileSync('git', ['-C', repo, ...args], { stdio: 'pipe' });
+        git('init', '-q');
+        fs.writeFileSync(path.join(root, 'committed.html'), fs.readFileSync(path.join(fixturesDir, 'expected', 'checkbox.html')));
+        git('add', '.');
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base');
+        fs.mkdirSync(path.join(root, 'magic', 'newprog'), { recursive: true });
+        fs.copyFileSync(path.join(fixturesDir, 'input', 'select.html'), path.join(root, 'magic', 'newprog', 'newprog.component.html'));
+
+        const c = capture();
+        const code = await cli.main(['transform', '--uncommitted', '--root', root, '--check', '--json', '--no-user-settings'], c.io);
+        const doc = JSON.parse(c.out.join('\n'));
+        assert.deepStrictEqual(doc.files.map((x: any) => x.path), ['magic/newprog/newprog.component.html']);
+        assert.strictEqual(code, cli.EXIT.CHANGES_PENDING);
+    });
+
+    test('a JSONC settings file is read the way VS Code reads it', () => {
+        const parsed = JSON.parse(stripJsonc('{\n  // c\n  "a": "x // not a comment",\n  /* b */ "b": [1, 2,],\n}'));
+        assert.deepStrictEqual(parsed, { a: 'x // not a comment', b: [1, 2] });
+    });
 });

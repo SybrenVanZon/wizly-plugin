@@ -39,6 +39,10 @@ This page lists the main Wizly commands grouped by purpose.
 
 Use `Ctrl+Shift+P` in VS Code and type `Wizly`.
 
+## Command Line
+
+The core transform also runs outside VS Code, as `wizly transform` — see [Command Line (CLI)](./CLI.md).
+
 ## Recommended Reading
 
 - [Getting Started](./Getting-Started.md)

@@ -44,6 +44,9 @@
     }
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "wizly": "./dist/cli.js"
+  },
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:html",

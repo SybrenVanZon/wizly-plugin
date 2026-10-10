@@ -14,6 +14,7 @@ npm run watch          # Continuous development build (esbuild + tsc in parallel
 npm run package        # Production build (minified, no source maps)
 npm run vsix           # Create .vsix package for distribution
 npm run check-types    # TypeScript type checking only
+node dist/cli.js help  # The CLI, after a compile (see wiki/CLI.md)
 npm run lint           # ESLint only
 npm run pretest        # Compile TypeScript (required before running tests)
 npm test               # Run tests via vscode-test (requires display on Linux: xvfb-run -a npm test)
@@ -27,6 +28,7 @@ npm test               # Run tests via vscode-test (requires display on Linux: x
 - **[src/transformer.ts](src/transformer.ts)** — Core engine. Applies regex rules sequentially, renders EJS templates, runs smart matchers (label, tab, custom), calls Prettier.
 - **[src/config.ts](src/config.ts)** — Loads and caches project config from `.wizly/wizly.config.js` (or `.vswizly/` in a project from before 0.7.0, or legacy `.vswizly.js`; the folder is chosen in [src/project-config.ts](src/project-config.ts)), or falls back to `default.rules.js`. Manages modes.
 - **[src/utils.ts](src/utils.ts)** — File matching, template path resolution, control name extraction, balanced tag extraction, comment style detection.
+- **[src/cli.ts](src/cli.ts)** — The command line. Every command is one entry in `COMMANDS`; help, `commands --json` and anything generated for agents come from that entry, so add or change a command there and nowhere else. Never prompt: a choice is a flag. [src/cli-host.ts](src/cli-host.ts) resolves `wizly.*` settings from files in the editor's order.
 - **[src/host.ts](src/host.ts)** — The `Host` interface: workspace root, `wizly.*` settings, user messages. `transformer.ts`, `config.ts` and `utils.ts` reach the outside world only through it, so they do not import `vscode`; keep it that way. [src/vscode-host.ts](src/vscode-host.ts) is the extension's implementation, set in `activate()`; the tests set their own.
 - **[default.rules.js](default.rules.js)** — Built-in transformation rules, exported to users who run the export command.
 
@@ -57,7 +59,7 @@ Each fixture file/folder name becomes a test case. Folder-based tests allow per-
 
 ### Build
 
-esbuild bundles `src/extension.ts` → `dist/extension.js`. The dependencies `vscode`, `prettier`, and `ejs` are marked external (not bundled). TypeScript compiles to `out/` for test execution.
+esbuild bundles `src/extension.ts` → `dist/extension.js` and `src/cli.ts` → `dist/cli.js` (the `bin` in `package.json`). The CLI bundle must never import `vscode`, directly or through anything it imports. The dependencies `vscode`, `prettier`, and `ejs` are marked external (not bundled). TypeScript compiles to `out/` for test execution.
 
 ## SCSS Structure (7-1)
 

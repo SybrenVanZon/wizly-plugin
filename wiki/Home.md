@@ -22,6 +22,7 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 - `Wizly: Convert Angular Project to PWA` — see [PWA](./PWA.md)
 - `Wizly: Generate PWA Icons & Favicon (from Active Image)` — see [PWA](./PWA.md)
 - `Wizly: Check Angular Setup (Report)` now also has a PWA chapter — see [Check Angular Setup](./Check-Angular-Setup.md)
+- A command line: `wizly transform` runs the same transformation outside VS Code, in CI, or for an AI agent — see [Command Line (CLI)](./CLI.md)
 
 ## 0.6.0 Focus
 
@@ -51,6 +52,7 @@ Wizly post-processes Magic xpa Web Client output so teams can standardize genera
 ## Supporting Pages
 
 - [Commands](./Commands.md)
+- [Command Line (CLI)](./CLI.md)
 - [Check Angular Setup](./Check-Angular-Setup.md)
 - [Theme Selector and Mode Toggle](./Theme-Selector-and-Mode-Toggle.md)
 - [SCSS Structure](./SCSS-Structure.md)

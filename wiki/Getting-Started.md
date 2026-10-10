@@ -152,4 +152,5 @@ This keeps your project customizations intact while still letting you adopt impr
 - [Magic Colors](./Magic-Colors.md)
 - [PWA](./PWA.md)
 - [Check Angular Setup](./Check-Angular-Setup.md)
+- [Command Line (CLI)](./CLI.md)
 - [Angular](./Angular.md)
