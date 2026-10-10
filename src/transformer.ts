@@ -494,7 +494,12 @@ export async function transformText(text: string, filePath?: string, options?: {
         return text;
     }
 
-    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(text, settings);
+    // Rules and smart matchers are regexes over raw text, so markup *named* inside a comment
+    // looked like markup to them: `<!-- … Magic's own <label> … -->` opened a <span> inside the
+    // comment, the real </label> further down closed it, and Prettier gave up on the result.
+    // Comments are out of every rule's reach until the rules are done.
+    const { text: masked, comments } = maskHtmlComments(text);
+    const { map: labelMap, text: textWithoutLabels } = extractLabelAndRemove(masked, settings);
     const { tabPageContent, text: textWithoutTabContent } = settings.smartTabMatcher
         ? extractTabContentAndRemove(textWithoutLabels)
         : { tabPageContent: {}, text: textWithoutLabels };
@@ -763,6 +768,7 @@ export async function transformText(text: string, filePath?: string, options?: {
     
     newText = applySmartLabelPlaceholders(newText, labelMap, settings);
     newText = newText.replace(eofMarker, '');
+    newText = restoreHtmlComments(newText, comments);
 
     newText = await formatWithPrettier(newText, filePath, settings);
 
@@ -783,6 +789,25 @@ export async function transformText(text: string, filePath?: string, options?: {
     }
 
     return newText;
+}
+
+const COMMENT_PLACEHOLDER = /~~WIZLY_COMMENT_(\d+)~~/g;
+
+/**
+ * Every `<!-- … -->` replaced by a placeholder with no `<` or `>` in it, so no rule can match
+ * inside a comment. A comment inside a match travels with the match as plain text.
+ */
+export function maskHtmlComments(text: string): { text: string; comments: string[] } {
+    const comments: string[] = [];
+    const masked = text.replace(/<!--[\s\S]*?-->/g, (comment) => {
+        comments.push(comment);
+        return `~~WIZLY_COMMENT_${comments.length - 1}~~`;
+    });
+    return { text: masked, comments };
+}
+
+export function restoreHtmlComments(text: string, comments: string[]): string {
+    return text.replace(COMMENT_PLACEHOLDER, (placeholder, index) => comments[Number(index)] ?? placeholder);
 }
 
 async function formatWithPrettier(text: string, filePath?: string, settings?: WizlySettings): Promise<string> {

@@ -19,6 +19,9 @@ This project follows the conventions of Keep a Changelog and Semantic Versioning
 ### Changed
 - **Project config folder is now `.wizly/`**: New projects get `.wizly/` (`wizly.config.js`, `wizly.rules.js`, `templates/`) from `Export Settings`, `Export Templates` and `Export Rules`. The old name tied the folder to VS Code. **Existing projects need to do nothing**: as long as a project has no `.wizly/`, Wizly keeps reading *and writing* `.vswizly/`, so a project's configuration never ends up split over two folders. When both exist, only `.wizly/` is read and Wizly warns once on startup. The legacy root file `.vswizly.js` is still read as before.
 
+### Fixed
+- **Hand-written markup in a generated file no longer breaks the transformation**: Three causes, all ending in HTML that Prettier rejected ("Unexpected closing tag") and in markup that silently disappeared. (1) Rules matched inside HTML comments, so a comment that *mentions* `<label>` or `<button>` was transformed as if it were one; comments are now out of every rule's reach. (2) The `Page` rule swallowed the opening tag of anything placed between Magic's two root `<div>`s and left its closing tag behind; it now leaves such a page alone. (3) `Input`, `Select`, `Input - Checkbox` and `Editable Combo` dropped whatever followed the control up to the next `</div>`, and could stretch a match across two table cells; they now accept only what Magic puts there (an `<mgError>`, or a table cell's read-only label) and leave anything else untouched. Output for Magic's own, unedited markup is unchanged. **If you exported the rules** (`wizly.rules.js` in `.wizly/` or `.vswizly/`), causes 2 and 3 stay until you take the new regexes over with `Wizly: Patch Rules`.
+
 ## [0.6.0] - 2026-08-17
 
 ### Added

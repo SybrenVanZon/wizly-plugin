@@ -12,19 +12,21 @@ import * as utils from '../../utils';
 import * as transformer from '../../transformer';
 import { sanitizeRules } from '../../config';
 import { configDirFor, hasIgnoredLegacyConfigDir } from '../../project-config';
-import { setHost } from '../../host';
+import { setHost, Host } from '../../host';
+import { transformText } from '../../transformer';
 import * as cli from '../../cli';
 import { stripJsonc } from '../../cli-host';
 
 // The host the modules under test see. Same answers the require('vscode') stub gave before the
 // Host interface existed: no fallback values, and transformTag off.
-setHost({
+const testHost: Host = {
     workspaceRoot: () => currentTestFolder ?? undefined,
     getSetting: <T>(key: string) => (key === 'transformTag.enable' ? (false as unknown as T) : undefined),
     showError: (msg: string) => console.error(msg),
     showWarning: (msg: string) => console.warn(msg),
     showInfo: (msg: string) => console.log(msg),
-});
+};
+setHost(testHost);
 import { magicColorsUsePath, magicColorUtilitiesMarker, parseMagicColorFile, parseMagicColorValue, renderMagicColorUtilitiesScss, renderMagicColorVarsScss } from '../../magic-colors';
 import { analyzeAngularSetup, ANGULAR_SETUP_SECTIONS } from '../../angular-check';
 import {
@@ -758,6 +760,81 @@ suite('Wizly Integration Tests', function() {
             });
         });
     }
+});
+
+// Hand-written markup in a generated file: explanatory comments, and elements added beside
+// Magic's own. Each case produced HTML Prettier rejected, and dropped the added markup silently.
+suite('Wizly Hand-Added Markup', () => {
+    const rulesModule = require(path.resolve(__dirname, '../../../default.rules.js'));
+    const modes = [{ name: 'Test', active: true, rules: sanitizeRules(rulesModule.rules) }];
+    const settings = { transformTag: { enable: false, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm', template: '' } };
+
+    async function transform(html: string): Promise<{ out: string; warnings: string[] }> {
+        const warnings: string[] = [];
+        setHost({
+            workspaceRoot: () => undefined,
+            getSetting: () => undefined,
+            showError: (m: string) => warnings.push(m),
+            showWarning: (m: string) => warnings.push(m),
+            showInfo: () => {},
+        });
+        try {
+            return { out: await transformText(html, 'x.html', { modes, settings }), warnings };
+        } finally {
+            setHost(testHost);
+        }
+    }
+    const count = (text: string, needle: string) => text.split(needle).length - 1;
+
+    test('markup named inside a comment is not transformed', async () => {
+        const comment = '<!-- the label inside is Magic\'s own <label>, projected unchanged -->';
+        const { out, warnings } = await transform([
+            '<div>',
+            '    ' + comment,
+            '    <label [magic]="mgc.L_Name" class="lable_overflow">{{mg.getText(mgc.L_Name)}}</label>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.ok(out.includes(comment), 'the comment comes back byte for byte');
+        assert.strictEqual(count(out, '<span'), count(out, '</span>'));
+    });
+
+    test('an element added after a table cell\'s read label stays, and so does its comment', async () => {
+        const { out, warnings } = await transform([
+            '<div>',
+            '    <mat-form-field *ngIf="mg.isRowInRowEditing(row)">',
+            '        <div><input matInput [magic]="mgc.V_A" [rowId]="row.rowId" [formControlName]="mgc.V_A"><mgError [magic]=mgc.V_A> </mgError></div>',
+            '    </mat-form-field>',
+            '    <label *ngIf="!mg.isRowInRowEditing(row)" [magic]="mgc.V_A">{{mg.getValue(mgc.V_A, row.rowId)}}</label>',
+            '    <!-- added by hand -->',
+            '    <my-widget [magic]="mgc.V_A"></my-widget>',
+            '</div>',
+            '<div>',
+            '    <mat-form-field><div><input matInput [magic]="mgc.V_B" [formControlName]="mgc.V_B"><mgError [magic]=mgc.V_B> </mgError></div></mat-form-field>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.strictEqual(count(out, '<my-widget'), 1);
+        assert.strictEqual(count(out, '<!-- added by hand -->'), 1);
+        assert.ok(out.includes('mgc.V_B'), 'the next field is still there');
+    });
+
+    test('something placed between the two root divs is not swallowed by the Page rule', async () => {
+        const { out, warnings } = await transform([
+            '<div',
+            '    novalidate',
+            '    [formGroup]="screenFormGroup"',
+            '>',
+            '    <my-probe [controls]="probeControls"></my-probe>',
+            '    <div style="display: flex; flex-direction: column" [magic]="mgc.Form">',
+            '        <span>content</span>',
+            '    </div>',
+            '</div>',
+        ].join('\n'));
+        assert.deepStrictEqual(warnings, []);
+        assert.strictEqual(count(out, '<my-probe'), 1);
+        assert.strictEqual(count(out, '</my-probe>'), 1);
+    });
 });
 
 suite('Wizly CLI', () => {

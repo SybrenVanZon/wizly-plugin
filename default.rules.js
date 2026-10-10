@@ -3,7 +3,9 @@ module.exports = {
     {
       name: "Page",
       description:"Captures the the base div elements Magic creates from the Form",
-      regex: /(?<page><div\s*novalidate[\s\S]*?>[\s\S]*?>)(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
+      // The two root divs, and nothing between them. `[\s\S]*?>` for the second one swallowed
+      // the opening tag of anything placed there by hand and left its closing tag behind.
+      regex: /(?<page><div\s*novalidate[^>]*>\s*<div\b[^>]*>)(?<content>[\s\S]*?)\s*<\/div>\s*<\/div>\s*~~WIZLY_EOF~~$/gm,
       templateFile: "page.ejs",
       active: true,
       filePattern: "*.html",
@@ -74,10 +76,20 @@ module.exports = {
       active: true,
       filePattern: "*.html",
     },
+    // This rule, Editable Combo, Select and Input end on what Magic puts after the control and
+    // before the closing </div>: nothing, an <mgError>, or — in a table cell — the read-only
+    // <label> (a <span> once the Labels rule has run). They used to take *anything* up to that
+    // </div>, and their templates do not render it, so whatever had been added there by hand was
+    // dropped without a trace. Now a block with anything else in it is left as it is.
+    //
+    // Every "anything up to </x>" is written (?:(?!<\/x>)[\s\S])* rather than [\s\S]*?, so it cannot
+    // run past its own closing tag. Lazy is not enough: when the rest of the pattern fails, the
+    // engine extends the lazy part to the *next* </x> — into the next table cell — and the match,
+    // and everything it drops, spans two controls.
     {
       name: "Input - Checkbox",
       description: "Captures the mat-input tag and wrapping div created by Magic Check Box element",
-      regex: /<div>\s*(?<input><mat-checkbox\b[^>]*>)(?<content>[\s\S]*?)<\/mat-checkbox>[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<input><mat-checkbox\b[^>]*>)(?<content>(?:(?!<\/mat-checkbox>)[\s\S])*)<\/mat-checkbox>(?:\s*(?:<mgError\b[^>]*>(?:(?!<\/mgError>)[\s\S])*<\/mgError>|<(?:label|span)\b[^>]*>(?:(?!<\/(?:label|span)>)[\s\S])*<\/(?:label|span)>))*\s*<\/div>/gm,
       templateFile: "checkbox.ejs",
       active: true,
       filePattern: "*.html"
@@ -85,7 +97,7 @@ module.exports = {
     {
       name: "Editable Combo",
       description: "Captures the editable-combo tag and wrapping div created by Magic Combo Box element with property Editable = true",
-      regex: /<div>\s*(?<input><editable-combo[\s\S]*?<\/editable-combo>)[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<input><editable-combo(?:(?!<\/editable-combo>)[\s\S])*<\/editable-combo>)(?:\s*(?:<mgError\b[^>]*>(?:(?!<\/mgError>)[\s\S])*<\/mgError>|<(?:label|span)\b[^>]*>(?:(?!<\/(?:label|span)>)[\s\S])*<\/(?:label|span)>))*\s*<\/div>/gm,
       templateFile: "editable-combo.ejs",
       active: true,
       filePattern: "*.html"
@@ -93,7 +105,7 @@ module.exports = {
     {
       name: "Select",
       description: "Captures the mat-select tag and wrapping div and mat-form-field created by Magic Combo Box element with property Editable = false",
-      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(?<input><mat-select[\s\S]*?<\/mat-select>)\s*<\/mat-form-field>[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(?<input><mat-select(?:(?!<\/mat-select>)[\s\S])*<\/mat-select>)\s*<\/mat-form-field>(?:\s*(?:<mgError\b[^>]*>(?:(?!<\/mgError>)[\s\S])*<\/mgError>|<(?:label|span)\b[^>]*>(?:(?!<\/(?:label|span)>)[\s\S])*<\/(?:label|span)>))*\s*<\/div>/gm,
       templateFile: "select.ejs",
       active: true,
       filePattern: "*.html"
@@ -117,7 +129,7 @@ module.exports = {
     {
       name: "Input",
       description: "Captures all matInput (text, date, time, number, autocomplete) with optional zoom button created by Magic Edit element",
-      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(<div>)?\s*(?<input><input[\s\S]*?matInput\b[^>]*>)[\s\S]*?<\/mat-form-field>\s*(?<zoom><button[\s\S]*?>[\s\S]*?<\/button>)?\s*[\s\S]*?<\/div>/gm,
+      regex: /<div>\s*(?<formField><mat-form-field\b[^>]*>)\s*(<div>)?\s*(?<input><input(?:(?!<\/mat-form-field>)[\s\S])*?matInput\b[^>]*>)(?:(?!<\/mat-form-field>)[\s\S])*<\/mat-form-field>\s*(?<zoom><button\b[^>]*>(?:(?!<\/button>)[\s\S])*<\/button>)?(?:\s*(?:<mgError\b[^>]*>(?:(?!<\/mgError>)[\s\S])*<\/mgError>|<(?:label|span)\b[^>]*>(?:(?!<\/(?:label|span)>)[\s\S])*<\/(?:label|span)>))*\s*<\/div>/gm,
       templateFile: "input-base.ejs",
       active: true,
       filePattern: "*.html"
