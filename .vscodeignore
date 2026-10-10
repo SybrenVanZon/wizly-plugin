@@ -16,3 +16,15 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 # Instructions for AI agents working on this repository; nothing an installed extension uses.
 CLAUDE.md
+
+# Documentation and project tooling. The installed extension reads dist/, templates/,
+# default.rules.js, release-notes/, images/ and CHANGELOG.md, plus prettier and ejs from
+# node_modules; README.md, LICENSE and package.json are for the Marketplace. Nothing in src/
+# reads any of the below — the wiki is published to GitHub, and README links there.
+docs/**
+wiki/**
+videos/**
+examples/**
+scripts/**
+.github/**
+LOCAL-RELEASE-ROADMAP.md
